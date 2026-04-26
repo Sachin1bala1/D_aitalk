@@ -3,6 +3,7 @@
  * Uses UnifiedTool (provider-agnostic). Each provider converts internally.
  */
 import type { UnifiedTool } from "../ai/types";
+import { STAT_TOOLS } from "../tools/stat.tools";
 
 export const AGENT_TOOLS: UnifiedTool[] = [
   // ── SQL ───────────────────────────────────────────────────────────────────
@@ -258,6 +259,9 @@ export const AGENT_TOOLS: UnifiedTool[] = [
       required: ["name", "sourceConnectionId", "sourceQuery", "targetConnectionId", "targetTable"],
     },
   },
+
+  // ── Statistical Analysis (Pyodide WASM) ──────────────────────────────────
+  ...STAT_TOOLS,
 
   // ── UI ────────────────────────────────────────────────────────────────────
   {

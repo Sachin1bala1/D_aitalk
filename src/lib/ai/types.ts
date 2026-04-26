@@ -4,6 +4,16 @@
  * AgentLoop only talks to this interface.
  */
 
+// ── APEX reasoning types ──────────────────────────────────────────────────────
+
+/** One competing explanation the agent considered. Probabilities across all hypotheses sum to 1.0. */
+export interface Hypothesis {
+  text: string;
+  probability: number;
+  evidence_for: string[];
+  evidence_against: string[];
+}
+
 // ── Conversation history (provider-agnostic) ──────────────────────────────────
 
 export interface ToolCall {

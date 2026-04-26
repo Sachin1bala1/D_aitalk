@@ -20,6 +20,9 @@ export default defineConfig(async () => ({
       ignored: ["**/src-tauri/**"],
     },
   },
+  optimizeDeps: {
+    exclude: ["pyodide"],
+  },
   // Env variables starting with VITE_ are exposed to the client
   envPrefix: ["VITE_", "TAURI_ENV_*"],
   build: {

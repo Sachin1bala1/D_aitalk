@@ -7,7 +7,10 @@
 import { commandBus } from "./CommandBus";
 import { AGENT_TOOLS } from "./toolDefinitions";
 import { isDestructive, describeCommand } from "./commands";
-import type { AgentCommand } from "./commands";
+import type { AgentCommand, RunUserToolCmd } from "./commands";
+import { useUserToolStore } from "../stores/UserToolStore";
+import { userToolToUnifiedTool } from "../tools/user.tools";
+import { statToolToKernelKey } from "../tools/stat.tools";
 import type { CommandResult } from "./CommandBus";
 import { useWorkspaceStore } from "../stores/WorkspaceStore";
 import type { FullSchema } from "../db/DbClient";
@@ -41,8 +44,9 @@ function buildSystemPrompt(
   const parts: string[] = [];
 
   parts.push(
-    `You are Daitalk AI — an expert database assistant embedded in a desktop SQL IDE.
-You have full agentic control: write and execute SQL, inspect schemas, modify tables, manage data.
+    `You are APEX — Autonomous Process Engineering eXpert, embedded in Daitalk: a desktop SQL IDE.
+You reason and communicate like a 30-year senior process engineer: precise, evidence-driven, and always honest about uncertainty.
+You have full agentic control: write and execute SQL, run statistical analyses, inspect schemas, modify tables, manage data.
 You operate in ${agentMode.toUpperCase()} MODE.
 
 ${
@@ -50,6 +54,33 @@ ${
     ? "PLAN MODE: Destructive commands (delete_rows, drop_column, rename_table, bulk_transform) are queued for user approval before executing. Safe commands run immediately."
     : "AUTO MODE: All commands execute immediately. Always explain destructive operations in your text response before calling those tools."
 }`
+  );
+
+  parts.push(
+    `## Process Engineering First Principles
+When analyzing process or quality data, always reason in this sequence — never skip steps:
+1. **Control**: Is the process in statistical control? Check for SPC rule violations (use stat__western_electric) before anything else. An out-of-control process cannot be meaningfully characterized.
+2. **Capability**: What is Cp/Cpk/Ppk? Is it meeting spec? (use stat__capability). Cp > 1.33 is the minimum acceptable threshold for most manufacturing processes.
+3. **Drivers**: Which input variables explain output variation? (use stat__regression, stat__fft for cyclic patterns, stat__anomaly_zscore for outliers). Quantify relationships — never be vague.
+4. **Experiments**: What structured test would confirm causation? Suggest a DOE (Design of Experiment) when the data is observational and causation is unclear.
+
+## Reasoning Protocol (apply every turn)
+1. **Frame the problem** — What exactly is being asked? What is the risk if you answer incorrectly?
+2. **Generate competing hypotheses** — List 1–5 explanations with rough probabilities. State what evidence supports or contradicts each.
+3. **Choose reasoning depth** — Use fast heuristics when confidence is high and the pattern is familiar. Use explicit chain-of-thought when the problem is novel, ambiguous, or high-stakes.
+4. **Select tools** — Which tool confirms or rejects your top hypothesis? Call multiple independent tools in parallel when possible.
+5. **Quantify uncertainty** — State your confidence. State explicitly what single piece of evidence would change your conclusion.
+
+## Statistical Tools Available (use proactively for process data)
+- **stat__describe** — First step for any numeric column: n, mean, std, min/max, quartiles, skewness, kurtosis
+- **stat__spc_xbar_r** — X-bar/R control chart: subgroup means, ranges, UCL/LCL
+- **stat__capability** — Cp, Cpk, Cpu, Cpl, Pp, Ppk, sigma level (requires USL + LSL)
+- **stat__western_electric** — Detects 4 Nelson/Western Electric rule violations
+- **stat__regression** — Linear or polynomial regression: slope, R², p-value, residuals
+- **stat__fft** — Fast Fourier Transform: dominant frequencies and amplitudes for vibration/cyclical analysis
+- **stat__anomaly_zscore** — Z-score outlier detection with configurable threshold
+
+Always prefer stat tools over manual SQL aggregations for statistical work — they run in WASM and return richer results.`
   );
 
   if (schema) {
@@ -114,6 +145,20 @@ ${
     }
   }
 
+  const userToolList = useUserToolStore.getState().tools;
+  if (userToolList.length > 0) {
+    const lines = userToolList
+      .map((t) => {
+        const paramHint =
+          t.parameters.length > 0
+            ? `\n  Parameters: ${t.parameters.map((p) => p.name).join(", ")}`
+            : "";
+        return `- **user__${t.id}** (${t.category}) — ${t.description}${paramHint}`;
+      })
+      .join("\n");
+    parts.push(`## Your Custom Tools (call these proactively when user intent matches)\n${lines}`);
+  }
+
   parts.push(`GUIDELINES:
 - Explain what you are doing before calling tools
 - Use execute_sql to fetch data for answering questions
@@ -131,6 +176,29 @@ function toolCallToCommand(
   connectionId: string | null
 ): AgentCommand | null {
   const i = tc.input;
+  // Route all stat__* tool calls through run_stat_tool
+  if (tc.name.startsWith("stat__")) {
+    return {
+      type: "run_stat_tool",
+      method: statToolToKernelKey(tc.name),
+      params: i as Record<string, unknown>,
+      risk: "safe",
+    };
+  }
+  // Route all user__* tool calls through run_user_tool
+  if (tc.name.startsWith("user__")) {
+    const toolId = tc.name.slice("user__".length);
+    const userTool = useUserToolStore.getState().tools.find((t) => t.id === toolId);
+    if (!userTool) return null;
+    const risk = userTool.body.type === "notify" ? "safe" : "caution";
+    return {
+      type: "run_user_tool",
+      toolId,
+      params: i as Record<string, unknown>,
+      connectionId,
+      risk,
+    } satisfies RunUserToolCmd;
+  }
   switch (tc.name) {
     case "set_editor_content":
       return { type: "set_editor_content", sql: i.sql as string, risk: "safe" };
@@ -279,6 +347,9 @@ export async function runAgentLoop(
     { role: "user", text: userMessage },
   ];
 
+  const userToolDefs = useUserToolStore.getState().tools.map(userToolToUnifiedTool);
+  const allTools = [...AGENT_TOOLS, ...userToolDefs];
+
   let finalText = "";
   const MAX_ROUNDS = 10;
 
@@ -288,7 +359,7 @@ export async function runAgentLoop(
         system,
         history: working,
         model,
-        tools: AGENT_TOOLS,
+        tools: allTools,
         onToken,
       }),
       {

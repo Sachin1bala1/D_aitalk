@@ -29,10 +29,16 @@ import type {
   InsertRowCmd,
   UpdateCellCmd,
   RunDuckDbAnalysisCmd,
+  RunStatToolCmd,
+  RunUserToolCmd,
   CreateChartCmd,
   CreatePipelineCmd,
   NotifyUserCmd,
 } from "./commands";
+import { useUserToolStore } from "../stores/UserToolStore";
+import { fillTemplate } from "../tools/user.tools";
+import { PyodideRuntime } from "../pyodide/PyodideRuntime";
+import { STAT_KERNELS } from "../pyodide/stat_kernels";
 
 export function registerHandlers() {
   // ── SQL ───────────────────────────────────────────────────────────────────
@@ -315,6 +321,94 @@ export function registerHandlers() {
     } catch (e: any) {
       return { success: false, error: e.message };
     }
+  });
+
+  // ── Statistical Analysis (Pyodide) ───────────────────────────────────────
+
+  commandBus.register<RunStatToolCmd>("run_stat_tool", async (cmd) => {
+    const kernelCode = STAT_KERNELS[cmd.method];
+    if (!kernelCode) {
+      return { success: false, error: `Unknown stat method: ${cmd.method}` };
+    }
+    try {
+      const result = await PyodideRuntime.getInstance().run(kernelCode, cmd.params);
+      return { success: true, result };
+    } catch (e: any) {
+      return { success: false, error: e.message ?? "Stat kernel failed" };
+    }
+  });
+
+  // ── User-Defined Tools ────────────────────────────────────────────────────
+
+  commandBus.register<RunUserToolCmd>("run_user_tool", async (cmd) => {
+    const tool = useUserToolStore.getState().tools.find((t) => t.id === cmd.toolId);
+    if (!tool) {
+      return { success: false, error: `User tool not found: ${cmd.toolId}` };
+    }
+
+    const { body } = tool;
+
+    if (body.type === "notify") {
+      return commandBus.dispatch({
+        type: "notify_user",
+        message: fillTemplate(body.message, cmd.params),
+        level: body.level,
+        risk: "safe",
+      });
+    }
+
+    if (body.type === "sql_template") {
+      if (!cmd.connectionId) {
+        return { success: false, error: "No active database connection" };
+      }
+      return commandBus.dispatch({
+        type: "execute_sql",
+        sql: fillTemplate(body.sql, cmd.params),
+        connectionId: cmd.connectionId,
+        risk: "safe",
+      });
+    }
+
+    if (body.type === "chart") {
+      if (!cmd.connectionId) {
+        return { success: false, error: "No active database connection" };
+      }
+      const queryResult = await commandBus.dispatch({
+        type: "execute_sql",
+        sql: fillTemplate(body.sql, cmd.params),
+        connectionId: cmd.connectionId,
+        risk: "safe",
+      });
+      if (!queryResult.success) return queryResult;
+      return commandBus.dispatch({
+        type: "create_chart",
+        chartType: body.chartType,
+        xColumn: body.xColumn,
+        yColumn: body.yColumn,
+        title: body.title ?? tool.displayName,
+        risk: "safe",
+      });
+    }
+
+    if (body.type === "report") {
+      if (!cmd.connectionId) {
+        return { success: false, error: "No active database connection" };
+      }
+      const results: Array<{ label: string; data: unknown }> = [];
+      for (const step of body.steps) {
+        const r = await commandBus.dispatch({
+          type: "execute_sql",
+          sql: fillTemplate(step.sql, cmd.params),
+          connectionId: cmd.connectionId,
+          risk: "safe",
+        });
+        if (!r.success) return r;
+        results.push({ label: step.label, data: r.result });
+      }
+      return { success: true, result: results };
+    }
+
+    return { success: false, error: "Unknown user tool body type" };
   });
 
   // ── Analytics ─────────────────────────────────────────────────────────────

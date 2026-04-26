@@ -156,6 +156,27 @@ export interface CloseTabCmd {
   risk: "safe";
 }
 
+// ── Statistical Analysis (Pyodide) ────────────────────────────────────────────
+
+export interface RunStatToolCmd {
+  type: "run_stat_tool";
+  /** Matches a key in STAT_KERNELS: describe | spc_xbar_r | capability | western_electric | regression | fft | anomaly_zscore */
+  method: string;
+  params: Record<string, unknown>;
+  risk: "safe";
+}
+
+// ── User-Defined Tools ────────────────────────────────────────────────────────
+
+export interface RunUserToolCmd {
+  type: "run_user_tool";
+  /** Matches UserTool.id — used to look up the tool from UserToolStore */
+  toolId: string;
+  params: Record<string, unknown>;
+  connectionId: string | null;
+  risk: "safe" | "caution";
+}
+
 // ── Analytics (advanced) ──────────────────────────────────────────────────────
 
 export interface CreateChartCmd {
@@ -198,6 +219,8 @@ export type AgentCommand =
   | InsertRowCmd
   | UpdateCellCmd
   | RunDuckDbAnalysisCmd
+  | RunStatToolCmd
+  | RunUserToolCmd
   | CreateChartCmd
   | CreatePipelineCmd
   | NotifyUserCmd;
@@ -233,6 +256,8 @@ export function describeCommand(cmd: AgentCommand): string {
     case "focus_schema_node": return `Focus ${cmd.schema}.${cmd.table} in sidebar`;
     case "insert_row": return `INSERT INTO ${cmd.schema}.${cmd.table}`;
     case "update_cell": return `UPDATE ${cmd.schema}.${cmd.table} SET ${cmd.column} WHERE ${cmd.pkColumn}=${cmd.pkValue}`;
+    case "run_stat_tool": return `Stat analysis: ${cmd.method}`;
+    case "run_user_tool": return `User tool: ${cmd.toolId}`;
     case "run_duckdb_analysis": return `DuckDB: ${cmd.sql.slice(0, 60)}…`;
     case "create_chart": return `Create ${cmd.chartType} chart: ${cmd.xColumn} vs ${cmd.yColumn}`;
     case "create_pipeline": return `Create pipeline "${cmd.name}" → ${cmd.targetTable}`;

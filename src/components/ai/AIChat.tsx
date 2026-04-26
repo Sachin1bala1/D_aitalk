@@ -4,30 +4,33 @@
  * Uses ProviderRegistry to pick Claude / Gemini / OpenAI / NVIDIA NIM.
  * Streams text tokens live, shows inline tool steps, handles Plan Mode queuing.
  */
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Send, Sparkles, Settings2, CheckCircle2, AlertTriangle, Loader2, Clock, Trash2, RotateCcw } from "lucide-react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { Send, Sparkles, Settings2, Clock, Trash2, Wrench } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import type { FullSchema } from "../../lib/db/DbClient";
 import type { QueryResults } from "../../lib/stores/WorkspaceStore";
 import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
-import { commandBus } from "../../lib/agent/CommandBus";
 import { runAgentLoop } from "../../lib/agent/AgentLoop";
 import type { CommandResult } from "../../lib/agent/CommandBus";
 import type { ConversationTurn } from "../../lib/ai/types";
 import { loadSettings, loadApiKeysFromKeychain, getActiveKey, getActiveModel, PROVIDER_CATALOG } from "../../lib/ai/types";
 import { getProvider } from "../../lib/ai/ProviderRegistry";
 import { ProviderSettingsDialog } from "./ProviderSettingsDialog";
+import { UserToolsPanel } from "./UserToolsPanel";
+import { ToolCallLog } from "./ToolCallLog";
+import type { ToolLogEntry } from "./ToolCallLog";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type MessageRole = "user" | "assistant" | "tool_start" | "tool_end" | "plan_queued" | "error";
+type MessageRole = "user" | "assistant" | "plan_queued" | "error";
 
 interface ChatMessage {
   id: string;
   role: MessageRole;
   content: string;
-  toolName?: string;
   streaming?: boolean;
+  /** Tool calls attached to an assistant message — rendered as collapsible ToolCallLog */
+  toolLog?: ToolLogEntry[];
 }
 
 interface AIChatProps {
@@ -39,35 +42,15 @@ interface AIChatProps {
   onQuerySuccess: (results: QueryResults, sql: string) => void;
 }
 
-// ── Tool step rows ────────────────────────────────────────────────────────────
+// ── Plan-queued row ───────────────────────────────────────────────────────────
 
-function ToolStep({ msg }: { msg: ChatMessage }) {
-  if (msg.role === "tool_start") {
-    return (
-      <div className="flex items-center gap-2 text-xs text-white/40 font-mono py-0.5 pl-2">
-        <Loader2 className="w-3 h-3 animate-spin text-[#00d2ff]" />
-        <span className="text-[#00d2ff]/70">{msg.toolName}</span>
-      </div>
-    );
-  }
-  if (msg.role === "tool_end") {
-    const ok = msg.content.startsWith("ok:");
-    return (
-      <div className={`flex items-center gap-2 text-xs font-mono py-0.5 pl-2 ${ok ? "text-emerald-400/60" : "text-red-400/60"}`}>
-        {ok ? <CheckCircle2 className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
-        <span className="truncate">{msg.content.slice(3)}</span>
-      </div>
-    );
-  }
-  if (msg.role === "plan_queued") {
-    return (
-      <div className="flex items-center gap-2 text-xs text-amber-400/70 font-mono py-0.5 pl-2">
-        <Clock className="w-3 h-3" />
-        <span className="truncate">Queued: {msg.content}</span>
-      </div>
-    );
-  }
-  return null;
+function PlanQueuedRow({ content }: { content: string }) {
+  return (
+    <div className="flex items-center gap-2 text-xs text-amber-400/70 font-mono py-0.5 pl-2">
+      <Clock className="w-3 h-3" />
+      <span className="truncate">Queued: {content}</span>
+    </div>
+  );
 }
 
 // ── No-provider prompt ────────────────────────────────────────────────────────
@@ -103,7 +86,7 @@ const WELCOME: ChatMessage = {
   id: "welcome",
   role: "assistant",
   content:
-    "Hello! I'm Daitalk AI. Connect a database and ask me anything — I can write SQL, execute queries, analyze results, and modify your schema.",
+    "Hello! I'm **APEX** — your Autonomous Process Engineering eXpert. I think like a 30-year senior process engineer.\n\nAsk me to:\n- Analyze your data with SPC, regression, or capability analysis\n- Detect anomalies and Western Electric rule violations\n- Find root causes using structured RCA methodology\n- Query and modify your database in plain language\n\nConnect a database and tell me what to investigate.",
 };
 
 function loadMessages(): ChatMessage[] {
@@ -122,11 +105,12 @@ function loadTurns(): ConversationTurn[] {
   return [];
 }
 
-export function AIChat({ currentSQL, currentResults, currentSchema, connectionId }: AIChatProps) {
+export function AIChat({ currentSQL, currentResults, currentSchema, connectionId, onApplySQL }: AIChatProps) {
   const { agentMode, undoStack, popUndo } = useWorkspaceStore();
 
   const [providerSettings, setProviderSettings] = useState(loadSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [toolsPanelOpen, setToolsPanelOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(loadMessages);
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -229,15 +213,51 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
 
         onToken: appendToken,
 
-        onToolStart: (toolName) => {
-          addMsg({ role: "tool_start", content: toolName, toolName });
+        onToolStart: (toolName, input) => {
+          const entry: ToolLogEntry = {
+            id: `tl-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+            toolName,
+            input: (input as Record<string, unknown>) ?? {},
+          };
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant") {
+              return [...prev.slice(0, -1), { ...last, toolLog: [...(last.toolLog ?? []), entry] }];
+            }
+            return [...prev, { id: `m-${Date.now()}`, role: "assistant" as MessageRole, content: "", toolLog: [entry] }];
+          });
         },
 
         onToolEnd: (toolName, result: CommandResult) => {
-          const body = result.success
-            ? `ok:${toolName} → ${JSON.stringify(result.result ?? "done").slice(0, 100)}`
-            : `err:${toolName}: ${result.error}`;
-          addMsg({ role: "tool_end", content: body, toolName });
+          setMessages((prev) => {
+            for (let i = prev.length - 1; i >= 0; i--) {
+              const msg = prev[i];
+              if (msg.role === "assistant" && msg.toolLog) {
+                let logIdx = -1;
+                for (let j = msg.toolLog.length - 1; j >= 0; j--) {
+                  if (msg.toolLog[j].toolName === toolName && !msg.toolLog[j].result) {
+                    logIdx = j;
+                    break;
+                  }
+                }
+                if (logIdx >= 0) {
+                  const updatedLog = [...msg.toolLog];
+                  updatedLog[logIdx] = {
+                    ...updatedLog[logIdx],
+                    result: {
+                      success: result.success,
+                      summary: result.success
+                        ? JSON.stringify(result.result ?? "done").slice(0, 100)
+                        : (result.error ?? "unknown error"),
+                      data: result.result,
+                    },
+                  };
+                  return [...prev.slice(0, i), { ...msg, toolLog: updatedLog }, ...prev.slice(i + 1)];
+                }
+              }
+            }
+            return prev;
+          });
         },
 
         onPlanQueued: (_stepId, description) => {
@@ -298,11 +318,16 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
             return (
               <div key={msg.id} className="flex justify-start">
                 <div className="max-w-[95%] px-3 py-2 rounded-lg bg-white/5 text-white/80 text-sm">
-                  <div className="prose prose-invert prose-sm max-w-none">
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
-                  </div>
+                  {msg.content && (
+                    <div className="prose prose-invert prose-sm max-w-none">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                  )}
                   {msg.streaming && (
                     <span className="inline-block w-1.5 h-4 bg-[#00d2ff] animate-pulse ml-0.5 align-middle" />
+                  )}
+                  {msg.toolLog && msg.toolLog.length > 0 && (
+                    <ToolCallLog entries={msg.toolLog} onApplySQL={onApplySQL} />
                   )}
                 </div>
               </div>
@@ -317,7 +342,11 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
             );
           }
 
-          return <ToolStep key={msg.id} msg={msg} />;
+          if (msg.role === "plan_queued") {
+            return <PlanQueuedRow key={msg.id} content={msg.content} />;
+          }
+
+          return null;
         })}
 
         {isProcessing && messages[messages.length - 1]?.role !== "assistant" && (
@@ -384,6 +413,12 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
               </span>
             )}
             <button
+              onClick={() => setToolsPanelOpen(true)}
+              className="flex items-center gap-1 text-[9px] text-white/20 hover:text-white/50 transition-colors uppercase tracking-widest"
+            >
+              <Wrench className="w-2.5 h-2.5" /> My Tools
+            </button>
+            <button
               onClick={() => setSettingsOpen(true)}
               className="flex items-center gap-1 text-[9px] text-white/20 hover:text-white/50 transition-colors uppercase tracking-widest"
             >
@@ -398,6 +433,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
         onClose={() => setSettingsOpen(false)}
         onSave={setProviderSettings}
       />
+      {toolsPanelOpen && <UserToolsPanel onClose={() => setToolsPanelOpen(false)} />}
     </div>
   );
 }
