@@ -9,6 +9,8 @@ export class PyodideRuntime {
   private loadingPromise: Promise<PyodideInterface> | null = null;
   private _status: PyodideStatus = "idle";
 
+  private constructor() {}
+
   static getInstance(): PyodideRuntime {
     if (!PyodideRuntime._instance) {
       PyodideRuntime._instance = new PyodideRuntime();
@@ -65,9 +67,12 @@ export class PyodideRuntime {
       return raw;
     } finally {
       if (injectedKeys.length > 0) {
-        // Remove injected globals so they cannot bleed into subsequent kernel calls
         const cleanup = injectedKeys.map((k) => `globals().pop(${JSON.stringify(k)}, None)`).join("; ");
-        py.runPython(cleanup);
+        try {
+          await py.runPythonAsync(cleanup);
+        } catch {
+          // cleanup failure must not mask the original result
+        }
       }
     }
   }
