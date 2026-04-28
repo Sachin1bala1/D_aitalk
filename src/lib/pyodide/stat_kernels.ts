@@ -545,20 +545,27 @@ dists = ["norm", "lognorm", "weibull_min", "gamma", "expon"]
 fits = []
 for dname in dists:
     dist = getattr(sp_stats, dname)
-    params = dist.fit(arr)
-    log_l = float(np.sum(dist.logpdf(arr, *params)))
-    k_params = len(params)
-    aic = round(2 * k_params - 2 * log_l, 6)
-    bic = round(k_params * np.log(n) - 2 * log_l, 6)
-    ks_stat, ks_p = sp_stats.kstest(arr, dname, args=params)
-    fits.append({
-        "distribution": dname,
-        "params": [round(float(p), 6) for p in params],
-        "aic": aic,
-        "bic": bic,
-        "ks_statistic": round(float(ks_stat), 6),
-        "ks_p_value": round(float(ks_p), 6),
-    })
+    try:
+        params = dist.fit(arr)
+        log_l = float(np.sum(dist.logpdf(arr, *params)))
+        if not np.isfinite(log_l):
+            continue
+        k_params = len(params)
+        aic = round(2 * k_params - 2 * log_l, 6)
+        bic = round(k_params * np.log(n) - 2 * log_l, 6)
+        ks_stat, ks_p = sp_stats.kstest(arr, dname, args=params)
+        fits.append({
+            "distribution": dname,
+            "params": [round(float(p), 6) for p in params],
+            "aic": aic,
+            "bic": bic,
+            "ks_statistic": round(float(ks_stat), 6),
+            "ks_p_value": round(float(ks_p), 6),
+        })
+    except Exception:
+        pass
+if not fits:
+    raise ValueError("No distributions could be fitted to the provided data")
 fits.sort(key=lambda x: x["aic"])
 result = {
     "best_fit": fits[0]["distribution"],
@@ -572,14 +579,11 @@ result
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import cross_val_score
-from sklearn.preprocessing import StandardScaler
 X_arr = np.array(X, dtype=float)
 y_arr = np.array(y, dtype=float)
 n_samples, n_features = X_arr.shape
 cv_folds = int(cv_folds) if cv_folds else 5
 names = list(feature_names) if feature_names else [f"feature_{i}" for i in range(n_features)]
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X_arr)
 lr = LinearRegression()
 lr.fit(X_arr, y_arr)
 y_pred = lr.predict(X_arr)
@@ -646,11 +650,14 @@ from scipy.stats import shapiro, levene, ttest_ind, mannwhitneyu
 alpha = float(alpha) if alpha else 0.05
 a = np.array(group_a, dtype=float)
 b = np.array(group_b, dtype=float)
+if len(a) + len(b) <= 2:
+    raise ValueError("Each group must have at least 2 observations for hypothesis testing")
 sha, shpa = shapiro(a)
 shb, shpb = shapiro(b)
 norm_a = bool(float(shpa) >= alpha)
 norm_b = bool(float(shpb) >= alpha)
-pooled_std = float(np.sqrt(((len(a)-1)*a.std(ddof=1)**2 + (len(b)-1)*b.std(ddof=1)**2) / (len(a)+len(b)-2)))
+denom = len(a) + len(b) - 2
+pooled_std = float(np.sqrt(((len(a)-1)*a.std(ddof=1)**2 + (len(b)-1)*b.std(ddof=1)**2) / denom)) if denom > 0 else 0.0
 cohens_d = float((a.mean() - b.mean()) / pooled_std) if pooled_std > 0 else 0.0
 if norm_a and norm_b:
     _, lev_p = levene(a, b)
@@ -743,9 +750,9 @@ result
   cusum_chart: `
 import numpy as np
 arr = np.array(data, dtype=float)
-k = float(k) if k else 0.5
-h = float(h) if h else 4.0
-target_val = float(target) if target else float(arr.mean())
+k = float(k) if k is not None else 0.5
+h = float(h) if h is not None else 4.0
+target_val = float(target) if target is not None else float(arr.mean())
 sigma = float(arr.std(ddof=1))
 k_val = k * sigma
 h_val = h * sigma
