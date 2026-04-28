@@ -20,16 +20,24 @@ export class PyodideRuntime {
     return this._status;
   }
 
-  private async load(): Promise<PyodideInterface> {
+  async load(onProgress?: (pkg: string) => void): Promise<PyodideInterface> {
     if (this.pyodide) return this.pyodide;
     if (this.loadingPromise) return this.loadingPromise;
 
     this._status = "loading";
     this.loadingPromise = loadPyodide({
-      indexURL: "https://cdn.jsdelivr.net/pyodide/v0.27.0/full/",
+      indexURL: "https://cdn.jsdelivr.net/pyodide/v0.29.3/full/",
     })
       .then(async (py) => {
-        await py.loadPackage(["numpy", "scipy"]);
+        const packages = ["numpy", "scipy", "scikit-learn", "statsmodels", "pandas", "micropip"];
+        for (const pkg of packages) {
+          onProgress?.(pkg);
+          await py.loadPackage([pkg]);
+        }
+        onProgress?.("pymc-base");
+        await py.runPythonAsync(
+          "import micropip; await micropip.install(['pymc-base'])"
+        );
         this.pyodide = py;
         this._status = "ready";
         return py;
@@ -43,8 +51,8 @@ export class PyodideRuntime {
     return this.loadingPromise;
   }
 
-  async run(code: string, globals: Record<string, unknown> = {}): Promise<unknown> {
-    const py = await this.load();
+  async run(code: string, globals: Record<string, unknown> = {}, onProgress?: (pkg: string) => void): Promise<unknown> {
+    const py = await this.load(onProgress);
     const injectedKeys = Object.keys(globals);
     for (const [k, v] of Object.entries(globals)) {
       py.globals.set(k, py.toPy(v));
