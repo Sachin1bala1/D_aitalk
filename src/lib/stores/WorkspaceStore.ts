@@ -6,6 +6,7 @@ import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import { FullSchema, ConnectionConfig } from "../db/DbClient";
 import type { AgentCommand } from "../agent/commands";
+import type { Task } from '../agent/TaskState';
 
 export type AgentMode = "plan" | "auto";
 
@@ -64,6 +65,10 @@ export interface WorkspaceState {
   // Sidebar focus (set by focus_schema_node command)
   focusedNode: string | null; // "schema.table"
 
+  // Object Properties Panel — selected table node
+  selectedTableNode: { schema: string; table: string } | null;
+  setSelectedTableNode: (node: { schema: string; table: string } | null) => void;
+
   // Chart request (set by create_chart command → consumed by VirtualTable)
   chartRequest: { chartType: string; xColumn: string; yColumn: string; title?: string } | null;
   setChartRequest: (req: WorkspaceState["chartRequest"]) => void;
@@ -94,6 +99,12 @@ export interface WorkspaceState {
   setSchema: (connectionId: string, schema: FullSchema) => void;
   setConnectionHealth: (id: string, status: "healthy" | "error" | "checking") => void;
   setConnectionColor: (id: string, color: string) => void;
+
+  // Task tracking
+  currentTask: Task | null;
+  setTask: (task: Task) => void;
+  updateCurrentTask: (task: Task) => void;
+  clearTask: () => void;
 
   // Actions — Tabs
   setActiveTab: (tabId: string) => void;
@@ -130,7 +141,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     connectionColors: {},
 
     focusedNode: null,
+    selectedTableNode: null,
     chartRequest: null,
+
+    currentTask: null,
 
     tabs: [DEFAULT_TAB],
     activeTabId: "tab-1",
@@ -187,10 +201,19 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         state.focusedNode = node;
       }),
 
+    setSelectedTableNode: (node) =>
+      set((state) => {
+        state.selectedTableNode = node as any;
+      }),
+
     setChartRequest: (req) =>
       set((state) => {
         state.chartRequest = req;
       }),
+
+    setTask: (task) => set((state) => { state.currentTask = task as any; }),
+    updateCurrentTask: (task) => set((state) => { state.currentTask = task as any; }),
+    clearTask: () => set((state) => { state.currentTask = null; }),
 
     setActiveConnection: (id) =>
       set((state) => {

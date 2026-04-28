@@ -18,6 +18,7 @@ import {
   Archive,
   RotateCcw,
   Wrench,
+  ExternalLink,
 } from "lucide-react";
 
 export interface TableContextMenuProps {
@@ -37,6 +38,7 @@ export interface TableContextMenuProps {
   onDropTable: () => void;
   onViewDdl?: () => void;
   onRunSql?: (sql: string, description: string) => void;
+  onOpenInNewTab?: () => void;
 }
 
 export function TableContextMenu({
@@ -56,6 +58,7 @@ export function TableContextMenu({
   onDropTable,
   onViewDdl,
   onRunSql,
+  onOpenInNewTab,
 }: TableContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const isPostgres = driver === "postgres" || driver === "timescaledb";
@@ -75,7 +78,7 @@ export function TableContextMenu({
   }, [onClose]);
 
   const menuWidth = 240;
-  const menuHeight = isPostgres ? 360 : 260;
+  const menuHeight = isPostgres ? 390 : 290;
   const clampedX = Math.min(x, window.innerWidth - menuWidth - 8);
   const clampedY = Math.min(y, window.innerHeight - menuHeight - 8);
 
@@ -139,6 +142,7 @@ export function TableContextMenu({
       <Item icon={PlusSquare} label="INSERT template" onClick={onInsertTemplate} />
       <Item icon={FileText} label="EXPLAIN last query" onClick={onExplain} />
       {onViewDdl && <Item icon={Code2} label="View DDL" onClick={onViewDdl} />}
+      {onOpenInNewTab && <Item icon={ExternalLink} label="Open in new tab" onClick={onOpenInNewTab} />}
 
       <Divider />
       <Section label="Copy" />

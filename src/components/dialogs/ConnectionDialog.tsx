@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Database, X, Link2, Trash2, History, Wifi } from "lucide-react";
+import { Database, X, Link2, Trash2, History, Wifi, Terminal, ChevronDown, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { invoke } from "@tauri-apps/api/core";
 import { DbClient, ConnectionConfig, DbDriver } from "../../lib/db/DbClient";
 import { loadSavedConnections, removeConnection } from "../../lib/db/ConnectionStore";
 
@@ -113,6 +114,53 @@ function parseConnectionUrl(raw: string): ParsedUrl | null {
   }
 }
 
+// ── SSH types ──────────────────────────────────────────────────────────────────
+
+type SshAuthMethod = "password" | "key";
+
+interface SshConfig {
+  host: string;
+  port: number;
+  username: string;
+  auth: { type: "password"; password: string } | { type: "key"; key_path: string; passphrase: string | null };
+}
+
+function buildSshConfig(
+  host: string,
+  port: string,
+  username: string,
+  authMethod: SshAuthMethod,
+  password: string,
+  keyPath: string,
+  keyPassphrase: string,
+): SshConfig {
+  return {
+    host,
+    port: parseInt(port, 10) || 22,
+    username,
+    auth:
+      authMethod === "password"
+        ? { type: "password", password }
+        : { type: "key", key_path: keyPath, passphrase: keyPassphrase || null },
+  };
+}
+
+// Tauri serde expects SshAuth as an internally-tagged object:
+//   { type: "password", password: "..." }
+//   { type: "key", key_path: "...", passphrase: null }
+// The SshConfig interface already uses this format, so pass it through unchanged.
+function toTauriSshConfig(cfg: SshConfig) {
+  return {
+    host: cfg.host,
+    port: cfg.port,
+    username: cfg.username,
+    auth:
+      cfg.auth.type === "password"
+        ? { type: "password", password: cfg.auth.password }
+        : { type: "key", key_path: (cfg.auth as any).key_path, passphrase: (cfg.auth as any).passphrase },
+  };
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDialogProps) {
@@ -125,6 +173,19 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
   // tracks whether user manually changed driver/name so auto-parse doesn't override
   const [driverManual, setDriverManual] = useState(false);
   const [nameManual, setNameManual] = useState(false);
+
+  // ── SSH state ────────────────────────────────────────────────────────────
+  const [sshEnabled, setSshEnabled] = useState(false);
+  const [sshExpanded, setSshExpanded] = useState(false);
+  const [sshHost, setSshHost] = useState("");
+  const [sshPort, setSshPort] = useState("22");
+  const [sshUsername, setSshUsername] = useState("");
+  const [sshAuthMethod, setSshAuthMethod] = useState<SshAuthMethod>("password");
+  const [sshPassword, setSshPassword] = useState("");
+  const [sshKeyPath, setSshKeyPath] = useState("");
+  const [sshKeyPassphrase, setSshKeyPassphrase] = useState("");
+  const [sshTestStatus, setSshTestStatus] = useState<"idle" | "testing" | "ok" | "fail">("idle");
+  const [sshTestMessage, setSshTestMessage] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -167,14 +228,22 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
     setSavedConns((s) => s.filter((c) => c.id !== id));
   };
 
-  const buildConfig = (): ConnectionConfig => ({
-    id: `conn-${Date.now()}`,
-    display_name: displayName || selectedDriver.label,
-    driver,
-    connection_string: connectionString,
-    pool_min: 1,
-    pool_max: 10,
-  });
+  const buildConfig = (): ConnectionConfig => {
+    const base: ConnectionConfig = {
+      id: `conn-${Date.now()}`,
+      display_name: displayName || selectedDriver.label,
+      driver,
+      connection_string: connectionString,
+      pool_min: 1,
+      pool_max: 10,
+    };
+    if (sshEnabled && sshHost && sshUsername) {
+      (base as any).ssh = toTauriSshConfig(
+        buildSshConfig(sshHost, sshPort, sshUsername, sshAuthMethod, sshPassword, sshKeyPath, sshKeyPassphrase)
+      );
+    }
+    return base;
+  };
 
   const handleTestConnection = async () => {
     if (!connectionString) return;
@@ -206,6 +275,33 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
     } finally {
       setIsConnecting(false);
     }
+  };
+
+  const handleTestSsh = async () => {
+    if (!sshHost || !sshUsername) return;
+    setSshTestStatus("testing");
+    setSshTestMessage("");
+    try {
+      const sshCfg = toTauriSshConfig(
+        buildSshConfig(sshHost, sshPort, sshUsername, sshAuthMethod, sshPassword, sshKeyPath, sshKeyPassphrase)
+      );
+      const result = await invoke<string>("test_ssh_tunnel", { sshConfig: sshCfg });
+      setSshTestStatus("ok");
+      setSshTestMessage(result);
+      toast.success(result);
+    } catch (error: any) {
+      setSshTestStatus("fail");
+      const msg = typeof error === "string" ? error : (error?.message ?? "SSH tunnel test failed");
+      setSshTestMessage(msg);
+      toast.error(msg);
+    }
+  };
+
+  const handleSshToggle = (checked: boolean) => {
+    setSshEnabled(checked);
+    if (checked) setSshExpanded(true);
+    setSshTestStatus("idle");
+    setSshTestMessage("");
   };
 
   return (
@@ -244,7 +340,7 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
               {/* Saved connections */}
               {savedConns.length > 0 && (
                 <div className="space-y-1.5">
@@ -338,6 +434,189 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                 </div>
               </div>
 
+              {/* ── SSH Tunnel section ────────────────────────────────────── */}
+              <div className="rounded-lg border border-[#262626] overflow-hidden">
+                {/* Header row — toggle + collapse chevron */}
+                <button
+                  type="button"
+                  onClick={() => setSshExpanded((v) => !v)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 bg-[#1a1a1a] hover:bg-[#222] transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Terminal className="w-3.5 h-3.5 text-white/40" />
+                    <span className="text-xs font-bold text-white/60">SSH Tunnel</span>
+                    {sshEnabled && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#00d2ff]/10 text-[#00d2ff] font-bold border border-[#00d2ff]/20">
+                        ON
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {/* Toggle switch */}
+                    <div
+                      role="switch"
+                      aria-checked={sshEnabled}
+                      onClick={(e) => { e.stopPropagation(); handleSshToggle(!sshEnabled); }}
+                      className={`relative w-8 h-4 rounded-full transition-colors cursor-pointer ${
+                        sshEnabled ? "bg-[#00d2ff]" : "bg-[#333]"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
+                          sshEnabled ? "translate-x-4" : "translate-x-0.5"
+                        }`}
+                      />
+                    </div>
+                    {sshExpanded
+                      ? <ChevronDown className="w-3.5 h-3.5 text-white/30" />
+                      : <ChevronRight className="w-3.5 h-3.5 text-white/30" />
+                    }
+                  </div>
+                </button>
+
+                {/* Expanded fields */}
+                <AnimatePresence>
+                  {sshExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-3 py-3 space-y-3 border-t border-[#262626]">
+                        {/* SSH Host + Port */}
+                        <div className="flex gap-2">
+                          <div className="flex-1 space-y-1">
+                            <label className="text-[10px] uppercase tracking-widest font-bold text-white/40">
+                              SSH Host
+                            </label>
+                            <input
+                              type="text"
+                              value={sshHost}
+                              onChange={(e) => { setSshHost(e.target.value); setSshTestStatus("idle"); }}
+                              placeholder="bastion.example.com"
+                              className="w-full bg-[#111] border border-[#262626] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#00d2ff]"
+                            />
+                          </div>
+                          <div className="w-20 space-y-1">
+                            <label className="text-[10px] uppercase tracking-widest font-bold text-white/40">
+                              Port
+                            </label>
+                            <input
+                              type="text"
+                              value={sshPort}
+                              onChange={(e) => { setSshPort(e.target.value); setSshTestStatus("idle"); }}
+                              placeholder="22"
+                              className="w-full bg-[#111] border border-[#262626] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#00d2ff]"
+                            />
+                          </div>
+                        </div>
+
+                        {/* SSH Username */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] uppercase tracking-widest font-bold text-white/40">
+                            SSH Username
+                          </label>
+                          <input
+                            type="text"
+                            value={sshUsername}
+                            onChange={(e) => { setSshUsername(e.target.value); setSshTestStatus("idle"); }}
+                            placeholder="ubuntu"
+                            className="w-full bg-[#111] border border-[#262626] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#00d2ff]"
+                          />
+                        </div>
+
+                        {/* Auth method radio */}
+                        <div className="flex gap-4">
+                          {(["password", "key"] as SshAuthMethod[]).map((m) => (
+                            <label key={m} className="flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="ssh-auth"
+                                value={m}
+                                checked={sshAuthMethod === m}
+                                onChange={() => { setSshAuthMethod(m); setSshTestStatus("idle"); }}
+                                className="accent-[#00d2ff]"
+                              />
+                              <span className="text-xs text-white/60 capitalize">{m === "key" ? "Private Key" : "Password"}</span>
+                            </label>
+                          ))}
+                        </div>
+
+                        {/* Password or Key path */}
+                        {sshAuthMethod === "password" ? (
+                          <div className="space-y-1">
+                            <label className="text-[10px] uppercase tracking-widest font-bold text-white/40">
+                              SSH Password
+                            </label>
+                            <input
+                              type="password"
+                              value={sshPassword}
+                              onChange={(e) => { setSshPassword(e.target.value); setSshTestStatus("idle"); }}
+                              placeholder="••••••••"
+                              className="w-full bg-[#111] border border-[#262626] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#00d2ff]"
+                            />
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="space-y-1">
+                              <label className="text-[10px] uppercase tracking-widest font-bold text-white/40">
+                                Key File Path
+                              </label>
+                              <input
+                                type="text"
+                                value={sshKeyPath}
+                                onChange={(e) => { setSshKeyPath(e.target.value); setSshTestStatus("idle"); }}
+                                placeholder="~/.ssh/id_rsa"
+                                className="w-full bg-[#111] border border-[#262626] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#00d2ff]"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] uppercase tracking-widest font-bold text-white/40">
+                                Passphrase (optional)
+                              </label>
+                              <input
+                                type="password"
+                                value={sshKeyPassphrase}
+                                onChange={(e) => { setSshKeyPassphrase(e.target.value); setSshTestStatus("idle"); }}
+                                placeholder="leave blank if none"
+                                className="w-full bg-[#111] border border-[#262626] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#00d2ff]"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Test SSH button + result */}
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={handleTestSsh}
+                            disabled={!sshHost || !sshUsername || sshTestStatus === "testing"}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-colors disabled:opacity-40 ${
+                              sshTestStatus === "ok"
+                                ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/5"
+                                : sshTestStatus === "fail"
+                                ? "border-red-500/40 text-red-400 bg-red-500/5"
+                                : "border-[#262626] text-white/40 hover:text-white hover:border-[#00d2ff]/40"
+                            }`}
+                          >
+                            <Wifi className="w-3 h-3" />
+                            {sshTestStatus === "testing" ? "Testing…" : sshTestStatus === "ok" ? "OK" : sshTestStatus === "fail" ? "Failed" : "Test SSH"}
+                          </button>
+                          {sshTestMessage && (
+                            <span className={`text-[10px] font-mono truncate max-w-[160px] ${sshTestStatus === "ok" ? "text-emerald-400/70" : "text-red-400/70"}`}>
+                              {sshTestMessage}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Action buttons */}
               <div className="flex gap-2 pt-2">
                 <button
                   onClick={handleTestConnection}

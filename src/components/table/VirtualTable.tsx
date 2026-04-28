@@ -13,8 +13,9 @@
  */
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { useVirtualizer, Virtualizer } from "@tanstack/react-virtual";
-import { ArrowUp, ArrowDown, Search, X, Download, Maximize2, BarChart2, Copy, Rows3, Table2, PanelRight, ChevronUp, ChevronDown as ChevronDownIcon, Plus, Pin, PinOff, GitCompare, Columns2 } from "lucide-react";
+import { ArrowUp, ArrowDown, Search, X, Download, Maximize2, BarChart2, Copy, Rows3, Table2, PanelRight, ChevronUp, ChevronDown as ChevronDownIcon, Plus, Pin, PinOff, GitCompare, Columns2, RotateCcw, Check, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { invoke } from "@tauri-apps/api/core";
 import { useRowStore, rowStore } from "../../lib/table/RowStore";
 import { QueryManager } from "../../lib/table/QueryManager";
 import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
@@ -30,6 +31,18 @@ const ROW_HEIGHT = 36;
 const HEADER_HEIGHT = 34;
 const FILTER_HEIGHT = 30;
 const ROW_NUM_WIDTH = 48;
+const CHECKBOX_WIDTH = 28;
+
+// ── Pending Edit type ─────────────────────────────────────────────────────────
+
+interface PendingEdit {
+  rowIndex: number;
+  column: string;
+  oldValue: unknown;
+  newValue: unknown;
+  pkColumn: string;
+  pkValue: unknown;
+}
 
 // ── Cell renderer ─────────────────────────────────────────────────────────────
 
@@ -701,6 +714,8 @@ export function VirtualTable() {
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const lastSelectedRef = useRef<number | null>(null);
   const [rowDetailIdx, setRowDetailIdx] = useState<number | null>(null);
+  const [pendingEdits, setPendingEdits] = useState<PendingEdit[]>([]);
+  const [applyingEdits, setApplyingEdits] = useState(false);
 
   const headerScrollRef = useRef<HTMLDivElement>(null);
   const parentRef = useRef<HTMLDivElement>(null);
@@ -712,7 +727,7 @@ export function VirtualTable() {
   // Note: totalWidth computed after visibleColumns is derived (below isExplain check)
   // Placeholder here — actual width computed post-derive
   const _totalWidthFn = (cols: typeof columns) =>
-    Math.max(ROW_NUM_WIDTH + cols.reduce((sum, c) => sum + getColWidth(c.name), 0), 400);
+    Math.max(CHECKBOX_WIDTH + ROW_NUM_WIDTH + cols.reduce((sum, c) => sum + getColWidth(c.name), 0), 400);
 
   // Column resize — mousemove/mouseup on window
   useEffect(() => {
@@ -859,6 +874,7 @@ export function VirtualTable() {
       setSelectedRows(new Set());
       setHiddenCols(new Set());
       setColFilterValues({});
+      setPendingEdits([]);
       lastSelectedRef.current = null;
     }
   }, [rows, columns]);
@@ -916,18 +932,10 @@ export function VirtualTable() {
 
   const handleEditCancel = useCallback(() => setEditingCell(null), []);
 
-  const handleEditCommit = useCallback(async () => {
+  const handleEditCommit = useCallback(() => {
     if (!editingCell) return;
     const { rowIndex, colName, draftValue } = editingCell;
     setEditingCell(null);
-
-    const tableInfo = QueryManager.getBaseTable();
-    const connectionId = QueryManager.getConnectionId();
-
-    if (!tableInfo || !connectionId) {
-      toast.error("Cannot update: run a simple SELECT from a single table first");
-      return;
-    }
 
     const cols = rowStore.columns;
     const pkCol =
@@ -935,29 +943,100 @@ export function VirtualTable() {
       cols.find((c) => c.name.toLowerCase() === "id") ??
       cols[0];
 
-    if (!pkCol) {
-      toast.error("Cannot update: no identifiable primary key");
+    const row = rows[rowIndex];
+    if (!row) return;
+
+    const oldValue = row[colName];
+    // No change — skip
+    if (String(draftValue) === String(oldValue ?? "")) return;
+
+    const pkColumn = pkCol?.name ?? "__rowindex__";
+    const pkValue = pkCol ? row[pkCol.name] : rowIndex;
+
+    setPendingEdits((prev) => {
+      const existing = prev.findIndex((e) => e.rowIndex === rowIndex && e.column === colName);
+      const entry: PendingEdit = { rowIndex, column: colName, oldValue, newValue: draftValue, pkColumn, pkValue };
+      if (existing >= 0) return [...prev.slice(0, existing), entry, ...prev.slice(existing + 1)];
+      return [...prev, entry];
+    });
+  }, [editingCell, rows]);
+
+  const handleApplyAll = useCallback(async () => {
+    if (pendingEdits.length === 0 || applyingEdits) return;
+
+    const tableInfo = QueryManager.getBaseTable();
+    const connectionId = QueryManager.getConnectionId();
+
+    if (!tableInfo || !connectionId) {
+      toast.error("Cannot apply: run a simple SELECT from a single table first");
       return;
     }
 
-    const row = rows[rowIndex];
-    const pkValue = row[pkCol.name];
-    const colMeta = cols.find((c) => c.name === colName);
-    const pkMeta = cols.find((c) => c.name === pkCol.name);
+    // Group edits by row (keyed by pkValue ?? rowIndex)
+    const byRow = new Map<unknown, PendingEdit[]>();
+    for (const edit of pendingEdits) {
+      const key = edit.pkValue ?? edit.rowIndex;
+      if (!byRow.has(key)) byRow.set(key, []);
+      byRow.get(key)!.push(edit);
+    }
 
-    const newValSql = sqlLiteral(draftValue, colMeta);
-    const pkValSql = sqlLiteral(pkValue === null ? "" : String(pkValue), pkMeta);
+    // Build UPDATE statements
+    const statements: string[] = [];
+    for (const [pkVal, edits] of byRow) {
+      const setClauses = edits
+        .map((e) => {
+          const colMeta = columns.find((c) => c.name === e.column);
+          return `"${e.column}" = ${sqlLiteral(String(e.newValue), colMeta)}`;
+        })
+        .join(", ");
+      const pkCol = edits[0].pkColumn;
+      const whereClause =
+        typeof pkVal === "number"
+          ? `"${pkCol}" = ${pkVal}`
+          : `"${pkCol}" = '${String(pkVal).replace(/'/g, "''")}'`;
+      statements.push(
+        `UPDATE "${tableInfo.schema}"."${tableInfo.table}" SET ${setClauses} WHERE ${whereClause}`
+      );
+    }
 
-    const sql = `UPDATE "${tableInfo.schema}"."${tableInfo.table}" SET "${colName}" = ${newValSql} WHERE "${pkCol.name}" = ${pkValSql}`;
-
+    setApplyingEdits(true);
     try {
-      await DbClient.execute(connectionId, sql);
-      toast.success("Cell updated");
+      await invoke("execute_in_transaction", { connectionId, statements });
+      setPendingEdits([]);
+      toast.success(`${statements.length} row(s) updated`);
       await QueryManager.refresh();
     } catch (e: any) {
-      toast.error(`Update failed: ${e.message ?? "unknown error"}`);
+      toast.error(`Apply failed: ${e}`);
+    } finally {
+      setApplyingEdits(false);
     }
-  }, [editingCell, rows]);
+  }, [pendingEdits, applyingEdits]);
+
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedRows.size === 0) return;
+    const confirmed = window.confirm(`Delete ${selectedRows.size} row(s)? This cannot be undone.`);
+    if (!confirmed) return;
+
+    const tableInfo = QueryManager.getBaseTable();
+    const cols = rowStore.columns;
+    if (!tableInfo) { toast.error("Run a simple SELECT from a single table to enable row deletion"); return; }
+    const pkCol = cols.find((c) => c.is_primary_key) ?? cols.find((c) => c.name.toLowerCase() === "id") ?? cols[0];
+    if (!pkCol) { toast.error("Cannot delete: no identifiable primary key"); return; }
+
+    const selectedArr = [...selectedRows].sort((a, b) => a - b);
+    const pkValues = selectedArr.map((i) => {
+      const v = rows[i]?.[pkCol.name];
+      if (v === null || v === undefined) return "NULL";
+      if (typeof v === "number") return String(v);
+      return `'${String(v).replace(/'/g, "''")}'`;
+    });
+    const inList = pkValues.join(", ");
+    const deleteSql = `DELETE FROM "${tableInfo.schema}"."${tableInfo.table}" WHERE "${pkCol.name}" IN (${inList});`;
+    // Copy DELETE SQL and inform user — same pattern as keyboard Delete handler
+    copyText(deleteSql);
+    toast.success(`DELETE SQL for ${selectedArr.length} row(s) copied — review and run to delete`, { duration: 6000 });
+    setSelectedRows(new Set());
+  }, [selectedRows, rows]);
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -1194,6 +1273,48 @@ export function VirtualTable() {
         )}
       </div>
 
+      {/* ── Edit toolbar — pending edits batch apply ─────────────────── */}
+      {QueryManager.getBaseTable() && (
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[#262626] bg-[#0d0d0d] shrink-0">
+          <button
+            onClick={() => setInsertRowOpen(true)}
+            className="flex items-center gap-1 text-[10px] text-white/40 hover:text-white/70 transition-colors"
+            title="Insert new row"
+          >
+            <Plus className="w-3 h-3" /> Row
+          </button>
+          <button
+            onClick={handleDeleteSelected}
+            disabled={selectedRows.size === 0}
+            className="flex items-center gap-1 text-[10px] text-white/40 hover:text-red-400 disabled:opacity-30 transition-colors"
+            title="Copy DELETE SQL for selected rows"
+          >
+            <Trash2 className="w-3 h-3" />
+            {selectedRows.size > 0 ? `Delete (${selectedRows.size} row${selectedRows.size > 1 ? "s" : ""})` : "Delete"}
+          </button>
+          <button
+            onClick={() => setPendingEdits([])}
+            disabled={pendingEdits.length === 0}
+            className="flex items-center gap-1 text-[10px] text-white/40 hover:text-white/70 disabled:opacity-30 transition-colors"
+            title="Revert all pending edits"
+          >
+            <RotateCcw className="w-3 h-3" /> Revert
+          </button>
+          <button
+            onClick={handleApplyAll}
+            disabled={pendingEdits.length === 0 || applyingEdits}
+            className={`flex items-center gap-1 text-[10px] transition-colors disabled:opacity-30 ${
+              pendingEdits.length > 0 ? "text-[#00d2ff] hover:text-[#00d2ff]/80" : "text-white/40"
+            }`}
+            title="Apply all pending edits in a single transaction"
+          >
+            <Check className="w-3 h-3" />
+            Apply {pendingEdits.length > 0 ? `(${pendingEdits.length} change${pendingEdits.length > 1 ? "s" : ""})` : ""}
+          </button>
+          {applyingEdits && <span className="text-[10px] text-white/30 animate-pulse">Saving…</span>}
+        </div>
+      )}
+
       {/* ── Filter bar ───────────────────────────────────────────────── */}
       {filterVisible && (
         <div
@@ -1243,6 +1364,19 @@ export function VirtualTable() {
         style={{ height: HEADER_HEIGHT }}
       >
         <div className="flex h-full" style={{ width: totalWidth }}>
+          {/* Checkbox select-all header */}
+          <div
+            className="flex items-center justify-center border-r border-[#1a1a1a] shrink-0 bg-[#0d0d0d]"
+            style={{ width: CHECKBOX_WIDTH, height: HEADER_HEIGHT }}
+          >
+            <input
+              type="checkbox"
+              checked={rows.length > 0 && selectedRows.size === rows.length}
+              onChange={(e) => setSelectedRows(e.target.checked ? new Set(rows.map((_, i) => i)) : new Set())}
+              className="accent-[#00d2ff] w-3 h-3"
+              title="Select all rows"
+            />
+          </div>
           {/* Row number header */}
           <div
             className="flex items-center justify-center border-r border-[#1a1a1a] shrink-0 bg-[#0d0d0d]"
@@ -1350,6 +1484,7 @@ export function VirtualTable() {
           style={{ height: 30 }}
         >
           <div className="flex h-full" style={{ width: totalWidth }}>
+            <div style={{ width: CHECKBOX_WIDTH }} className="shrink-0 border-r border-[#1a1a1a]" />
             <div style={{ width: ROW_NUM_WIDTH }} className="shrink-0 border-r border-[#1a1a1a]" />
             {visibleColumns.map((col) => {
               const w = getColWidth(col.name);
@@ -1457,6 +1592,26 @@ export function VirtualTable() {
                     }`}
                     style={{ width: totalWidth }}
                   >
+                    {/* Checkbox cell */}
+                    <div
+                      className="flex items-center justify-center border-r border-[#161616] shrink-0 bg-[#0d0d0d]/60"
+                      style={{ width: CHECKBOX_WIDTH, height: ROW_HEIGHT }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedRows.has(virtualRow.index)}
+                        onChange={(e) => {
+                          setSelectedRows((prev) => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(virtualRow.index);
+                            else next.delete(virtualRow.index);
+                            return next;
+                          });
+                        }}
+                        className="accent-[#00d2ff] w-3 h-3"
+                      />
+                    </div>
                     {/* Row number cell — click to open row detail panel */}
                     <div
                       className="flex items-center justify-end pr-2 border-r border-[#161616] shrink-0 bg-[#0d0d0d]/60 select-none cursor-pointer hover:bg-[#00d2ff]/10 group/rownum transition-colors"
@@ -1511,6 +1666,14 @@ export function VirtualTable() {
                               onBlur={handleEditCommit}
                               onFocus={(e) => e.target.select()}
                             />
+                          ) : pendingEdits.some((e) => e.rowIndex === virtualRow.index && e.column === col.name) ? (
+                            <span className="border-l-2 border-amber-400 pl-1 w-full truncate">
+                              <CellValue
+                                value={pendingEdits.find((e) => e.rowIndex === virtualRow.index && e.column === col.name)!.newValue}
+                                colName={col.name}
+                                onExpand={() => setExpandedCell({ value: row?.[col.name], colName: col.name })}
+                              />
+                            </span>
                           ) : (
                             <CellValue
                               value={row?.[col.name]}

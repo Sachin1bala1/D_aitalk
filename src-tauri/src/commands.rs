@@ -340,6 +340,69 @@ pub fn load_connections(app: AppHandle) -> Result<Vec<crate::db::types::Connecti
     serde_json::from_str(&raw).map_err(|e| e.to_string())
 }
 
+// ── Transaction Commands ──────────────────────────────────────────────────────
+
+/// Execute multiple SQL statements atomically in a single transaction.
+/// Each statement is executed in order; if any fails the transaction is rolled back.
+/// MSSQL connections are not supported — returns Err immediately.
+#[tauri::command]
+pub async fn execute_in_transaction(
+    connection_id: String,
+    statements: Vec<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    use crate::db::connection_manager::ActiveConnection;
+
+    let conn = state
+        .connections
+        .get(&connection_id)
+        .await
+        .ok_or_else(|| format!("Connection not found: {}", connection_id))?;
+
+    match conn.as_ref() {
+        ActiveConnection::Postgres(pool) => {
+            let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+            for sql in &statements {
+                sqlx::query(sql).execute(&mut *tx).await.map_err(|e| {
+                    format!("Statement failed: {}\nSQL: {}", e, sql)
+                })?;
+            }
+            tx.commit().await.map_err(|e| e.to_string())?;
+        }
+        ActiveConnection::Mysql(pool) => {
+            let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+            for sql in &statements {
+                sqlx::query(sql).execute(&mut *tx).await.map_err(|e| {
+                    format!("Statement failed: {}\nSQL: {}", e, sql)
+                })?;
+            }
+            tx.commit().await.map_err(|e| e.to_string())?;
+        }
+        ActiveConnection::Sqlite(pool) => {
+            let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+            for sql in &statements {
+                sqlx::query(sql).execute(&mut *tx).await.map_err(|e| {
+                    format!("Statement failed: {}\nSQL: {}", e, sql)
+                })?;
+            }
+            tx.commit().await.map_err(|e| e.to_string())?;
+        }
+        ActiveConnection::Mssql(_) => {
+            return Err("execute_in_transaction is not supported for MSSQL connections".to_string());
+        }
+        ActiveConnection::Mongodb(_, _) => {
+            return Err("execute_in_transaction is not supported for MongoDB connections".to_string());
+        }
+        ActiveConnection::Redis(_) => {
+            return Err("execute_in_transaction is not supported for Redis connections".to_string());
+        }
+        ActiveConnection::ClickHouse(_) => {
+            return Err("execute_in_transaction is not supported for ClickHouse connections".to_string());
+        }
+    }
+    Ok(())
+}
+
 // ── DDL Commands ─────────────────────────────────────────────────────────────
 
 /// Returns the CREATE TABLE DDL for a given table.
@@ -511,6 +574,43 @@ pub fn delete_api_key(service: String) -> Result<(), String> {
         Err(keyring::Error::NoEntry) => Ok(()),
         Err(e) => Err(e.to_string()),
     }
+}
+
+// ── SSH Tunnel ────────────────────────────────────────────────────────────────
+
+/// Test SSH authentication only — does not open a tunnel or probe the remote DB port.
+#[tauri::command]
+pub async fn test_ssh_tunnel(ssh_config: crate::db::types::SshConfig) -> Result<String, String> {
+    use std::net::TcpStream;
+    use ssh2::Session;
+
+    let tcp = TcpStream::connect(format!("{}:{}", ssh_config.host, ssh_config.port))
+        .map_err(|e| format!("Cannot reach SSH host {}:{} — {}", ssh_config.host, ssh_config.port, e))?;
+
+    let mut session = Session::new().map_err(|e| format!("Session error: {}", e))?;
+    session.set_tcp_stream(tcp);
+    session.handshake().map_err(|e| format!("SSH handshake failed: {}", e))?;
+
+    match &ssh_config.auth {
+        crate::db::types::SshAuth::Password { password } => {
+            session.userauth_password(&ssh_config.username, password)
+                .map_err(|e| format!("SSH authentication failed: {}", e))?;
+        }
+        crate::db::types::SshAuth::Key { key_path, passphrase } => {
+            session.userauth_pubkey_file(
+                &ssh_config.username, None,
+                std::path::Path::new(key_path),
+                passphrase.as_deref(),
+            ).map_err(|e| format!("SSH key authentication failed: {}", e))?;
+        }
+    }
+
+    if !session.authenticated() {
+        return Err("SSH authentication failed — check credentials".to_string());
+    }
+
+    Ok(format!("SSH connection to {}:{} authenticated successfully as {}",
+               ssh_config.host, ssh_config.port, ssh_config.username))
 }
 
 // ── Health Check ──────────────────────────────────────────────────────────────

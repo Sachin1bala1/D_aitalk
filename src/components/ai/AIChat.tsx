@@ -10,7 +10,7 @@ import ReactMarkdown from "react-markdown";
 import type { FullSchema } from "../../lib/db/DbClient";
 import type { QueryResults } from "../../lib/stores/WorkspaceStore";
 import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
-import { runAgentLoop } from "../../lib/agent/AgentLoop";
+import { runTaskEngine } from "../../lib/agent/TaskEngine";
 import type { CommandResult } from "../../lib/agent/CommandBus";
 import type { ConversationTurn } from "../../lib/ai/types";
 import { loadSettings, loadApiKeysFromKeychain, getActiveKey, getActiveModel, PROVIDER_CATALOG } from "../../lib/ai/types";
@@ -19,6 +19,7 @@ import { ProviderSettingsDialog } from "./ProviderSettingsDialog";
 import { UserToolsPanel } from "./UserToolsPanel";
 import { ToolCallLog } from "./ToolCallLog";
 import type { ToolLogEntry } from "./ToolCallLog";
+import { TaskProgressPanel } from "./TaskProgressPanel";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -106,7 +107,7 @@ function loadTurns(): ConversationTurn[] {
 }
 
 export function AIChat({ currentSQL, currentResults, currentSchema, connectionId, onApplySQL }: AIChatProps) {
-  const { agentMode, undoStack, popUndo } = useWorkspaceStore();
+  const { agentMode, undoStack, popUndo, currentTask } = useWorkspaceStore();
 
   const [providerSettings, setProviderSettings] = useState(loadSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -203,7 +204,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
     setIsProcessing(true);
 
     try {
-      const { updatedHistory } = await runAgentLoop(userMsg, historyRef.current, {
+      const { updatedHistory } = await runTaskEngine(userMsg, historyRef.current, {
         provider,
         model: activeModel,
         connectionId,
@@ -303,6 +304,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
   return (
     <div className="flex flex-col h-full bg-[#0d0d0d]">
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+        {currentTask && <TaskProgressPanel />}
         {messages.map((msg) => {
           if (msg.role === "user") {
             return (

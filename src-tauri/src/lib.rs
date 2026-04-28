@@ -48,6 +48,8 @@ pub fn run() {
             commands::store_api_key,
             commands::get_api_key,
             commands::delete_api_key,
+            commands::test_ssh_tunnel,
+            commands::execute_in_transaction,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -28,6 +28,7 @@ import { SchemaSearch } from "./components/schema/SchemaSearch";
 import { BindParamsDialog, detectParams } from "./components/dialogs/BindParamsDialog";
 import { SessionMonitor } from "./components/panels/SessionMonitor";
 import { DatabaseOverview } from "./components/panels/DatabaseOverview";
+import { ObjectPropertiesPanel } from "./components/panels/ObjectPropertiesPanel";
 import { QuickOpenDialog } from "./components/dialogs/QuickOpenDialog";
 
 export default function App() {
@@ -39,6 +40,8 @@ export default function App() {
     activeTabId,
     planQueue,
     focusedNode,
+    selectedTableNode,
+    setSelectedTableNode,
     setSchema,
     setActiveConnection,
     addConnection,
@@ -640,7 +643,11 @@ export default function App() {
                 subtitle: `${fnSchema}.${fnName}`,
                 customQuery: `SELECT pg_get_functiondef(p.oid) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = '${fnSchema}' AND p.proname = '${fnName}' LIMIT 1`,
               })}
-              onTableClick={(table) => setEditorSql(`SELECT * FROM "${table}" LIMIT 100;`)}
+              onTableClick={(table) => {
+                setEditorSql(`SELECT * FROM "${table}" LIMIT 100;`);
+                const schemaName = activeSchema?.tables.find((t) => t.name === table)?.schema ?? "public";
+                setSelectedTableNode({ schema: schemaName, table });
+              }}
               focusedNode={focusedNode}
               schemaName={activeSchema.tables[0]?.schema ?? "public"}
               onSelectAll={(table) => setEditorSql(`SELECT * FROM "${table}" LIMIT 100;`)}
@@ -828,6 +835,15 @@ export default function App() {
         <div className="flex-1 overflow-hidden min-h-0">
           <VirtualTable />
         </div>
+
+        {/* Object Properties Panel — shown when a table is selected in sidebar */}
+        {selectedTableNode && (
+          <ObjectPropertiesPanel
+            connectionId={activeConnectionId}
+            fullSchema={activeSchema}
+            onClose={() => setSelectedTableNode(null)}
+          />
+        )}
       </div>
 
       {/* Right: AI Panel */}

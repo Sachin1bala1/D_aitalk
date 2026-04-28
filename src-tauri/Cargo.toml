@@ -52,8 +52,8 @@ redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
 # Phase 45 — ClickHouse
 clickhouse = "0.13"
 
-# Phase 1 — SSH tunnel (deferred: needs system libssh2 or OpenSSL build tools)
-# ssh2 = { version = "0.9", features = ["vendored-openssl"] }
+# Phase 1 — SSH tunnel
+ssh2 = { version = "0.9" }
 
 [features]
 default = ["custom-protocol"]
