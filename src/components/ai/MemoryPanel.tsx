@@ -73,6 +73,10 @@ export function MemoryPanel() {
   const [priorityParams, setPriorityParams] = useState<string[]>([]);
   const [expertiseLevel, setExpertiseLevel] = useState<ExpertiseLevel>("operator");
   const [calibrationError, setCalibrationError] = useState<string | null>(null);
+  const [expertiseError, setExpertiseError] = useState<string | null>(null);
+
+  // ── Clear confirmation state ──
+  const [confirmingClear, setConfirmingClear] = useState(false);
 
   // ── Clear error ──
   const [clearError, setClearError] = useState<string | null>(null);
@@ -115,21 +119,22 @@ export function MemoryPanel() {
   const handleExpertiseChange = async (level: ExpertiseLevel) => {
     const previous = expertiseLevel;
     setExpertiseLevel(level);
+    setExpertiseError(null);
     try {
       await UserCalibrationProfile.updateExpertise(level);
     } catch (e: unknown) {
       // Revert on failure
       setExpertiseLevel(previous);
-      setCalibrationError((e as Error)?.message ?? String(e));
+      setExpertiseError((e as Error)?.message ?? String(e));
     }
   };
 
   // ── Handle clear ──
   const handleClearMemory = async () => {
-    if (!window.confirm("Clear all past analyses? This cannot be undone.")) return;
     setClearError(null);
     try {
       await invoke("memory_clear_episodes");
+      setConfirmingClear(false);
       await loadEpisodes();
     } catch (e: unknown) {
       setClearError((e as Error)?.message ?? String(e));
@@ -195,17 +200,37 @@ export function MemoryPanel() {
           <option value="engineer">Engineer</option>
           <option value="expert">Expert</option>
         </select>
+        {expertiseError && (
+          <p className="text-xs text-red-400/80 mt-1">{expertiseError}</p>
+        )}
       </Section>
 
       {/* Section 4: Clear Memory */}
       <div className="mt-auto pt-2">
-        <button
-          onClick={handleClearMemory}
-          className="flex items-center gap-1.5 w-full justify-center px-3 py-2 rounded-lg border border-red-500/30 text-red-400/70 text-xs hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/50 transition-colors"
-        >
-          <Trash2 className="w-3 h-3" />
-          Clear memory
-        </button>
+        {!confirmingClear ? (
+          <button
+            onClick={() => setConfirmingClear(true)}
+            className="flex items-center gap-1.5 w-full justify-center px-3 py-2 rounded-lg border border-red-500/30 text-red-400/70 text-xs hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/50 transition-colors"
+          >
+            <Trash2 className="w-3 h-3" />
+            Clear memory
+          </button>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              onClick={handleClearMemory}
+              className="flex-1 px-3 py-2 rounded-lg border border-red-500/50 bg-red-500/10 text-red-400 text-xs hover:bg-red-500/20 hover:border-red-500/70 transition-colors font-semibold"
+            >
+              Confirm clear
+            </button>
+            <button
+              onClick={() => setConfirmingClear(false)}
+              className="flex-1 px-3 py-2 rounded-lg border border-white/20 text-white/70 text-xs hover:bg-white/10 hover:text-white/90 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
         {clearError && (
           <p className="text-xs text-red-400/80 mt-1 text-center">{clearError}</p>
         )}
