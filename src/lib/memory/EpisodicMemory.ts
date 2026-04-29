@@ -27,16 +27,20 @@ interface RawEpisode {
   created_at: number;
 }
 
+function safeParse<T>(json: string, fallback: T): T {
+  try { return JSON.parse(json) as T; } catch { return fallback; }
+}
+
 function fromRaw(r: RawEpisode): Episode {
   return {
     id: r.id,
     sessionId: r.session_id,
     connectionId: r.connection_id ?? undefined,
     problem: r.problem,
-    toolsUsed: JSON.parse(r.tools_used),
-    findings: JSON.parse(r.findings),
+    toolsUsed: safeParse<string[]>(r.tools_used, []),
+    findings: safeParse<Record<string, unknown>>(r.findings, {}),
     outcome: r.outcome ?? undefined,
-    embedding: JSON.parse(r.embedding),
+    embedding: safeParse<number[]>(r.embedding, []),
     createdAt: r.created_at,
   };
 }
@@ -64,7 +68,7 @@ export const EpisodicMemory = {
     const qvec = embed(query);
     const raw = await invoke<RawEpisode[]>("memory_get_episodes", {
       limit: 200,
-      connectionId: connectionId ?? null,
+      connection_id: connectionId ?? null,
     });
     const episodes = raw.map(fromRaw);
     // Score by cosine similarity
@@ -79,7 +83,7 @@ export const EpisodicMemory = {
   async getRecent(limit = 10): Promise<Episode[]> {
     const raw = await invoke<RawEpisode[]>("memory_get_episodes", {
       limit,
-      connectionId: null,
+      connection_id: null,
     });
     return raw.map(fromRaw);
   },

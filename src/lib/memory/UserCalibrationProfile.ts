@@ -24,14 +24,18 @@ interface RawProfile {
   updated_at: number;
 }
 
+function safeParse<T>(json: string, fallback: T): T {
+  try { return JSON.parse(json) as T; } catch { return fallback; }
+}
+
 function fromRaw(r: RawProfile): CalibrationProfile {
   return {
     expertiseLevel: r.expertise_level as ExpertiseLevel,
-    parameterPriorities: JSON.parse(r.parameter_priorities),
-    preferredChartTypes: JSON.parse(r.preferred_chart_types),
-    domainFocus: JSON.parse(r.domain_focus),
-    correctionHistory: JSON.parse(r.correction_history),
-    implicitInterests: JSON.parse(r.implicit_interests),
+    parameterPriorities: safeParse<string[]>(r.parameter_priorities, []),
+    preferredChartTypes: safeParse<string[]>(r.preferred_chart_types, []),
+    domainFocus: safeParse<string[]>(r.domain_focus, []),
+    correctionHistory: safeParse(r.correction_history, []),
+    implicitInterests: safeParse<Record<string, number>>(r.implicit_interests, {}),
     updatedAt: r.updated_at,
   };
 }
