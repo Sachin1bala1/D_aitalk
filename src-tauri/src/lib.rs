@@ -26,6 +26,7 @@ pub fn run() {
             connections: Arc::new(ConnectionManager::new()),
             duckdb: Arc::new(duckdb),
             cancelled_queries: Arc::new(Mutex::new(HashSet::new())),
+            memory_db: Arc::new(tokio::sync::Mutex::new(None)),
         })
         .invoke_handler(tauri::generate_handler![
             commands::health_check,
@@ -48,6 +49,11 @@ pub fn run() {
             commands::store_api_key,
             commands::get_api_key,
             commands::delete_api_key,
+            commands::init_memory_db,
+            commands::memory_insert_episode,
+            commands::memory_get_episodes,
+            commands::memory_get_calibration,
+            commands::memory_update_calibration,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
