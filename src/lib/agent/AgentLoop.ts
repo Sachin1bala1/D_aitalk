@@ -20,6 +20,12 @@ import { withRetry } from "../ai/resilience";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+export interface MemoryContext {
+  recentEpisodes: import("../memory/EpisodicMemory").Episode[];
+  priorityParams: string[];
+  expertiseLevel: string;
+}
+
 export interface AgentLoopOptions {
   provider: AIProvider;
   model: string;
@@ -31,6 +37,7 @@ export interface AgentLoopOptions {
   onToolStart: (toolName: string, input: unknown) => void;
   onToolEnd: (toolName: string, result: CommandResult) => void;
   onPlanQueued: (stepId: string, description: string) => void;
+  memoryContext?: MemoryContext;
 }
 
 // ── System Prompt ─────────────────────────────────────────────────────────────
@@ -39,7 +46,8 @@ function buildSystemPrompt(
   schema: FullSchema | null,
   currentSQL: string | null,
   currentResults: QueryResults | null,
-  agentMode: "plan" | "auto"
+  agentMode: "plan" | "auto",
+  memoryContext?: MemoryContext
 ): string {
   const parts: string[] = [];
 
@@ -165,6 +173,27 @@ Always prefer stat tools over manual SQL aggregations for statistical work — t
 - Use set_editor_content when the user wants to review SQL before running
 - Quote all SQL identifiers: "schema"."table"."column"
 - Never call delete_rows or drop_column without explicit user confirmation`);
+
+  if (memoryContext) {
+    if (memoryContext.recentEpisodes.length > 0) {
+      const episodeLines = memoryContext.recentEpisodes
+        .slice(0, 5)
+        .map((ep) => {
+          const date = new Date(ep.createdAt).toLocaleDateString();
+          const summary = typeof ep.findings.summary === "string"
+            ? ep.findings.summary
+            : JSON.stringify(ep.findings).slice(0, 120);
+          return `- [${date}] User asked: "${ep.problem.slice(0, 80)}". Finding: ${summary}`;
+        })
+        .join("\n");
+      parts.push(`## Your Memory of Past Analyses\n${episodeLines}`);
+    }
+    if (memoryContext.priorityParams.length > 0) {
+      parts.push(
+        `## User Priority Parameters\nBased on past sessions, this user frequently analyzes: ${memoryContext.priorityParams.join(", ")}\nCalibrated expertise level: ${memoryContext.expertiseLevel}`
+      );
+    }
+  }
 
   return parts.join("\n\n");
 }
@@ -339,7 +368,7 @@ export async function runAgentLoop(
   } = options;
 
   const { agentMode, addPlanStep } = useWorkspaceStore.getState();
-  const system = buildSystemPrompt(schema, currentSQL, currentResults, agentMode);
+  const system = buildSystemPrompt(schema, currentSQL, currentResults, agentMode, options.memoryContext);
 
   // Append the user message to working history
   const working: ConversationTurn[] = [

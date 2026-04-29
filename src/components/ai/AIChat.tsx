@@ -19,6 +19,9 @@ import { ProviderSettingsDialog } from "./ProviderSettingsDialog";
 import { UserToolsPanel } from "./UserToolsPanel";
 import { ToolCallLog } from "./ToolCallLog";
 import type { ToolLogEntry } from "./ToolCallLog";
+import { EpisodicMemory } from "../../lib/memory/EpisodicMemory";
+import { UserCalibrationProfile } from "../../lib/memory/UserCalibrationProfile";
+import type { MemoryContext } from "../../lib/agent/AgentLoop";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -116,6 +119,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
   const [isProcessing, setIsProcessing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef<ConversationTurn[]>(loadTurns());
+  const toolsCalledRef = useRef<string[]>([]);
 
   // Load API keys from OS keychain on mount and merge into settings
   useEffect(() => {
@@ -202,18 +206,37 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
     addMsg({ role: "user", content: userMsg });
     setIsProcessing(true);
 
+    // Search memory for relevant past analyses
+    let memoryContext: MemoryContext | undefined;
     try {
-      const { updatedHistory } = await runAgentLoop(userMsg, historyRef.current, {
+      const [episodes, profile] = await Promise.all([
+        EpisodicMemory.search(userMsg, 5, connectionId ?? undefined),
+        UserCalibrationProfile.getProfile(),
+      ]);
+      memoryContext = {
+        recentEpisodes: episodes,
+        priorityParams: profile.parameterPriorities,
+        expertiseLevel: profile.expertiseLevel,
+      };
+    } catch {
+      // Memory failure must not block the agent
+    }
+    toolsCalledRef.current = [];
+
+    try {
+      const { finalText, updatedHistory } = await runAgentLoop(userMsg, historyRef.current, {
         provider,
         model: activeModel,
         connectionId,
         schema: currentSchema,
         currentSQL,
         currentResults,
+        memoryContext,
 
         onToken: appendToken,
 
         onToolStart: (toolName, input) => {
+          toolsCalledRef.current.push(toolName);
           const entry: ToolLogEntry = {
             id: `tl-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
             toolName,
@@ -268,6 +291,19 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       finalizeStream();
       historyRef.current = updatedHistory;
       localStorage.setItem(CONV_STORAGE_KEY, JSON.stringify(updatedHistory));
+
+      // Store this analysis session in episodic memory
+      try {
+        await EpisodicMemory.store({
+          sessionId: `session-${Date.now()}`,
+          connectionId: connectionId ?? undefined,
+          problem: userMsg,
+          toolsUsed: toolsCalledRef.current,
+          findings: { summary: finalText?.slice(0, 300) ?? "" },
+        });
+      } catch {
+        // Memory store failure must not affect UI
+      }
     } catch (e: any) {
       finalizeStream();
       const rawMsg: string = e?.message ?? String(e);
