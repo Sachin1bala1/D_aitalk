@@ -562,9 +562,10 @@ pub async fn init_memory_db(
     let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
     std::fs::create_dir_all(&app_data).map_err(|e| e.to_string())?;
     let db_path = app_data.join("daitalk_memory.db");
-    let pool = crate::db::memory::open_memory_db(
-        db_path.to_str().ok_or("Invalid path")?
-    ).await?;
+    let path_str = db_path.to_str().ok_or("Invalid path")?;
+    // Normalize to forward slashes — SQLite URL parser requires them on Windows
+    let path_url = path_str.replace('\\', "/");
+    let pool = crate::db::memory::open_memory_db(&path_url).await?;
     let mut guard = state.memory_db.lock().await;
     *guard = Some(pool);
     Ok(())
@@ -576,8 +577,7 @@ pub async fn memory_insert_episode(
     episode: MemoryEpisode,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    let guard = state.memory_db.lock().await;
-    let pool = guard.as_ref().ok_or("Memory DB not initialized")?;
+    let pool = { state.memory_db.lock().await.as_ref().ok_or("Memory DB not initialized")?.clone() };
     sqlx::query(
         "INSERT OR REPLACE INTO memory_episodes
          (id, session_id, connection_id, problem, tools_used, findings, outcome, embedding, created_at)
@@ -592,7 +592,7 @@ pub async fn memory_insert_episode(
     .bind(&episode.outcome)
     .bind(&episode.embedding)
     .bind(episode.created_at)
-    .execute(pool)
+    .execute(&pool)
     .await
     .map_err(|e| e.to_string())?;
     Ok(())
@@ -606,8 +606,7 @@ pub async fn memory_get_episodes(
     connection_id: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<Vec<MemoryEpisode>, String> {
-    let guard = state.memory_db.lock().await;
-    let pool = guard.as_ref().ok_or("Memory DB not initialized")?;
+    let pool = { state.memory_db.lock().await.as_ref().ok_or("Memory DB not initialized")?.clone() };
     let lim = limit.unwrap_or(200);
     let rows = if let Some(cid) = connection_id {
         sqlx::query_as::<_, MemoryEpisode>(
@@ -616,7 +615,7 @@ pub async fn memory_get_episodes(
         )
         .bind(cid)
         .bind(lim)
-        .fetch_all(pool)
+        .fetch_all(&pool)
         .await
         .map_err(|e| e.to_string())?
     } else {
@@ -625,7 +624,7 @@ pub async fn memory_get_episodes(
              FROM memory_episodes ORDER BY created_at DESC LIMIT ?",
         )
         .bind(lim)
-        .fetch_all(pool)
+        .fetch_all(&pool)
         .await
         .map_err(|e| e.to_string())?
     };
@@ -637,14 +636,13 @@ pub async fn memory_get_episodes(
 pub async fn memory_get_calibration(
     state: State<'_, AppState>,
 ) -> Result<CalibrationProfile, String> {
-    let guard = state.memory_db.lock().await;
-    let pool = guard.as_ref().ok_or("Memory DB not initialized")?;
+    let pool = { state.memory_db.lock().await.as_ref().ok_or("Memory DB not initialized")?.clone() };
     let row = sqlx::query_as::<_, CalibrationProfile>(
         "SELECT id, expertise_level, parameter_priorities, preferred_chart_types,
          domain_focus, correction_history, implicit_interests, updated_at
          FROM user_calibration WHERE id = 'singleton'",
     )
-    .fetch_one(pool)
+    .fetch_one(&pool)
     .await
     .map_err(|e| e.to_string())?;
     Ok(row)
@@ -658,8 +656,7 @@ pub async fn memory_update_calibration(
     value: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    let guard = state.memory_db.lock().await;
-    let pool = guard.as_ref().ok_or("Memory DB not initialized")?;
+    let pool = { state.memory_db.lock().await.as_ref().ok_or("Memory DB not initialized")?.clone() };
     // Allowlist to prevent SQL injection via the dynamic field name
     let allowed = [
         "expertise_level",
@@ -679,7 +676,7 @@ pub async fn memory_update_calibration(
     sqlx::query(&sql)
         .bind(&value)
         .bind(chrono::Utc::now().timestamp())
-        .execute(pool)
+        .execute(&pool)
         .await
         .map_err(|e| e.to_string())?;
     Ok(())
