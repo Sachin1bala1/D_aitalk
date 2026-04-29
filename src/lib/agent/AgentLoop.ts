@@ -180,7 +180,8 @@ Always prefer stat tools over manual SQL aggregations for statistical work — t
         .slice(0, 5)
         .map((ep) => {
           const date = new Date(ep.createdAt).toLocaleDateString();
-          const summary = ep.outcome ?? (ep.findings as Record<string,string>)?.summary ?? "";
+          const rawSummary = ep.findings?.["summary"];
+          const summary = ep.outcome ?? (typeof rawSummary === "string" ? rawSummary : "");
           return `- [${date}] User asked: "${ep.problem.slice(0, 80)}". Finding: ${summary}`;
         })
         .join("\n");
