@@ -6,6 +6,8 @@ import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import { FullSchema, ConnectionConfig } from "../db/DbClient";
 import type { AgentCommand } from "../agent/commands";
+import type { WorkingMemoryState } from "../memory/WorkingMemory";
+import { DEFAULT_WORKING_MEMORY } from "../memory/WorkingMemory";
 
 export type AgentMode = "plan" | "auto";
 
@@ -105,6 +107,14 @@ export interface WorkspaceState {
   setEditorSql: (sql: string, tabId?: string) => void;
   setQueryResults: (results: QueryResults, tabId?: string) => void;
   setTabExecuting: (executing: boolean, tabId?: string) => void;
+
+  // Memory
+  workingMemory: WorkingMemoryState;
+  setActiveQuestion: (q: string | null) => void;
+  addToolTried: (toolName: string) => void;
+  addFinding: (finding: string) => void;
+  addPreference: (pref: string) => void;
+  resetWorkingMemory: () => void;
 }
 
 const DEFAULT_TAB: TabState = {
@@ -134,6 +144,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
     tabs: [DEFAULT_TAB],
     activeTabId: "tab-1",
+
+    workingMemory: { ...DEFAULT_WORKING_MEMORY, sessionStartTime: Date.now() },
 
     setAgentMode: (mode) =>
       set((state) => {
@@ -280,6 +292,19 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         const id = tabId ?? state.activeTabId;
         const tab = state.tabs.find((t) => t.id === id);
         if (tab) tab.isExecuting = executing;
+      }),
+
+    setActiveQuestion: (q) =>
+      set((state) => { state.workingMemory.activeQuestion = q; }),
+    addToolTried: (toolName) =>
+      set((state) => { state.workingMemory.toolsTriedThisSession.push(toolName); }),
+    addFinding: (finding) =>
+      set((state) => { state.workingMemory.findingsSoFar.push(finding); }),
+    addPreference: (pref) =>
+      set((state) => { state.workingMemory.userPreferencesStated.push(pref); }),
+    resetWorkingMemory: () =>
+      set((state) => {
+        state.workingMemory = { ...DEFAULT_WORKING_MEMORY, sessionStartTime: Date.now() };
       }),
   }))
 );
