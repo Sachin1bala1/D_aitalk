@@ -648,6 +648,19 @@ pub async fn memory_get_calibration(
     Ok(row)
 }
 
+/// Delete all memory episodes from the database.
+#[tauri::command]
+pub async fn memory_clear_episodes(
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let pool = { state.memory_db.lock().await.as_ref().ok_or("Memory DB not initialized")?.clone() };
+    sqlx::query("DELETE FROM memory_episodes")
+        .execute(&pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 /// Update a single field of the user calibration profile.
 /// Only allowlisted fields can be updated to prevent SQL injection.
 #[tauri::command]

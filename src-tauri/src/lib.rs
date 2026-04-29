@@ -54,6 +54,7 @@ pub fn run() {
             commands::memory_get_episodes,
             commands::memory_get_calibration,
             commands::memory_update_calibration,
+            commands::memory_clear_episodes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
