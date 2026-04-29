@@ -300,6 +300,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
           problem: userMsg,
           toolsUsed: toolsCalledRef.current,
           findings: { summary: finalText?.slice(0, 300) ?? "" },
+          outcome: finalText?.slice(0, 300) ?? "",
         });
       } catch {
         // Memory store failure must not affect UI
