@@ -200,6 +200,23 @@ export interface CreatePipelineCmd {
   risk: "caution";
 }
 
+// ── Hypothesis Engine ─────────────────────────────────────────────────────────
+
+export interface Hypothesis {
+  statement: string;
+  probability: number;
+  evidence_for?: string;
+  evidence_against?: string;
+  discriminating_test?: string;
+}
+
+export interface DeclareHypothesesCmd {
+  type: "declare_hypotheses";
+  hypotheses: Hypothesis[];
+  problemFrame: string;
+  risk: "safe";
+}
+
 // ── Union ─────────────────────────────────────────────────────────────────────
 
 export type AgentCommand =
@@ -223,7 +240,8 @@ export type AgentCommand =
   | RunUserToolCmd
   | CreateChartCmd
   | CreatePipelineCmd
-  | NotifyUserCmd;
+  | NotifyUserCmd
+  | DeclareHypothesesCmd;
 
 export type CommandType = AgentCommand["type"];
 
@@ -263,5 +281,6 @@ export function describeCommand(cmd: AgentCommand): string {
     case "create_pipeline": return `Create pipeline "${cmd.name}" → ${cmd.targetTable}`;
     case "close_tab": return cmd.tabId ? `Close tab ${cmd.tabId}` : `Close active tab`;
     case "notify_user": return `Notify: ${cmd.message}`;
+    case "declare_hypotheses": return `Declare ${cmd.hypotheses.length} hypothesis${cmd.hypotheses.length !== 1 ? "es" : ""}: ${cmd.problemFrame.slice(0, 60)}`;
   }
 }

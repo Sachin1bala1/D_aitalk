@@ -34,6 +34,7 @@ import type {
   CreateChartCmd,
   CreatePipelineCmd,
   NotifyUserCmd,
+  DeclareHypothesesCmd,
 } from "./commands";
 import { useUserToolStore } from "../stores/UserToolStore";
 import { fillTemplate } from "../tools/user.tools";
@@ -486,5 +487,12 @@ export function registerHandlers() {
     }[cmd.level];
     fn(cmd.message);
     return { success: true };
+  });
+
+  // ── Hypothesis Engine ─────────────────────────────────────────────────────
+
+  commandBus.register<DeclareHypothesesCmd>("declare_hypotheses", async (cmd) => {
+    useWorkspaceStore.getState().setActiveHypotheses(cmd.hypotheses, cmd.problemFrame);
+    return { success: true, result: "Hypotheses declared" };
   });
 }

@@ -7,7 +7,7 @@
 import { commandBus } from "./CommandBus";
 import { AGENT_TOOLS } from "./toolDefinitions";
 import { isDestructive, describeCommand } from "./commands";
-import type { AgentCommand, RunUserToolCmd } from "./commands";
+import type { AgentCommand, RunUserToolCmd, DeclareHypothesesCmd } from "./commands";
 import { useUserToolStore } from "../stores/UserToolStore";
 import { userToolToUnifiedTool } from "../tools/user.tools";
 import { statToolToKernelKey } from "../tools/stat.tools";
@@ -166,6 +166,9 @@ Always prefer stat tools over manual SQL aggregations for statistical work — t
       .join("\n");
     parts.push(`## Your Custom Tools (call these proactively when user intent matches)\n${lines}`);
   }
+
+  parts.push(`## Mandatory Hypothesis Protocol
+For any question about anomalies, quality issues, process upsets, or unexplained changes: you MUST call declare_hypotheses BEFORE calling any analysis tool. List 2-5 competing explanations with rough probabilities. After each tool result, update your hypotheses (call declare_hypotheses again with revised probabilities). State which hypothesis was confirmed or eliminated.`);
 
   parts.push(`GUIDELINES:
 - Explain what you are doing before calling tools
@@ -340,6 +343,13 @@ function toolCallToCommand(
         message: i.message as string,
         level: i.level as "info" | "success" | "warning" | "error",
         risk: "safe",
+      };
+    case "declare_hypotheses":
+      return {
+        type: "declare_hypotheses",
+        hypotheses: i.hypotheses as DeclareHypothesesCmd["hypotheses"],
+        problemFrame: i.problem_frame as string,
+        risk: "safe" as const,
       };
     default:
       return null;

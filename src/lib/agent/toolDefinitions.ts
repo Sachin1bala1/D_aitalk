@@ -276,4 +276,31 @@ export const AGENT_TOOLS: UnifiedTool[] = [
       required: ["message", "level"],
     },
   },
+
+  // ── Hypothesis Engine ─────────────────────────────────────────────────────
+  {
+    name: "declare_hypotheses",
+    description:
+      "Before running any analysis tool, declare your competing hypotheses about what is causing the observed pattern. ALWAYS call this first when analyzing an anomaly, quality issue, or process upset.",
+    parameters: {
+      type: "object",
+      properties: {
+        hypotheses: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              statement: { type: "string" },
+              probability: { type: "number", description: "0.0 to 1.0" },
+              evidence_for: { type: "string" },
+              evidence_against: { type: "string" },
+              discriminating_test: { type: "string", description: "What single analysis would confirm this?" },
+            },
+          },
+        } as any,
+        problem_frame: { type: "string", description: "One sentence: what exactly is being investigated?" },
+      },
+      required: ["hypotheses", "problem_frame"],
+    },
+  },
 ];

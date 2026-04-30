@@ -5,7 +5,7 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import { FullSchema, ConnectionConfig } from "../db/DbClient";
-import type { AgentCommand } from "../agent/commands";
+import type { AgentCommand, Hypothesis } from "../agent/commands";
 import type { WorkingMemoryState } from "../memory/WorkingMemory";
 import { DEFAULT_WORKING_MEMORY } from "../memory/WorkingMemory";
 
@@ -115,6 +115,12 @@ export interface WorkspaceState {
   addFinding: (finding: string) => void;
   addPreference: (pref: string) => void;
   resetWorkingMemory: () => void;
+
+  // Hypothesis Engine
+  activeHypotheses: Hypothesis[] | null;
+  hypothesisProblemFrame: string | null;
+  setActiveHypotheses: (h: Hypothesis[], frame: string) => void;
+  clearHypotheses: () => void;
 }
 
 const DEFAULT_TAB: TabState = {
@@ -146,6 +152,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     activeTabId: "tab-1",
 
     workingMemory: { ...DEFAULT_WORKING_MEMORY, sessionStartTime: Date.now() },
+
+    activeHypotheses: null,
+    hypothesisProblemFrame: null,
 
     setAgentMode: (mode) =>
       set((state) => {
@@ -305,6 +314,18 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     resetWorkingMemory: () =>
       set((state) => {
         state.workingMemory = { ...DEFAULT_WORKING_MEMORY, sessionStartTime: Date.now() };
+      }),
+
+    setActiveHypotheses: (h, frame) =>
+      set((state) => {
+        state.activeHypotheses = h as any;
+        state.hypothesisProblemFrame = frame;
+      }),
+
+    clearHypotheses: () =>
+      set((state) => {
+        state.activeHypotheses = null;
+        state.hypothesisProblemFrame = null;
       }),
   }))
 );
