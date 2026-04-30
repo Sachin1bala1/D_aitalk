@@ -318,7 +318,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
     setActiveHypotheses: (h, frame) =>
       set((state) => {
-        state.activeHypotheses = h as any;
+        state.activeHypotheses = h as Hypothesis[];
         state.hypothesisProblemFrame = frame;
       }),
 

@@ -296,6 +296,7 @@ export const AGENT_TOOLS: UnifiedTool[] = [
               evidence_against: { type: "string" },
               discriminating_test: { type: "string", description: "What single analysis would confirm this?" },
             },
+            required: ["statement", "probability"],
           },
         } as any,
         problem_frame: { type: "string", description: "One sentence: what exactly is being investigated?" },
