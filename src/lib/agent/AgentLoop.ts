@@ -57,7 +57,7 @@ function classifyQueryDepth(question: string): 'fast' | 'deep' {
 
   // Fast path indicators
   if (q.includes('how many') || q.includes('count') || q.includes('list') ||
-      q.includes('show me') || q.includes('what columns') || q.includes('show me')) return 'fast';
+      q.includes('show me') || q.includes('what columns')) return 'fast';
 
   // SQL request
   if (q.startsWith('select') || q.includes('run query') || q.includes('execute')) return 'fast';
