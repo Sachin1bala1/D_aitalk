@@ -42,6 +42,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # duckdb = { version = "1", features = ["bundled"] }  # TODO: re-enable; bundled g++ OOM on Windows MinGW
 keyring = "3"
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
 
 # Phase 43 — MongoDB
 mongodb = "3"
