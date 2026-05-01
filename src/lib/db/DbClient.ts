@@ -119,21 +119,30 @@ export interface QueryBatch {
 
 export const DbClient = {
   async connect(config: ConnectionConfig): Promise<void> {
-    // If the connection_string has no embedded password (no "@" with a password component),
-    // attempt to restore it from the OS keychain before handing off to Rust.
     let resolved = config;
-    if (!config.connection_string?.includes('@')) {
-      try {
+    try {
+      // Detect whether the password was stripped: PI missing password, or URL with empty password component
+      const needsKeychain =
+        config.pi_config !== undefined
+          ? !config.pi_config.password
+          : (() => {
+              try { return !new URL(config.connection_string ?? '').password; } catch { return false; }
+            })();
+      if (needsKeychain) {
         const pw = await invoke<string | null>('get_credential', { key: `conn_${config.id}_password` });
         if (pw) {
-          resolved = { ...config, connection_string: config.connection_string };
-          // Restore pi_config password if applicable, otherwise embed in connection_string
-          if (resolved.pi_config !== undefined) {
-            resolved = { ...resolved, pi_config: { ...resolved.pi_config, password: pw } };
+          if (config.pi_config !== undefined) {
+            resolved = { ...config, pi_config: { ...config.pi_config, password: pw } };
+          } else if (config.connection_string) {
+            try {
+              const url = new URL(config.connection_string);
+              url.password = encodeURIComponent(pw);
+              resolved = { ...config, connection_string: url.toString() };
+            } catch { /* non-URL (e.g. SQLite file path) — connect without password */ }
           }
         }
-      } catch { /* keychain unavailable */ }
-    }
+      }
+    } catch { /* keychain unavailable — connect with config as-is */ }
     return invoke("db_connect", { config: resolved });
   },
 
