@@ -1,0 +1,8 @@
+{
+  "supportUrl": "https://example.com/support",
+  "privacyPolicyUrl": "https://example.com/privacy",
+  "publisherContactEmail": "support@example.com",
+  "shortDescription": "Replace with the final Microsoft Store short description.",
+  "category": "Developer tools",
+  "notes": "Copy this file to store-metadata.json and replace all placeholder values before final submission."
+}

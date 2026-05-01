@@ -1,0 +1,60 @@
+[package]
+name = "daitalk"
+version = "0.1.0"
+description = "Daitalk - AI-powered database IDE"
+authors = []
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "daitalk_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.8", features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "postgres",
+    "mysql",
+    "sqlite",
+    "chrono",
+    "uuid",
+    "json",
+] }
+# MSSQL via tiberius
+tiberius = { version = "0.12", default-features = false, features = ["tokio", "rustls", "chrono", "tds73"] }
+tokio-util = { version = "0.7", features = ["compat"] }
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "2"
+futures = "0.3"
+url = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+sqlparser = "0.43"
+
+# duckdb = { version = "1", features = ["bundled"] }  # TODO: re-enable; bundled g++ OOM on Windows MinGW
+keyring = "3"
+
+# Phase 43 — MongoDB
+mongodb = "3"
+
+# Phase 44 — Redis
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
+
+# Phase 45 — ClickHouse
+clickhouse = "0.13"
+
+# Phase 1 — SSH tunnel
+ssh2 = "0.9"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

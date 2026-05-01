@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Daitalk Privacy Policy</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7fafc;
+        --panel: #ffffff;
+        --text: #132238;
+        --muted: #4f6177;
+        --border: #d9e2ef;
+        --accent: #0f9fbc;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background:
+          radial-gradient(circle at top right, rgba(15, 159, 188, 0.12), transparent 26rem),
+          linear-gradient(180deg, #fbfdff 0%, var(--bg) 100%);
+        color: var(--text);
+      }
+
+      main {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 44px 20px 80px;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 20px 60px rgba(19, 34, 56, 0.08);
+      }
+
+      h1, h2 { margin: 0 0 12px; }
+      h1 { font-size: clamp(2rem, 4vw, 3rem); }
+      h2 { font-size: 1.2rem; margin-top: 28px; }
+      p, li { color: var(--muted); line-height: 1.7; }
+      ul { padding-left: 20px; }
+      a { color: var(--accent); }
+      .stamp { margin-bottom: 18px; color: var(--muted); }
+      code {
+        background: #eef5fb;
+        border-radius: 6px;
+        padding: 2px 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <p class="stamp">Last updated: 2026-05-01</p>
+        <h1>Daitalk Privacy Policy</h1>
+        <p>
+          Daitalk is a Windows desktop database workspace. This page explains what Daitalk stores
+          locally on your device, what network services may be contacted when you enable optional
+          features, and what controls you have over local app data.
+        </p>
+
+        <h2>Desktop-only database access</h2>
+        <p>
+          Native database access is available in the installed desktop application. Browser preview
+          mode is intended for UI development and preview only and does not provide native database
+          connectivity.
+        </p>
+
+        <h2>What Daitalk stores locally</h2>
+        <ul>
+          <li>Local query history</li>
+          <li>Visualization and intelligence telemetry</li>
+          <li>Benchmark records</li>
+          <li>Security audit events</li>
+          <li>Saved connection metadata used to restore saved connection entries</li>
+        </ul>
+
+        <h2>What is redacted before storage</h2>
+        <p>
+          Daitalk redacts string literals before storing query history locally. This reduces the
+          chance that sensitive string values typed directly into queries are persisted in plain
+          form in local history storage.
+        </p>
+
+        <h2>Credentials and secrets</h2>
+        <p>
+          Saved provider keys are intended to be stored using operating-system secure credential
+          storage. Ordinary local history tables are not intended to act as a plaintext secret
+          store.
+        </p>
+
+        <h2>What users can clear</h2>
+        <p>
+          Daitalk provides Safety &amp; Local Data controls that allow users to inspect and clear:
+        </p>
+        <ul>
+          <li>Query history</li>
+          <li>Local telemetry</li>
+          <li>Benchmark records</li>
+          <li>Security audit events</li>
+        </ul>
+
+        <h2>Network connections</h2>
+        <p>
+          Daitalk may connect to user-configured databases and, when optional AI features are
+          enabled by the user, to supported hosted AI providers.
+        </p>
+        <p>
+          Current supported hosted provider endpoints may include:
+        </p>
+        <ul>
+          <li><code>https://api.openai.com</code></li>
+          <li><code>https://api.anthropic.com</code></li>
+          <li><code>https://generativelanguage.googleapis.com</code></li>
+          <li><code>https://integrate.api.nvidia.com</code></li>
+        </ul>
+        <p>
+          If these optional features are not configured or used, those provider requests are not
+          required for normal local desktop use.
+        </p>
+
+        <h2>AI-assisted actions</h2>
+        <p>
+          Daitalk includes optional AI-assisted features. AI-assisted actions that could modify data
+          or schema are intended to require explicit user approval before execution.
+        </p>
+
+        <h2>Contact</h2>
+        <p>
+          For privacy or support questions, contact
+          <a href="mailto:sachin.bala@wmich.edu">sachin.bala@wmich.edu</a>.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

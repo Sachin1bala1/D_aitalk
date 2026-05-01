@@ -1,0 +1,7 @@
+[build]
+# Keep local builds on the default MSVC toolchain. Do not force MinGW/MSYS linkers.
+
+[env]
+# Recommended for secure Windows dev setups:
+# set CARGO_TARGET_DIR to an approved non-synced path such as
+# C:\DevBuild\DaitalkTarget or %LOCALAPPDATA%\Daitalk\target

@@ -1,0 +1,103 @@
+/**
+ * resilience.ts — exponential backoff + retry for AI provider calls.
+ *
+ * Retries on:
+ *   - HTTP 429 (rate limit) — with Retry-After header respect if present
+ *   - HTTP 5xx (server errors)
+ *   - Network errors (fetch failed, AbortError)
+ *
+ * Does NOT retry on:
+ *   - HTTP 4xx (bad request, invalid key, etc.) — these are caller bugs
+ *   - Tool call errors — those are logic errors, not transient
+ */
+
+export interface RetryOptions {
+  maxAttempts?: number;       // default 3
+  baseDelayMs?: number;       // default 1000ms
+  maxDelayMs?: number;        // default 16_000ms
+  onRetry?: (attempt: number, delayMs: number, error: unknown) => void;
+}
+
+const DEFAULT_OPTS: Required<RetryOptions> = {
+  maxAttempts: 3,
+  baseDelayMs: 1_000,
+  maxDelayMs: 16_000,
+  onRetry: () => {},
+};
+
+function isRetryable(err: unknown): boolean {
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase();
+    // Network failures
+    if (msg.includes("fetch") || msg.includes("network") || msg.includes("econnrefused")) return true;
+    // Rate limit / server error codes embedded in message
+    if (msg.includes("429") || msg.includes("rate limit") || msg.includes("too many")) return true;
+    if (msg.includes("500") || msg.includes("502") || msg.includes("503") || msg.includes("504")) return true;
+    // Anthropic SDK specific
+    if (msg.includes("overloaded")) return true;
+  }
+  // Check if it's an API error object with a status field
+  if (typeof err === "object" && err !== null) {
+    const status = (err as Record<string, unknown>).status as number | undefined;
+    if (status === 429 || (status !== undefined && status >= 500)) return true;
+  }
+  return false;
+}
+
+function extractRetryAfterMs(err: unknown): number | null {
+  // Some SDKs expose headers on the error
+  if (typeof err === "object" && err !== null) {
+    const headers = (err as Record<string, unknown>).headers as Record<string, string> | undefined;
+    if (headers?.["retry-after"]) {
+      const secs = parseFloat(headers["retry-after"]);
+      if (!isNaN(secs)) return secs * 1_000;
+    }
+  }
+  return null;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Wraps an async function with exponential backoff retry.
+ *
+ * @param fn      The async function to execute (called with no args)
+ * @param opts    Retry configuration
+ * @returns       The result of `fn` on the first successful attempt
+ * @throws        The last error if all attempts fail
+ */
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  opts: RetryOptions = {}
+): Promise<T> {
+  const { maxAttempts, baseDelayMs, maxDelayMs, onRetry } = {
+    ...DEFAULT_OPTS,
+    ...opts,
+  };
+
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+
+      if (attempt === maxAttempts || !isRetryable(err)) {
+        throw err;
+      }
+
+      // Respect Retry-After if present, otherwise exponential backoff
+      const retryAfterMs = extractRetryAfterMs(err);
+      const backoff = Math.min(baseDelayMs * Math.pow(2, attempt - 1), maxDelayMs);
+      const waitMs = retryAfterMs ?? backoff;
+
+      onRetry(attempt, waitMs, err);
+      await delay(waitMs);
+    }
+  }
+
+  throw lastError;
+}

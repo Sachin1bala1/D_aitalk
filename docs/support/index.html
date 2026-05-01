@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Daitalk Support</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f3f6fb;
+        --panel: #ffffff;
+        --text: #112033;
+        --muted: #4e6075;
+        --border: #d9e2ef;
+        --accent: #0ea5d8;
+        --accent-dark: #0b7da5;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(14, 165, 216, 0.14), transparent 28rem),
+          linear-gradient(180deg, #f9fbfe 0%, var(--bg) 100%);
+        color: var(--text);
+      }
+
+      main {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 48px 20px 80px;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 28px;
+        box-shadow: 0 20px 60px rgba(17, 32, 51, 0.08);
+      }
+
+      h1, h2 { margin: 0 0 12px; }
+      h1 { font-size: clamp(2rem, 4vw, 3rem); }
+      h2 { font-size: 1.15rem; margin-top: 28px; }
+      p, li { color: var(--muted); line-height: 1.6; }
+      ul { padding-left: 20px; }
+      a { color: var(--accent-dark); }
+
+      .hero {
+        display: grid;
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+
+      .cta {
+        display: inline-block;
+        margin-top: 12px;
+        padding: 12px 18px;
+        border-radius: 12px;
+        background: var(--accent);
+        color: white;
+        text-decoration: none;
+        font-weight: 600;
+      }
+
+      .meta {
+        margin-top: 28px;
+        font-size: 0.95rem;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <div class="hero">
+          <p>Daitalk</p>
+          <h1>Support</h1>
+          <p>
+            Daitalk is a Windows desktop workspace for querying databases, exploring schemas,
+            building dashboards, and using optional AI-assisted analysis.
+          </p>
+          <p>
+            If you need help with installation, setup, database access, dashboards, or safety and
+            local-data controls, use the contact email below.
+          </p>
+          <a class="cta" href="mailto:sachin.bala@wmich.edu">Email Support</a>
+        </div>
+
+        <h2>Support contact</h2>
+        <p>
+          Email: <a href="mailto:sachin.bala@wmich.edu">sachin.bala@wmich.edu</a>
+        </p>
+
+        <h2>What to include in a support request</h2>
+        <ul>
+          <li>Your Windows version</li>
+          <li>Your Daitalk app version</li>
+          <li>A short description of the problem</li>
+          <li>Any exact error text shown in the app</li>
+          <li>Whether the issue happened during install, database use, AI use, or dashboard work</li>
+        </ul>
+
+        <h2>Common product notes</h2>
+        <ul>
+          <li>Native database access is available in the installed desktop app.</li>
+          <li>Browser preview mode is for UI preview only and does not provide native DB access.</li>
+          <li>AI-assisted destructive actions are intended to require explicit approval.</li>
+          <li>Safety &amp; Local Data controls let users inspect and clear local app data.</li>
+        </ul>
+
+        <p class="meta">
+          This support page is intended for Microsoft Store and Windows release use.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

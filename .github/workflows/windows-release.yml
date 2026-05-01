@@ -1,0 +1,68 @@
+name: windows-release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      CARGO_TARGET_DIR: C:\cargo-target\daitalk
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Rust stable
+        shell: powershell
+        run: |
+          rustup update stable
+          rustup default stable-x86_64-pc-windows-msvc
+
+      - name: Verify toolchain
+        shell: powershell
+        run: |
+          cargo --version
+          rustc --version
+          npm --version
+
+      - name: Install frontend dependencies
+        shell: powershell
+        run: npm ci
+
+      - name: Build unsigned bundle
+        shell: powershell
+        run: npm run tauri:build:ci
+
+      - name: Import signing certificate
+        if: github.ref_type == 'tag' && secrets.WINDOWS_CERT_BASE64 != '' && secrets.WINDOWS_CERT_PASSWORD != '' && secrets.WINDOWS_SIGN_CERT_SHA1 != ''
+        shell: powershell
+        run: |
+          $certBytes = [Convert]::FromBase64String("${{ secrets.WINDOWS_CERT_BASE64 }}")
+          $certPath = Join-Path $env:RUNNER_TEMP "daitalk-release-cert.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+          Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString -String "${{ secrets.WINDOWS_CERT_PASSWORD }}" -AsPlainText -Force) | Out-Null
+
+      - name: Sign Windows artifacts
+        if: github.ref_type == 'tag' && secrets.WINDOWS_CERT_BASE64 != '' && secrets.WINDOWS_CERT_PASSWORD != '' && secrets.WINDOWS_SIGN_CERT_SHA1 != ''
+        shell: powershell
+        env:
+          WINDOWS_SIGN_CERT_SHA1: ${{ secrets.WINDOWS_SIGN_CERT_SHA1 }}
+        run: |
+          .\scripts\sign-windows-artifacts.ps1 -CargoTargetDir $env:CARGO_TARGET_DIR
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: daitalk-windows-bundle
+          path: |
+            ${{ env.CARGO_TARGET_DIR }}\release\bundle\**\*.exe
+            ${{ env.CARGO_TARGET_DIR }}\release\bundle\**\*.msi
