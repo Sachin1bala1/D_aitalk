@@ -40,6 +40,34 @@ export interface AgentLoopOptions {
   memoryContext?: MemoryContext;
 }
 
+// ── Query Depth Classifier ────────────────────────────────────────────────────
+
+function classifyQueryDepth(question: string): 'fast' | 'deep' {
+  const q = question.toLowerCase();
+
+  // Deep path indicators
+  const deepKeywords = ['why', 'root cause', 'anomaly', 'unusual', 'problem',
+    'investigate', 'analyze', 'analyse', 'diagnose', 'correlate', 'cause'];
+  if (deepKeywords.some(k => q.includes(k))) return 'deep';
+
+  // Multiple variables indicator
+  const commaCount = (q.match(/,/g) || []).length;
+  const andCount = (q.match(/\band\b/g) || []).length;
+  if (commaCount > 2 || andCount > 2) return 'deep';
+
+  // Fast path indicators
+  if (q.includes('how many') || q.includes('count') || q.includes('list') ||
+      q.includes('show me') || q.includes('what columns') || q.includes('show me')) return 'fast';
+
+  // SQL request
+  if (q.startsWith('select') || q.includes('run query') || q.includes('execute')) return 'fast';
+
+  // Very short questions default to fast
+  if (question.trim().split(/\s+/).length < 8) return 'fast';
+
+  return 'fast'; // default
+}
+
 // ── System Prompt ─────────────────────────────────────────────────────────────
 
 function buildSystemPrompt(
@@ -47,9 +75,20 @@ function buildSystemPrompt(
   currentSQL: string | null,
   currentResults: QueryResults | null,
   agentMode: "plan" | "auto",
-  memoryContext?: MemoryContext
+  memoryContext?: MemoryContext,
+  queryDepth?: 'fast' | 'deep'
 ): string {
   const parts: string[] = [];
+
+  if (queryDepth === 'deep') {
+    parts.push(
+      `DEEP ANALYSIS MODE: This question requires careful multi-step reasoning. You MUST: (1) call declare_hypotheses first, (2) run at least 2 independent tools before concluding, (3) call declare_confidence last.`
+    );
+  } else if (queryDepth === 'fast') {
+    parts.push(
+      `FAST MODE: Respond concisely. Use at most 1 tool. Skip hypothesis declaration unless the user is clearly asking about a process problem.`
+    );
+  }
 
   parts.push(
     `You are APEX — Autonomous Process Engineering eXpert, embedded in Daitalk: a desktop SQL IDE.
@@ -372,7 +411,7 @@ export async function runAgentLoop(
   userMessage: string,
   history: ConversationTurn[],
   options: AgentLoopOptions
-): Promise<{ finalText: string; updatedHistory: ConversationTurn[] }> {
+): Promise<{ finalText: string; updatedHistory: ConversationTurn[]; queryDepth: 'fast' | 'deep' }> {
   const {
     provider,
     model,
@@ -387,7 +426,8 @@ export async function runAgentLoop(
   } = options;
 
   const { agentMode, addPlanStep } = useWorkspaceStore.getState();
-  const system = buildSystemPrompt(schema, currentSQL, currentResults, agentMode, options.memoryContext);
+  const queryDepth = classifyQueryDepth(userMessage);
+  const system = buildSystemPrompt(schema, currentSQL, currentResults, agentMode, options.memoryContext, queryDepth);
 
   // Append the user message to working history
   const working: ConversationTurn[] = [
@@ -498,5 +538,5 @@ export async function runAgentLoop(
   }
 
   // Trim to last 40 turns to keep context manageable
-  return { finalText, updatedHistory: working.slice(-40) };
+  return { finalText, updatedHistory: working.slice(-40), queryDepth };
 }

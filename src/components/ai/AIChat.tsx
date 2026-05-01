@@ -129,6 +129,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
   const [messages, setMessages] = useState<ChatMessage[]>(loadMessages);
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [queryDepth, setQueryDepth] = useState<'fast' | 'deep' | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const historyRef = useRef<ConversationTurn[]>(loadTurns());
@@ -223,9 +224,10 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       return;
     }
 
-    // Clear stale hypotheses and confidence from previous conversation
+    // Clear stale hypotheses, confidence, and routing badge from previous conversation
     clearHypotheses();
     clearConfidence();
+    setQueryDepth(null);
 
     const userMsg = input.trim();
     setInput("");
@@ -250,7 +252,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
     toolsCalledRef.current = [];
 
     try {
-      const { finalText, updatedHistory } = await runAgentLoop(userMsg, historyRef.current, {
+      const { finalText, updatedHistory, queryDepth: resultDepth } = await runAgentLoop(userMsg, historyRef.current, {
         provider,
         model: activeModel,
         connectionId,
@@ -315,6 +317,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       });
 
       finalizeStream();
+      setQueryDepth(resultDepth ?? null);
       historyRef.current = updatedHistory;
       localStorage.setItem(CONV_STORAGE_KEY, JSON.stringify(updatedHistory));
 
@@ -463,6 +466,18 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
             <span className="text-[9px] text-white/25 font-mono truncate max-w-[140px]">
               {activeMeta.name} / {activeModel.split("/").pop()}
             </span>
+            {queryDepth === 'deep' && (
+              <>
+                <span className="text-[9px] text-white/15">·</span>
+                <span className="text-[9px] text-purple-400 font-bold uppercase tracking-widest">● Deep</span>
+              </>
+            )}
+            {queryDepth === 'fast' && (
+              <>
+                <span className="text-[9px] text-white/15">·</span>
+                <span className="text-[9px] text-teal-400 font-bold uppercase tracking-widest">● Fast</span>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button
