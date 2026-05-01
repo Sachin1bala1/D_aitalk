@@ -29,6 +29,8 @@ import { BindParamsDialog, detectParams } from "./components/dialogs/BindParamsD
 import { SessionMonitor } from "./components/panels/SessionMonitor";
 import { DatabaseOverview } from "./components/panels/DatabaseOverview";
 import { QuickOpenDialog } from "./components/dialogs/QuickOpenDialog";
+import { WelcomeScreen } from "./components/onboarding/WelcomeScreen";
+import { OnboardingTour } from "./components/onboarding/OnboardingTour";
 
 export default function App() {
   const {
@@ -54,6 +56,8 @@ export default function App() {
   } = useWorkspaceStore();
 
   const [isConnecting, setIsConnecting] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem("daitalk_onboarding_dismissed"));
+  const [showTour, setShowTour] = useState(false);
   const [activePanel, setActivePanel] = useState<"history" | "agent" | "erd" | "snippets" | "search" | "sessions" | "overview">("agent");
   const [inTransaction, setInTransaction] = useState(false);
   const [autoCommit, setAutoCommit] = useState(true);
@@ -438,6 +442,11 @@ export default function App() {
       saveConnection(config);
     }
     toast.success("Connected");
+    // First-run onboarding: dismiss welcome screen and launch tour if not yet completed
+    setShowWelcome(false);
+    if (!localStorage.getItem("daitalk_tour_completed")) {
+      setShowTour(true);
+    }
   };
 
   const handleDisconnect = async (connectionId: string) => {
@@ -593,7 +602,7 @@ export default function App() {
       <Toaster position="bottom-right" theme="dark" />
 
       {/* Left: Schema sidebar */}
-      <div className="w-64 border-r border-[#262626] flex flex-col bg-[#0d0d0d] shrink-0">
+      <div data-tour="schema-sidebar" className="w-64 border-r border-[#262626] flex flex-col bg-[#0d0d0d] shrink-0">
         <div className="h-12 flex items-center justify-between px-4 border-b border-[#262626]">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 bg-[#00d2ff] rounded flex items-center justify-center">
@@ -790,7 +799,7 @@ export default function App() {
                 </div>
               );
             })()}
-            <AgentModeToggle />
+            <div data-tour="plan-mode"><AgentModeToggle /></div>
             <button
               onClick={() => setShortcutsOpen(true)}
               className="p-1.5 hover:bg-white/10 rounded text-white/40 hover:text-white transition-colors"
@@ -805,7 +814,7 @@ export default function App() {
         <TabBar />
 
         {/* SQL Editor — resizable top pane */}
-        <div style={{ height: `${editorPct}%` }} className="border-b border-[#262626] shrink-0">
+        <div data-tour="sql-editor" style={{ height: `${editorPct}%` }} className="border-b border-[#262626] shrink-0">
           <SQLEditor
             value={activeTab?.sql ?? ""}
             onChange={(sql) => setEditorSql(sql)}
@@ -825,13 +834,13 @@ export default function App() {
         />
 
         {/* Results — remaining space */}
-        <div className="flex-1 overflow-hidden min-h-0">
+        <div data-tour="graph-builder" className="flex-1 overflow-hidden min-h-0">
           <VirtualTable />
         </div>
       </div>
 
       {/* Right: AI Panel */}
-      <div className="w-96 border-l border-[#262626] flex flex-col bg-[#0d0d0d] shrink-0">
+      <div data-tour="ai-panel" className="w-96 border-l border-[#262626] flex flex-col bg-[#0d0d0d] shrink-0">
         <div className="h-12 border-b border-[#262626] flex items-center px-4 gap-4 shrink-0">
           {(["agent", "history", "snippets", "erd", "search", "sessions", "overview"] as const).map((p) => (
             <button
@@ -937,6 +946,24 @@ export default function App() {
           handleExecute(sql);
         }}
       />
+
+      {showWelcome && (
+        <WelcomeScreen
+          onConnect={(driver) => {
+            setShowWelcome(false);
+            setIsConnecting(true);
+            // driver hint stored so ConnectionDialog can pre-select it if desired
+            void driver;
+          }}
+          onOpenFile={() => {
+            setShowWelcome(false);
+            handleOpenFile();
+          }}
+          onDismiss={() => setShowWelcome(false)}
+        />
+      )}
+
+      {showTour && <OnboardingTour onComplete={() => setShowTour(false)} />}
     </div>
   );
 }
