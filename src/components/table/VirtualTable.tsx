@@ -24,6 +24,7 @@ import { InsertRowDialog } from "../dialogs/InsertRowDialog";
 import { ColumnStatsPopover } from "./ColumnStatsPopover";
 import { ChartView } from "./ChartView";
 import { ExplainView } from "./ExplainView";
+import { GraphBuilderPanel } from "../charts/GraphBuilderPanel";
 
 const COL_WIDTH = 180;
 const ROW_HEIGHT = 36;
@@ -689,6 +690,7 @@ export function VirtualTable() {
   const focusedRowRef = useRef<number>(0);
   const [focusedCol, setFocusedCol] = useState<number>(0);
   const [chartVisible, setChartVisible] = useState(false);
+  const [graphBuilderVisible, setGraphBuilderVisible] = useState(false);
   const [pivotMode, setPivotMode] = useState(false);
 
   // Respond to create_chart command from agent
@@ -1081,11 +1083,18 @@ export function VirtualTable() {
               <PanelRight className="w-3 h-3" />
             </button>
             <button
-              onClick={() => setChartVisible((v) => !v)}
+              onClick={() => { setChartVisible((v) => !v); setGraphBuilderVisible(false); }}
               className={`p-1 rounded transition-colors ${chartVisible ? "text-[#00d2ff]" : "text-white/20 hover:text-white/50"}`}
               title="Toggle chart view"
             >
               {chartVisible ? <Table2 className="w-3 h-3" /> : <BarChart2 className="w-3 h-3" />}
+            </button>
+            <button
+              onClick={() => { setGraphBuilderVisible((v) => !v); setChartVisible(false); }}
+              className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded transition-colors text-[9px] font-mono font-bold ${graphBuilderVisible ? "bg-[#00d2ff]/20 text-[#00d2ff]" : "text-white/20 hover:text-white/50"}`}
+              title="Toggle JMP-style Graph Builder"
+            >
+              GB
             </button>
             <button
               onClick={() => setPivotMode((v) => !v)}
@@ -1230,13 +1239,20 @@ export function VirtualTable() {
         </div>
       )}
 
+      {/* ── Graph Builder view ──────────────────────────────────────── */}
+      {graphBuilderVisible && (
+        <div className="flex-1 overflow-hidden">
+          <GraphBuilderPanel columns={columns} data={rows} />
+        </div>
+      )}
+
       {/* ── Pivot / transpose view ────────────────────────────────────── */}
-      {!chartVisible && pivotMode && (
+      {!chartVisible && !graphBuilderVisible && pivotMode && (
         <PivotView columns={visibleColumns} rows={rows} />
       )}
 
       {/* ── Column headers + virtual data (hidden when chart is active) ── */}
-      {!chartVisible && !pivotMode && (<>
+      {!chartVisible && !graphBuilderVisible && !pivotMode && (<>
       <div
         ref={headerScrollRef}
         className="shrink-0 overflow-hidden border-b border-[#1a1a1a] bg-[#111]"
