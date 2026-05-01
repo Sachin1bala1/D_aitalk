@@ -529,6 +529,40 @@ pub fn delete_api_key(service: String) -> Result<(), String> {
     }
 }
 
+// ── Credential Vault ──────────────────────────────────────────────────────────
+
+/// Save an arbitrary credential (e.g. a connection password) to the OS keychain.
+#[tauri::command]
+pub fn save_credential(key: String, value: String) -> Result<(), String> {
+    let entry = keyring::Entry::new("daitalk", &key)
+        .map_err(|e| e.to_string())?;
+    entry.set_password(&value).map_err(|e| e.to_string())
+}
+
+/// Retrieve a credential from the OS keychain. Returns None if not set.
+#[tauri::command]
+pub fn get_credential(key: String) -> Result<Option<String>, String> {
+    let entry = keyring::Entry::new("daitalk", &key)
+        .map_err(|e| e.to_string())?;
+    match entry.get_password() {
+        Ok(pw) => Ok(Some(pw)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Delete a credential from the OS keychain. No-op if not found.
+#[tauri::command]
+pub fn delete_credential(key: String) -> Result<(), String> {
+    let entry = keyring::Entry::new("daitalk", &key)
+        .map_err(|e| e.to_string())?;
+    match entry.delete_credential() {
+        Ok(()) => Ok(()),
+        Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 // ── Health Check ──────────────────────────────────────────────────────────────
 
 #[tauri::command]

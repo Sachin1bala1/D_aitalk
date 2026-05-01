@@ -119,7 +119,22 @@ export interface QueryBatch {
 
 export const DbClient = {
   async connect(config: ConnectionConfig): Promise<void> {
-    return invoke("db_connect", { config });
+    // If the connection_string has no embedded password (no "@" with a password component),
+    // attempt to restore it from the OS keychain before handing off to Rust.
+    let resolved = config;
+    if (!config.connection_string?.includes('@')) {
+      try {
+        const pw = await invoke<string | null>('get_credential', { key: `conn_${config.id}_password` });
+        if (pw) {
+          resolved = { ...config, connection_string: config.connection_string };
+          // Restore pi_config password if applicable, otherwise embed in connection_string
+          if (resolved.pi_config !== undefined) {
+            resolved = { ...resolved, pi_config: { ...resolved.pi_config, password: pw } };
+          }
+        }
+      } catch { /* keychain unavailable */ }
+    }
+    return invoke("db_connect", { config: resolved });
   },
 
   async disconnect(connectionId: string): Promise<void> {
