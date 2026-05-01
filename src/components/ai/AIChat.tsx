@@ -5,7 +5,7 @@
  * Streams text tokens live, shows inline tool steps, handles Plan Mode queuing.
  */
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Sparkles, Settings2, Clock, Trash2, Wrench } from "lucide-react";
+import { Send, Sparkles, Settings2, Clock, Trash2, Wrench, FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import type { FullSchema } from "../../lib/db/DbClient";
 import type { QueryResults } from "../../lib/stores/WorkspaceStore";
@@ -24,6 +24,8 @@ import { ConfidenceBar } from "./ConfidenceBar";
 import { EpisodicMemory } from "../../lib/memory/EpisodicMemory";
 import { UserCalibrationProfile } from "../../lib/memory/UserCalibrationProfile";
 import type { MemoryContext } from "../../lib/agent/AgentLoop";
+import type { AnalysisSection } from "../../lib/reports/ReportBuilder";
+import { ReportPanel } from "../reports/ReportPanel";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -118,6 +120,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
     activeHypotheses,
     clearHypotheses,
     clearConfidence,
+    connections,
   } = useWorkspaceStore();
 
   const pendingChatInput = useWorkspaceStore((s) => s.pendingChatInput);
@@ -130,6 +133,8 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [queryDepth, setQueryDepth] = useState<'fast' | 'deep' | null>(null);
+  const [sessionSections, setSessionSections] = useState<AnalysisSection[]>([]);
+  const [reportPanelOpen, setReportPanelOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const historyRef = useRef<ConversationTurn[]>(loadTurns());
@@ -224,10 +229,11 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       return;
     }
 
-    // Clear stale hypotheses, confidence, and routing badge from previous conversation
+    // Clear stale hypotheses, confidence, routing badge, and session sections from previous conversation
     clearHypotheses();
     clearConfidence();
     setQueryDepth(null);
+    setSessionSections([]);
 
     const userMsg = input.trim();
     setInput("");
@@ -309,6 +315,23 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
             }
             return prev;
           });
+
+          // Track stat tool results for report session
+          if (toolName.startsWith("stat__") && result.success) {
+            const rawResult = result.result;
+            setSessionSections((prev) => [
+              ...prev,
+              {
+                toolName,
+                chartId: `chart-${toolName}-${Date.now()}`,
+                findings:
+                  typeof rawResult === "string"
+                    ? rawResult
+                    : JSON.stringify(rawResult).slice(0, 300),
+                timestamp: Date.now(),
+              },
+            ]);
+          }
         },
 
         onPlanQueued: (_stepId, description) => {
@@ -486,6 +509,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
                 historyRef.current = [];
                 localStorage.removeItem(CHAT_STORAGE_KEY);
                 localStorage.removeItem(CONV_STORAGE_KEY);
+                setSessionSections([]);
               }}
               className="flex items-center gap-1 text-[9px] text-white/20 hover:text-white/50 transition-colors uppercase tracking-widest"
               title="Clear conversation"
@@ -509,6 +533,13 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
             >
               <Settings2 className="w-2.5 h-2.5" /> Provider
             </button>
+            <button
+              onClick={() => setReportPanelOpen(true)}
+              title="Export Report"
+              className="p-1.5 rounded hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200"
+            >
+              <FileText className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
@@ -519,6 +550,16 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
         onSave={setProviderSettings}
       />
       {toolsPanelOpen && <UserToolsPanel onClose={() => setToolsPanelOpen(false)} />}
+      <ReportPanel
+        open={reportPanelOpen}
+        onOpenChange={setReportPanelOpen}
+        session={sessionSections.length > 0 ? {
+          userQuestion: messages[0]?.content ?? 'Analysis Session',
+          sections: sessionSections,
+          connectionName: connections.find((c) => c.id === connectionId)?.display_name ?? connectionId ?? 'Unknown',
+          finalText: messages[messages.length - 1]?.content ?? '',
+        } : null}
+      />
     </div>
   );
 }
