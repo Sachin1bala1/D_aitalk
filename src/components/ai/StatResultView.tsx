@@ -1,4 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
+import { Copy, MessageSquarePlus } from "lucide-react";
+import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
 
 interface ViolationItem { rule: number; index: number; value: number; description: string; }
 interface AnomalyItem { index: number; value: number; z_score: number; }
@@ -6,9 +8,14 @@ interface FreqItem { frequency: number; amplitude: number; }
 
 interface Props {
   data: Record<string, unknown>;
+  /** Optional label shown in the "Ask APEX" pre-fill text (e.g. "stat__describe result") */
+  label?: string;
 }
 
-export function StatResultView({ data }: Props) {
+export function StatResultView({ data, label = "this statistical result" }: Props) {
+  const setPendingChatInput = useWorkspaceStore((s) => s.setPendingChatInput);
+  const [copied, setCopied] = useState(false);
+
   const scalars = Object.entries(data).filter(
     ([, v]) => typeof v === "number" || typeof v === "string"
   ) as [string, number | string][];
@@ -17,8 +24,44 @@ export function StatResultView({ data }: Props) {
   const anomalies = Array.isArray(data.anomalies) ? data.anomalies as AnomalyItem[] : null;
   const dominantFreqs = Array.isArray(data.dominant_frequencies) ? data.dominant_frequencies as FreqItem[] : null;
 
+  function handleCopyData() {
+    const raw = JSON.stringify(data, null, 2);
+    navigator.clipboard.writeText(raw).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }).catch(() => {});
+  }
+
+  function handleAskApex() {
+    const scalarSummary = scalars
+      .map(([k, v]) => `${k}=${typeof v === "number" ? (Number.isInteger(v) ? v : v.toPrecision(5)) : v}`)
+      .join(", ");
+    const prompt = `Explain ${label}: ${scalarSummary || JSON.stringify(data).slice(0, 200)}. What does this mean for the process, and what should I do next?`;
+    setPendingChatInput(prompt);
+  }
+
   return (
     <div className="space-y-2 mt-1">
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 justify-end">
+        <button
+          onClick={handleCopyData}
+          title="Copy raw data as JSON"
+          className="flex items-center gap-1 text-[9px] text-white/25 hover:text-white/60 transition-colors font-mono uppercase tracking-widest"
+        >
+          <Copy className="w-2.5 h-2.5" />
+          {copied ? "Copied!" : "Copy data"}
+        </button>
+        <button
+          onClick={handleAskApex}
+          title="Pre-fill chat with a question about this result"
+          className="flex items-center gap-1 text-[9px] text-[#00d2ff]/50 hover:text-[#00d2ff] transition-colors font-mono uppercase tracking-widest"
+        >
+          <MessageSquarePlus className="w-2.5 h-2.5" />
+          Ask APEX
+        </button>
+      </div>
+
       {scalars.length > 0 && (
         <div className="grid grid-cols-2 gap-x-6 gap-y-0.5">
           {scalars.map(([k, v]) => (

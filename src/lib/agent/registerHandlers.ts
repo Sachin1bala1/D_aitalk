@@ -35,6 +35,8 @@ import type {
   CreatePipelineCmd,
   NotifyUserCmd,
   DeclareHypothesesCmd,
+  DeclareConfidenceCmd,
+  ConfidenceDeclaration,
 } from "./commands";
 import { useUserToolStore } from "../stores/UserToolStore";
 import { fillTemplate } from "../tools/user.tools";
@@ -494,5 +496,13 @@ export function registerHandlers() {
   commandBus.register<DeclareHypothesesCmd>("declare_hypotheses", async (cmd) => {
     useWorkspaceStore.getState().setActiveHypotheses(cmd.hypotheses, cmd.problemFrame);
     return { success: true, result: "Hypotheses declared" };
+  });
+
+  // ── Confidence Scoring ────────────────────────────────────────────────────
+
+  commandBus.register<DeclareConfidenceCmd>("declare_confidence", async (cmd) => {
+    const { type, risk, ...declaration } = cmd;
+    useWorkspaceStore.getState().setActiveConfidence(declaration as ConfidenceDeclaration);
+    return { success: true, result: "Confidence declared" };
   });
 }

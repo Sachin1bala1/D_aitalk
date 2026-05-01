@@ -277,6 +277,24 @@ export const AGENT_TOOLS: UnifiedTool[] = [
     },
   },
 
+    // ── Confidence Scoring ──────────────────────────────────────────────
+  {
+    name: 'declare_confidence',
+    description:
+      'After completing an analysis, declare your confidence in the findings and what evidence would change your conclusion. Call this as the LAST tool call before giving the final narrative.',
+    parameters: {
+      type: 'object',
+      properties: {
+        confidence: { type: 'number', description: '0.0 to 1.0' },
+        confidence_label: { type: 'string', enum: ['high', 'medium', 'low', 'insufficient_data'] },
+        data_quality: { type: 'string', enum: ['good', 'limited', 'sparse', 'unreliable'] },
+        what_would_change_conclusion: { type: 'string' },
+        data_gaps: { type: 'string', description: 'What data is missing that would help?' },
+      },
+      required: ['confidence', 'confidence_label', 'what_would_change_conclusion'],
+    },
+  },
+
   // ── Hypothesis Engine ─────────────────────────────────────────────────────
   {
     name: "declare_hypotheses",

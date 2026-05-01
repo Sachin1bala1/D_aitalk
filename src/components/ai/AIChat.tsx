@@ -20,6 +20,7 @@ import { UserToolsPanel } from "./UserToolsPanel";
 import { ToolCallLog } from "./ToolCallLog";
 import type { ToolLogEntry } from "./ToolCallLog";
 import { HypothesisPanel } from "./HypothesisPanel";
+import { ConfidenceBar } from "./ConfidenceBar";
 import { EpisodicMemory } from "../../lib/memory/EpisodicMemory";
 import { UserCalibrationProfile } from "../../lib/memory/UserCalibrationProfile";
 import type { MemoryContext } from "../../lib/agent/AgentLoop";
@@ -110,7 +111,16 @@ function loadTurns(): ConversationTurn[] {
 }
 
 export function AIChat({ currentSQL, currentResults, currentSchema, connectionId, onApplySQL }: AIChatProps) {
-  const { agentMode, undoStack, popUndo, activeHypotheses, clearHypotheses } = useWorkspaceStore();
+  const {
+    agentMode,
+    undoStack,
+    popUndo,
+    activeHypotheses,
+    clearHypotheses,
+    clearConfidence,
+    pendingChatInput,
+    clearPendingChatInput,
+  } = useWorkspaceStore();
 
   const [providerSettings, setProviderSettings] = useState(loadSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -130,6 +140,14 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       }
     }).catch(() => {});
   }, []);
+
+  // Consume pending chat input set by StatResultView "Ask APEX" button
+  useEffect(() => {
+    if (pendingChatInput) {
+      setInput(pendingChatInput);
+      clearPendingChatInput();
+    }
+  }, [pendingChatInput, clearPendingChatInput]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -202,8 +220,9 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       return;
     }
 
-    // Clear stale hypotheses from previous conversation
+    // Clear stale hypotheses and confidence from previous conversation
     clearHypotheses();
+    clearConfidence();
 
     const userMsg = input.trim();
     setInput("");
@@ -400,6 +419,9 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
           </div>
         )}
       </div>
+
+      {/* Confidence bar — always mounted, renders null when no confidence data */}
+      <ConfidenceBar />
 
       <div className="p-3 border-t border-[#262626] shrink-0">
         <div className="relative">

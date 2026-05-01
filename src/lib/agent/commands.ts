@@ -200,6 +200,18 @@ export interface CreatePipelineCmd {
   risk: "caution";
 }
 
+// ── Confidence Scoring ────────────────────────────────────────────────────────
+
+export interface ConfidenceDeclaration {
+  confidence: number;
+  confidenceLabel: 'high' | 'medium' | 'low' | 'insufficient_data';
+  dataQuality?: 'good' | 'limited' | 'sparse' | 'unreliable';
+  whatWouldChangeConclusion: string;
+  dataGaps?: string;
+}
+
+export type DeclareConfidenceCmd = { type: 'declare_confidence'; risk: 'safe' } & ConfidenceDeclaration;
+
 // ── Hypothesis Engine ─────────────────────────────────────────────────────────
 
 export interface Hypothesis {
@@ -241,7 +253,8 @@ export type AgentCommand =
   | CreateChartCmd
   | CreatePipelineCmd
   | NotifyUserCmd
-  | DeclareHypothesesCmd;
+  | DeclareHypothesesCmd
+  | DeclareConfidenceCmd;
 
 export type CommandType = AgentCommand["type"];
 
@@ -282,5 +295,6 @@ export function describeCommand(cmd: AgentCommand): string {
     case "close_tab": return cmd.tabId ? `Close tab ${cmd.tabId}` : `Close active tab`;
     case "notify_user": return `Notify: ${cmd.message}`;
     case "declare_hypotheses": return `Declare ${cmd.hypotheses.length} hypothesis${cmd.hypotheses.length !== 1 ? "es" : ""}: ${cmd.problemFrame.slice(0, 60)}`;
+    case "declare_confidence": return `Confidence: ${cmd.confidenceLabel} (${Math.round(cmd.confidence * 100)}%)`;
   }
 }

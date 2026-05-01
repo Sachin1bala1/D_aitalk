@@ -7,7 +7,7 @@
 import { commandBus } from "./CommandBus";
 import { AGENT_TOOLS } from "./toolDefinitions";
 import { isDestructive, describeCommand } from "./commands";
-import type { AgentCommand, RunUserToolCmd, DeclareHypothesesCmd } from "./commands";
+import type { AgentCommand, RunUserToolCmd, DeclareHypothesesCmd, DeclareConfidenceCmd } from "./commands";
 import { useUserToolStore } from "../stores/UserToolStore";
 import { userToolToUnifiedTool } from "../tools/user.tools";
 import { statToolToKernelKey } from "../tools/stat.tools";
@@ -349,6 +349,16 @@ function toolCallToCommand(
         type: "declare_hypotheses",
         hypotheses: i.hypotheses as DeclareHypothesesCmd["hypotheses"],
         problemFrame: i.problem_frame as string,
+        risk: "safe" as const,
+      };
+    case "declare_confidence":
+      return {
+        type: "declare_confidence",
+        confidence: i.confidence as number,
+        confidenceLabel: i.confidence_label as DeclareConfidenceCmd["confidenceLabel"],
+        dataQuality: i.data_quality as DeclareConfidenceCmd["dataQuality"] | undefined,
+        whatWouldChangeConclusion: i.what_would_change_conclusion as string,
+        dataGaps: i.data_gaps as string | undefined,
         risk: "safe" as const,
       };
     default:

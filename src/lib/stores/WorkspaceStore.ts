@@ -5,7 +5,7 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import { FullSchema, ConnectionConfig } from "../db/DbClient";
-import type { AgentCommand, Hypothesis } from "../agent/commands";
+import type { AgentCommand, Hypothesis, ConfidenceDeclaration } from "../agent/commands";
 import type { WorkingMemoryState } from "../memory/WorkingMemory";
 import { DEFAULT_WORKING_MEMORY } from "../memory/WorkingMemory";
 
@@ -121,6 +121,16 @@ export interface WorkspaceState {
   hypothesisProblemFrame: string | null;
   setActiveHypotheses: (h: Hypothesis[], frame: string) => void;
   clearHypotheses: () => void;
+
+  // Confidence Scoring
+  activeConfidence: ConfidenceDeclaration | null;
+  setActiveConfidence: (c: ConfidenceDeclaration) => void;
+  clearConfidence: () => void;
+
+  // Pending chat input (set by StatResultView "Ask APEX" button)
+  pendingChatInput: string | null;
+  setPendingChatInput: (text: string) => void;
+  clearPendingChatInput: () => void;
 }
 
 const DEFAULT_TAB: TabState = {
@@ -155,6 +165,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
     activeHypotheses: null,
     hypothesisProblemFrame: null,
+
+    activeConfidence: null,
+    pendingChatInput: null,
 
     setAgentMode: (mode) =>
       set((state) => {
@@ -326,6 +339,26 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       set((state) => {
         state.activeHypotheses = null;
         state.hypothesisProblemFrame = null;
+      }),
+
+    setActiveConfidence: (c) =>
+      set((state) => {
+        state.activeConfidence = c as ConfidenceDeclaration;
+      }),
+
+    clearConfidence: () =>
+      set((state) => {
+        state.activeConfidence = null;
+      }),
+
+    setPendingChatInput: (text) =>
+      set((state) => {
+        state.pendingChatInput = text;
+      }),
+
+    clearPendingChatInput: () =>
+      set((state) => {
+        state.pendingChatInput = null;
       }),
   }))
 );
