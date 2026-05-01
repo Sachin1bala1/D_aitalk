@@ -64,6 +64,7 @@ pub fn run() {
             commands::pi_test_connection,
             commands::activate_license,
             commands::check_license,
+            commands::remove_license,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -569,6 +569,9 @@ use hmac::{Hmac, Mac};
 use sha2::Sha256;
 type HmacSha256 = Hmac<Sha256>;
 
+// NOTE: Client-side HMAC validation is a known MVP limitation — the secret is
+// visible to anyone with source access. Move to server-side validation before
+// public release.
 const LICENSE_SECRET: &str = "dataiq-mvp-secret-2026";
 
 // License key format: "{TIER}-{HEX16}"
@@ -628,6 +631,17 @@ pub fn check_license() -> Result<serde_json::Value, String> {
             }
         }
         Err(keyring::Error::NoEntry) => Ok(serde_json::json!({ "tier": "free", "valid": false })),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Remove the stored license key from the OS keychain.
+#[tauri::command]
+pub fn remove_license() -> Result<(), String> {
+    let entry = keyring::Entry::new("daitalk", "license_key").map_err(|e| e.to_string())?;
+    match entry.delete_credential() {
+        Ok(()) => Ok(()),
+        Err(keyring::Error::NoEntry) => Ok(()),
         Err(e) => Err(e.to_string()),
     }
 }

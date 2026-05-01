@@ -56,8 +56,8 @@ export function LicenseKeyDialog({
     setActivating(true);
     try {
       const tier = await invoke<string>("activate_license", { key: inputValue });
-      const tierDisplay = tier === "ENT" ? "Enterprise" : "Pro";
-      toast.success(`License activated — ${tierDisplay} tier`);
+      const tierDisplay: Record<string, string> = { ENT: "Enterprise", PRO: "Pro" };
+      toast.success(`License activated — ${tierDisplay[tier] ?? tier} tier`);
       setInputValue("");
       onActivated();
       onOpenChange(false);
@@ -71,7 +71,7 @@ export function LicenseKeyDialog({
   const handleRemove = async () => {
     setRemoving(true);
     try {
-      await invoke("delete_credential", { key: "license_key" });
+      await invoke("remove_license");
       toast.success("License removed — reverted to Free tier");
       onActivated();
       onOpenChange(false);
