@@ -857,6 +857,7 @@ export default function App() {
             <SnippetsPanel
               currentSQL={activeTab?.sql ?? null}
               onInsert={(sql) => setEditorSql(sql)}
+              driver={activeSchema?.driver}
             />
           ) : activePanel === "search" ? (
             <SchemaSearch

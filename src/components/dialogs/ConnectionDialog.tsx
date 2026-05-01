@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Database, X, Link2, Trash2, History, Wifi } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { invoke } from "@tauri-apps/api/core";
 import { DbClient, ConnectionConfig, DbDriver } from "../../lib/db/DbClient";
 import { loadSavedConnections, removeConnection } from "../../lib/db/ConnectionStore";
 
@@ -61,6 +62,13 @@ const DRIVER_OPTIONS: { value: DbDriver; label: string; placeholder: string; gro
     label: "ClickHouse",
     placeholder: "http://user:pass@localhost:8123/default",
     group: "NoSQL",
+  },
+  // ── Industrial ────────────────────────────────────────────────────────────
+  {
+    value: "p_i_historian",
+    label: "PI Historian (OSIsoft)",
+    placeholder: "https://pi-server/piwebapi",
+    group: "Industrial",
   },
 ];
 
@@ -126,6 +134,13 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
   const [driverManual, setDriverManual] = useState(false);
   const [nameManual, setNameManual] = useState(false);
 
+  // PI Historian fields
+  const [piUsername, setPiUsername] = useState("");
+  const [piPassword, setPiPassword] = useState("");
+  const [piVerifySsl, setPiVerifySsl] = useState(false);
+
+  const isPIHistorian = driver === "p_i_historian";
+
   useEffect(() => {
     if (open) {
       setSavedConns(loadSavedConnections());
@@ -174,16 +189,37 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
     connection_string: connectionString,
     pool_min: 1,
     pool_max: 10,
+    ...(isPIHistorian && {
+      pi_config: {
+        base_url: connectionString,
+        auth_method: "basic",
+        username: piUsername,
+        password: piPassword,
+        verify_ssl: piVerifySsl,
+      },
+    }),
   });
 
   const handleTestConnection = async () => {
     if (!connectionString) return;
     setTestStatus("testing");
-    const config = buildConfig();
     try {
-      await DbClient.connect(config);
-      await DbClient.ping(config.id);
-      await DbClient.disconnect(config.id);
+      if (isPIHistorian) {
+        await invoke("pi_test_connection", {
+          piConfig: {
+            base_url: connectionString,
+            auth_method: "basic",
+            username: piUsername,
+            password: piPassword,
+            verify_ssl: piVerifySsl,
+          },
+        });
+      } else {
+        const config = buildConfig();
+        await DbClient.connect(config);
+        await DbClient.ping(config.id);
+        await DbClient.disconnect(config.id);
+      }
       setTestStatus("ok");
       toast.success("Connection successful");
     } catch (error: any) {
@@ -287,7 +323,7 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                   onChange={(e) => { setDriver(e.target.value as DbDriver); setDriverManual(true); }}
                   className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#00d2ff] text-white"
                 >
-                  {(["SQL", "NoSQL"] as const).map((group) => (
+                  {(["SQL", "NoSQL", "Industrial"] as const).map((group) => (
                     <optgroup key={group} label={group}>
                       {DRIVER_OPTIONS.filter((o) => o.group === group).map((opt) => (
                         <option key={opt.value} value={opt.value} className="bg-[#1a1a1a]">
@@ -337,6 +373,42 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                   />
                 </div>
               </div>
+
+              {/* PI Historian fields */}
+              {isPIHistorian && (
+                <div className="space-y-3 p-3 rounded-lg border border-[#00d2ff]/20 bg-[#00d2ff]/5">
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-[#00d2ff]/60">PI Web API Credentials</p>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase tracking-widest font-bold text-white/50">Username</label>
+                    <input
+                      type="text"
+                      value={piUsername}
+                      onChange={(e) => setPiUsername(e.target.value)}
+                      placeholder="domain\\user or user"
+                      className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#00d2ff]"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase tracking-widest font-bold text-white/50">Password</label>
+                    <input
+                      type="password"
+                      value={piPassword}
+                      onChange={(e) => setPiPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#00d2ff]"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={piVerifySsl}
+                      onChange={(e) => setPiVerifySsl(e.target.checked)}
+                      className="rounded"
+                    />
+                    <span className="text-xs text-white/60">Verify SSL certificate</span>
+                  </label>
+                </div>
+              )}
 
               <div className="flex gap-2 pt-2">
                 <button

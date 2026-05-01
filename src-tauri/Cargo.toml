@@ -52,6 +52,10 @@ redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
 # Phase 45 — ClickHouse
 clickhouse = "0.13"
 
+# Task 6B — OSIsoft PI Web API
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+urlencoding = "2.1"
+
 # Phase 1 — SSH tunnel (deferred: needs system libssh2 or OpenSSL build tools)
 # ssh2 = { version = "0.9", features = ["vendored-openssl"] }
 

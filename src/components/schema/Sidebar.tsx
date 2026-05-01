@@ -289,6 +289,15 @@ export function Sidebar({
                 >
                   {tableName}
                 </span>
+                {/* Hypertable chunk badge */}
+                {tableMeta?.is_hypertable && tableMeta.hypertable_chunks != null && (
+                  <span
+                    className="shrink-0 text-[8px] px-1 py-0.5 rounded bg-amber-400/10 text-amber-400/70 font-mono border border-amber-400/20"
+                    title={`TimescaleDB hypertable — ${tableMeta.hypertable_chunks} chunks`}
+                  >
+                    {tableMeta.hypertable_chunks} chunks
+                  </span>
+                )}
                 {/* Row estimate + size */}
                 {tableMeta && (
                   <span className="shrink-0 text-[9px] font-mono text-white/20 leading-none text-right">

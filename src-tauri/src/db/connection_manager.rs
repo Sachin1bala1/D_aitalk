@@ -39,6 +39,13 @@ impl ConnectionManager {
     }
 
     pub async fn connect(&self, config: ConnectionConfig) -> Result<(), DbError> {
+        // PI Historian uses HTTP — no connection pool needed; just store the config.
+        if matches!(config.driver, DbDriver::PIHistorian) {
+            let id = config.id.clone();
+            self.configs.write().await.insert(id, config);
+            return Ok(());
+        }
+
         // Open SSH tunnel if configured, rewriting the connection string to use local port
         let (effective_conn_str, tunnel) = if let Some(ref ssh) = config.ssh {
             let url = url::Url::parse(&config.connection_string)
@@ -51,7 +58,7 @@ impl ConnectionManager {
                 DbDriver::MongoDB => 27017,
                 DbDriver::Redis => 6379,
                 DbDriver::ClickHouse => 8123,
-                DbDriver::Sqlite => 0,
+                DbDriver::Sqlite | DbDriver::PIHistorian => 0,
             };
             let remote_port = url.port().unwrap_or(default_port);
 
@@ -164,6 +171,10 @@ impl ConnectionManager {
                 client.query("SELECT 1").execute().await
                     .map_err(|e| DbError::Other(format!("ClickHouse ping failed: {e}")))?;
                 ActiveConnection::ClickHouse(client)
+            }
+            // PIHistorian is handled above before this match — unreachable here.
+            DbDriver::PIHistorian => {
+                return Err(DbError::Other("PI Historian connections are HTTP-only and handled separately".to_string()));
             }
         };
 

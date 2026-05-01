@@ -8,7 +8,7 @@
  * - Edit name inline (double-click)
  */
 import React, { useState, useRef } from "react";
-import { BookMarked, Plus, Trash2, Play, Search, X, Tag } from "lucide-react";
+import { BookMarked, Plus, Trash2, Play, Search, X, Tag, Clock } from "lucide-react";
 import { toast } from "sonner";
 import {
   loadSnippets,
@@ -18,12 +18,39 @@ import {
   type Snippet,
 } from "../../lib/snippets/SnippetStore";
 
+// ── Built-in snippet categories ──────────────────────────────────────────────
+
+interface BuiltinSnippet {
+  name: string;
+  sql: string;
+  description: string;
+}
+
+const TIMESCALEDB_SNIPPETS: BuiltinSnippet[] = [
+  {
+    name: "Time bucket aggregate",
+    description: "Aggregate values into time buckets",
+    sql: "SELECT time_bucket('1 hour', {time_col}) AS bucket,\n       avg({value_col}) AS avg_value\nFROM {table}\nGROUP BY bucket\nORDER BY bucket;",
+  },
+  {
+    name: "Last N hours filter",
+    description: "Filter rows within the last 24 hours",
+    sql: "WHERE {time_col} > NOW() - INTERVAL '24 hours'",
+  },
+  {
+    name: "Compression status",
+    description: "Check chunk compression for a hypertable",
+    sql: "SELECT chunk_name,\n       compressed_total_bytes,\n       uncompressed_total_bytes\nFROM timescaledb_information.chunks\nWHERE hypertable_name = '{table}';",
+  },
+];
+
 interface SnippetsPanelProps {
   currentSQL: string | null;
   onInsert: (sql: string) => void;
+  driver?: string;
 }
 
-export function SnippetsPanel({ currentSQL, onInsert }: SnippetsPanelProps) {
+export function SnippetsPanel({ currentSQL, onInsert, driver }: SnippetsPanelProps) {
   const [snippets, setSnippets] = useState<Snippet[]>(loadSnippets);
   const [filterText, setFilterText] = useState("");
   const [saving, setSaving] = useState(false);
@@ -153,6 +180,30 @@ export function SnippetsPanel({ currentSQL, onInsert }: SnippetsPanelProps) {
               <X className="w-3 h-3" />
             </button>
           )}
+        </div>
+      )}
+
+      {/* TimescaleDB built-in snippets */}
+      {(driver === "timescaledb" || driver === "postgres") && (
+        <div className="border-b border-[#1a1a1a] shrink-0">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 text-[9px] uppercase tracking-widest text-amber-400/50">
+            <Clock className="w-2.5 h-2.5" />
+            TimescaleDB
+          </div>
+          {TIMESCALEDB_SNIPPETS.map((snip) => (
+            <div
+              key={snip.name}
+              className="px-3 py-2 group/builtin hover:bg-white/[0.02] transition-colors cursor-pointer flex items-start gap-2"
+              onClick={() => { onInsert(snip.sql); toast.success(`"${snip.name}" inserted`); }}
+              title={snip.description}
+            >
+              <Play className="w-3 h-3 text-amber-400/30 group-hover/builtin:text-amber-400/70 shrink-0 mt-0.5 fill-current" />
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold text-white/50 group-hover/builtin:text-white/70 truncate">{snip.name}</p>
+                <pre className="text-[9px] font-mono text-white/25 truncate">{snip.sql.replace(/\s+/g, " ").slice(0, 60)}…</pre>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

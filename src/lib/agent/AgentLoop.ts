@@ -188,7 +188,11 @@ Always prefer stat tools over manual SQL aggregations for statistical work — t
 - Hypertables are standard PostgreSQL tables partitioned by time
 - Use time_bucket() for time-series aggregation: SELECT time_bucket('1 hour', ts) AS bucket, avg(val) FROM sensor_data GROUP BY bucket ORDER BY bucket
 - Use first() / last() aggregate functions for time-series selects
-- Schema is otherwise identical to PostgreSQL`);
+- Schema is otherwise identical to PostgreSQL
+
+For TimescaleDB hypertables: prefer time_bucket() aggregation before running stat tools.
+Use stat__time_series_decompose for trend analysis on hypertable data.
+Avoid SELECT * on large hypertables — always add a time range WHERE clause.`);
     }
   }
 

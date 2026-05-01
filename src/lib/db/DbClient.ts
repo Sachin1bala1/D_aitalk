@@ -32,6 +32,8 @@ export interface TableMeta {
   row_estimate: number | null;
   size_bytes: number | null;
   object_type: "table" | "view" | "materialized_view" | "foreign_table";
+  is_hypertable: boolean;
+  hypertable_chunks: number | null;
 }
 
 export type FunctionKind = "function" | "procedure" | "aggregate" | "trigger";
@@ -73,6 +75,14 @@ export interface IndexMeta {
   is_primary: boolean;
 }
 
+export interface PIConfig {
+  base_url: string;
+  auth_method: string;
+  username: string;
+  password: string;
+  verify_ssl: boolean;
+}
+
 export interface ConnectionConfig {
   id: string;
   display_name: string;
@@ -80,6 +90,7 @@ export interface ConnectionConfig {
   connection_string: string;
   pool_min?: number;
   pool_max?: number;
+  pi_config?: PIConfig;
 }
 
 export type DbDriver =
@@ -91,7 +102,8 @@ export type DbDriver =
   | "timescaledb"
   | "mongodb"
   | "redis"
-  | "clickhouse";
+  | "clickhouse"
+  | "p_i_historian";
 
 export interface QueryBatch {
   query_id: string;

@@ -322,4 +322,43 @@ export const AGENT_TOOLS: UnifiedTool[] = [
       required: ["hypotheses", "problem_frame"],
     },
   },
+
+  // ── OSIsoft PI Historian ───────────────────────────────────────────────────
+  {
+    name: 'pi_search_tags',
+    description: 'Search OSIsoft PI tags by name or description. Use this to find process data tags in a PI historian.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search query, e.g. "temperature" or "PLANT.UNIT.*"' },
+        max_count: { type: 'number', description: 'Maximum results to return (default 50)' }
+      },
+      required: ['query']
+    }
+  },
+  {
+    name: 'pi_get_history',
+    description: 'Get historical time-series data for PI tags. Specify start/end as ISO8601 strings.',
+    parameters: {
+      type: 'object',
+      properties: {
+        web_ids: { type: 'array', items: { type: 'string' }, description: 'List of PI tag WebIds' } as any,
+        start: { type: 'string', description: 'Start time (ISO8601 or relative like "*-24h")' },
+        end: { type: 'string', description: 'End time (ISO8601 or "*" for now)' },
+        interval: { type: 'string', description: 'Interpolation interval e.g. "1h", "5m"' }
+      },
+      required: ['web_ids', 'start', 'end']
+    }
+  },
+  {
+    name: 'pi_get_current',
+    description: 'Get current snapshot values for PI tags.',
+    parameters: {
+      type: 'object',
+      properties: {
+        web_ids: { type: 'array', items: { type: 'string' }, description: 'List of PI tag WebIds' } as any
+      },
+      required: ['web_ids']
+    }
+  },
 ];

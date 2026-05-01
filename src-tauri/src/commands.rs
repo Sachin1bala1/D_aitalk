@@ -121,16 +121,24 @@ pub async fn db_get_schema(
         .await
         .map_err(|e| e.to_string())?;
 
-    // Detect TimescaleDB hypertables — populate hypertable_tables list (no name mutation)
+    // Detect TimescaleDB hypertables — populate hypertable_tables list and enrich TableMeta
     if is_timescale {
         schema.driver = "timescaledb".to_string();
         if let crate::db::connection_manager::ActiveConnection::Postgres(pool) = conn.as_ref() {
             if let Ok(rows) = sqlx::query(
-                "SELECT hypertable_schema, hypertable_name FROM timescaledb_information.hypertables"
+                "SELECT hypertable_schema, hypertable_name, num_chunks FROM timescaledb_information.hypertables"
             )
             .fetch_all(pool)
             .await {
                 use sqlx::Row;
+                use std::collections::HashMap;
+                let chunk_counts: HashMap<String, u32> = rows.iter()
+                    .filter_map(|r| {
+                        let name = r.try_get::<String, _>("hypertable_name").ok()?;
+                        let chunks = r.try_get::<i64, _>("num_chunks").ok()? as u32;
+                        Some((name, chunks))
+                    })
+                    .collect();
                 schema.hypertable_tables = rows.iter()
                     .map(|r| {
                         let s: String = r.try_get("hypertable_schema").unwrap_or_default();
@@ -138,6 +146,16 @@ pub async fn db_get_schema(
                         format!("{}.{}", s, t)
                     })
                     .collect();
+                // Also mark individual TableMeta entries
+                let hypertable_set: std::collections::HashSet<String> = rows.iter()
+                    .map(|r| r.try_get::<String, _>("hypertable_name").unwrap_or_default())
+                    .collect();
+                for table in &mut schema.tables {
+                    if hypertable_set.contains(&table.name) {
+                        table.is_hypertable = true;
+                        table.hypertable_chunks = chunk_counts.get(&table.name).copied();
+                    }
+                }
             }
         }
     }
@@ -693,4 +711,75 @@ pub async fn memory_update_calibration(
         .await
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+// ── OSIsoft PI Web API Commands ───────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn pi_search_tags(
+    connection_id: String,
+    query: String,
+    max_count: Option<u32>,
+    state: State<'_, AppState>,
+) -> Result<Vec<crate::db::pi_client::PITag>, String> {
+    let config = {
+        state.connections
+            .get_config(&connection_id)
+            .await
+            .and_then(|c| c.pi_config)
+            .ok_or_else(|| "No PI config for this connection".to_string())?
+    };
+    let client = crate::db::pi_client::PIClient::new(
+        &config.base_url, &config.username, &config.password, config.verify_ssl
+    )?;
+    client.search_tags(&query, max_count.unwrap_or(50)).await
+}
+
+#[tauri::command]
+pub async fn pi_get_history(
+    connection_id: String,
+    web_ids: Vec<String>,
+    start: String,
+    end: String,
+    interval: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<Vec<crate::db::pi_client::TagData>, String> {
+    let config = {
+        state.connections
+            .get_config(&connection_id)
+            .await
+            .and_then(|c| c.pi_config)
+            .ok_or_else(|| "No PI config for this connection".to_string())?
+    };
+    let client = crate::db::pi_client::PIClient::new(
+        &config.base_url, &config.username, &config.password, config.verify_ssl
+    )?;
+    client.get_tag_history(&web_ids, &start, &end, &interval.unwrap_or("1h".to_string())).await
+}
+
+#[tauri::command]
+pub async fn pi_get_current(
+    connection_id: String,
+    web_ids: Vec<String>,
+    state: State<'_, AppState>,
+) -> Result<Vec<crate::db::pi_client::CurrentValue>, String> {
+    let config = {
+        state.connections
+            .get_config(&connection_id)
+            .await
+            .and_then(|c| c.pi_config)
+            .ok_or_else(|| "No PI config for this connection".to_string())?
+    };
+    let client = crate::db::pi_client::PIClient::new(
+        &config.base_url, &config.username, &config.password, config.verify_ssl
+    )?;
+    client.get_current_values(&web_ids).await
+}
+
+#[tauri::command]
+pub async fn pi_test_connection(pi_config: crate::db::types::PIConfig) -> Result<String, String> {
+    let client = crate::db::pi_client::PIClient::new(
+        &pi_config.base_url, &pi_config.username, &pi_config.password, pi_config.verify_ssl
+    )?;
+    client.test_connection().await
 }
