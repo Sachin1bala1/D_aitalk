@@ -201,7 +201,6 @@ pub enum DbDriver {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PIConfig {
     pub base_url: String,
-    pub auth_method: String,  // "basic" or "kerberos"
     pub username: String,
     pub password: String,
     #[serde(default)]

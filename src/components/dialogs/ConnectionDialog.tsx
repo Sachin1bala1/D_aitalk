@@ -192,7 +192,6 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
     ...(isPIHistorian && {
       pi_config: {
         base_url: connectionString,
-        auth_method: "basic",
         username: piUsername,
         password: piPassword,
         verify_ssl: piVerifySsl,

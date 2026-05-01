@@ -77,7 +77,6 @@ export interface IndexMeta {
 
 export interface PIConfig {
   base_url: string;
-  auth_method: string;
   username: string;
   password: string;
   verify_ssl: boolean;
