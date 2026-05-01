@@ -12,7 +12,8 @@ export async function captureChart(elementId: string): Promise<string> {
     }
     const canvas = await html2canvas(element, { useCORS: true, logging: false });
     return canvas.toDataURL('image/png');
-  } catch {
+  } catch (err) {
+    console.warn('[chartCapture] Failed to capture element', elementId, err);
     return '';
   }
 }

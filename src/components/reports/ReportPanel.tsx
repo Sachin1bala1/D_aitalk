@@ -50,9 +50,11 @@ export function ReportPanel({ open, onOpenChange, session }: ReportPanelProps) {
   useEffect(() => {
     if (session) {
       setTitle(session.userQuestion.slice(0, 80));
+      setAuthor("");
       setEnabledSections(session.sections.map(() => true));
     } else {
       setTitle("");
+      setAuthor("");
       setEnabledSections([]);
     }
     setShowPreview(false);
@@ -72,14 +74,8 @@ export function ReportPanel({ open, onOpenChange, session }: ReportPanelProps) {
       return { title: "", author: "", date: "", connectionName: "", sections: [] };
     }
     const base = buildFromSession(session);
-    // Override title/author from form inputs
-    base.title = title || base.title;
-    base.author = author || base.author;
-    // Filter out analysis sections that are unchecked
-    // The base spec has: title_page, exec_summary, analysis sections, recommendations
-    // We only filter the "analysis" type sections
     let analysisIndex = 0;
-    base.sections = base.sections.filter((s) => {
+    const filteredSections = base.sections.filter((s) => {
       if (s.type === "analysis") {
         const enabled = enabledSections[analysisIndex] ?? true;
         analysisIndex++;
@@ -87,7 +83,12 @@ export function ReportPanel({ open, onOpenChange, session }: ReportPanelProps) {
       }
       return true;
     });
-    return base;
+    return {
+      ...base,
+      title: title || base.title,
+      author: author || base.author,
+      sections: filteredSections,
+    };
   };
 
   const handlePreview = () => {
@@ -102,19 +103,14 @@ export function ReportPanel({ open, onOpenChange, session }: ReportPanelProps) {
     try {
       const spec = buildSpec();
 
-      // Capture charts for analysis sections
-      let analysisIndex = 0;
+      // Capture charts — chartId travels with each spec section (no parallel-index fragility)
       for (let i = 0; i < spec.sections.length; i++) {
         const s = spec.sections[i];
-        if (s.type === "analysis") {
-          const srcSection = session.sections[analysisIndex];
-          if (srcSection?.chartId) {
-            const dataUrl = await captureChart(srcSection.chartId);
-            if (dataUrl) {
-              spec.sections[i] = { ...s, chartDataUrl: dataUrl };
-            }
+        if (s.type === "analysis" && s.chartId) {
+          const dataUrl = await captureChart(s.chartId);
+          if (dataUrl) {
+            spec.sections[i] = { ...s, chartDataUrl: dataUrl };
           }
-          analysisIndex++;
         }
       }
 

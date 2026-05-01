@@ -1,13 +1,15 @@
 import PptxGenJS from 'pptxgenjs';
 
 // ---------------------------------------------------------------------------
-// Types
+// Types — discriminated union prevents unsafe index-signature casts
 // ---------------------------------------------------------------------------
 
-export interface ReportSection {
-  type: 'title_page' | 'executive_summary' | 'analysis' | 'data_table' | 'recommendations';
-  [key: string]: unknown;
-}
+export type ReportSection =
+  | { type: 'title_page' }
+  | { type: 'executive_summary'; bullets: string[] }
+  | { type: 'analysis'; title: string; chartDataUrl: string; chartId: string; findings: string; confidence: number; tools_used: string[] }
+  | { type: 'data_table'; title?: string; columns: string[]; rows: unknown[][] }
+  | { type: 'recommendations'; items: { priority: string; action: string }[] };
 
 export interface ReportSpec {
   title: string;
@@ -30,6 +32,18 @@ export interface AnalysisSession {
   sections: AnalysisSection[];
   connectionName: string;
   finalText: string;
+}
+
+// ---------------------------------------------------------------------------
+// XSS-safe HTML escaping for exportToPDF
+// ---------------------------------------------------------------------------
+
+function esc(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 // ---------------------------------------------------------------------------
@@ -63,6 +77,7 @@ export function buildFromSession(session: AnalysisSession): ReportSpec {
       type: 'analysis',
       title: section.toolName,
       chartDataUrl: '',
+      chartId: section.chartId,
       findings: section.findings,
       confidence: section.confidence ?? 0,
       tools_used: [section.toolName],
@@ -100,80 +115,69 @@ export function buildFromSession(session: AnalysisSession): ReportSpec {
 // ---------------------------------------------------------------------------
 
 export function exportToPDF(spec: ReportSpec): void {
-  // Get or create the print container
-  let container = document.getElementById('report-print');
-  if (!container) {
-    container = document.createElement('div');
-    container.id = 'report-print';
-    document.body.appendChild(container);
-  }
-
-  // Build HTML content
-  const sectionHtml = spec.sections
-    .map((s) => {
-      switch (s.type) {
-        case 'title_page':
-          return `<div class="cover"><h1>${spec.title}</h1><p>${spec.author} · ${spec.date}</p></div>`;
-
-        case 'executive_summary': {
-          const bullets = (s.bullets as string[]) ?? [];
-          return `<h2>Executive Summary</h2><ul>${bullets.map((b) => `<li>${b}</li>`).join('')}</ul>`;
-        }
-
-        case 'analysis': {
-          const chartDataUrl = s.chartDataUrl as string;
-          const confidence = s.confidence as number | undefined;
-          const imgTag = chartDataUrl
-            ? `<img src="${chartDataUrl}" style="max-width:100%" />`
-            : '';
-          return `<h2>${s.title as string}</h2>${imgTag}<p>${s.findings as string}</p><p>Confidence: ${Math.round((confidence ?? 0) * 100)}%</p>`;
-        }
-
-        case 'data_table': {
-          const columns = (s.columns as string[]) ?? [];
-          const rows = (s.rows as unknown[][]) ?? [];
-          const headerRow = `<tr>${columns.map((c) => `<th>${c}</th>`).join('')}</tr>`;
-          const bodyRows = rows
-            .map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`)
-            .join('');
-          return `<h2>${s.title as string}</h2><table>${headerRow}${bodyRows}</table>`;
-        }
-
-        case 'recommendations': {
-          const items = (s.items as { priority: string; action: string }[]) ?? [];
-          return `<h2>Recommendations</h2><ul>${items.map((item) => `<li><strong>${item.priority}</strong>: ${item.action}</li>`).join('')}</ul>`;
-        }
-
-        default:
-          return '';
-      }
-    })
-    .join('');
-
-  container.innerHTML = `
-    <div style="font-family:sans-serif;padding:2rem;">
-      <h1>${spec.title}</h1>
-      <p>${spec.connectionName} · ${spec.date}</p>
-      ${sectionHtml}
-    </div>
-  `;
+  const container = document.getElementById('report-print') ?? (() => {
+    const el = document.createElement('div');
+    el.id = 'report-print';
+    document.body.appendChild(el);
+    return el;
+  })();
 
   // Inject print style
-  const existingStyle = document.getElementById('report-print-style');
-  if (existingStyle) existingStyle.remove();
+  document.getElementById('report-print-style')?.remove();
   const style = document.createElement('style');
   style.id = 'report-print-style';
   style.textContent =
     '@media print { body > *:not(#report-print) { display:none!important } #report-print { display:block!important } }';
   document.head.appendChild(style);
 
-  window.print();
+  try {
+    const sectionHtml = spec.sections
+      .map((s) => {
+        switch (s.type) {
+          case 'title_page':
+            return `<div class="cover"><h1>${esc(spec.title)}</h1><p>${esc(spec.author)} · ${esc(spec.date)}</p></div>`;
 
-  // Cleanup after 2 seconds
-  setTimeout(() => {
-    container?.remove();
-    document.getElementById('report-print-style')?.remove();
-  }, 2000);
+          case 'executive_summary':
+            return `<h2>Executive Summary</h2><ul>${s.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>`;
+
+          case 'analysis': {
+            const imgTag = s.chartDataUrl
+              ? `<img src="${s.chartDataUrl}" style="max-width:100%" alt="${esc(s.title)} chart" />`
+              : '';
+            return `<h2>${esc(s.title)}</h2>${imgTag}<p>${esc(s.findings)}</p><p>Confidence: ${Math.round(s.confidence * 100)}%</p>`;
+          }
+
+          case 'data_table': {
+            const title = s.title ? `<h2>${esc(s.title)}</h2>` : '';
+            const headerRow = `<tr>${s.columns.map((c) => `<th>${esc(c)}</th>`).join('')}</tr>`;
+            const bodyRows = s.rows
+              .map((row) => `<tr>${row.map((cell) => `<td>${esc(String(cell ?? ''))}</td>`).join('')}</tr>`)
+              .join('');
+            return `${title}<table>${headerRow}${bodyRows}</table>`;
+          }
+
+          case 'recommendations':
+            return `<h2>Recommendations</h2><ul>${s.items.map((item) => `<li><strong>${esc(item.priority)}</strong>: ${esc(item.action)}</li>`).join('')}</ul>`;
+        }
+      })
+      .join('');
+
+    container.innerHTML = `
+      <div style="font-family:sans-serif;padding:2rem;">
+        <h1>${esc(spec.title)}</h1>
+        <p>${esc(spec.connectionName)} · ${esc(spec.date)}</p>
+        ${sectionHtml}
+      </div>
+    `;
+
+    window.print();
+  } finally {
+    // Always clean up after 2 seconds (even if print throws)
+    setTimeout(() => {
+      document.getElementById('report-print')?.remove();
+      document.getElementById('report-print-style')?.remove();
+    }, 2000);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -193,108 +197,53 @@ export async function exportToPPTX(spec: ReportSpec): Promise<void> {
   const titleSlide = pptx.addSlide();
   titleSlide.background = { color: BG };
   titleSlide.addText(spec.title, {
-    x: 0.5,
-    y: 2.5,
-    w: 12,
-    h: 1.2,
-    align: 'center',
-    fontSize: 36,
-    bold: true,
-    color: ACCENT,
+    x: 0.5, y: 2.5, w: 12, h: 1.2,
+    align: 'center', fontSize: 36, bold: true, color: ACCENT,
   });
   titleSlide.addText(`${spec.author} · ${spec.connectionName} · ${spec.date}`, {
-    x: 0.5,
-    y: 3.9,
-    w: 12,
-    h: 0.6,
-    align: 'center',
-    fontSize: 18,
-    color: TEXT,
+    x: 0.5, y: 3.9, w: 12, h: 0.6,
+    align: 'center', fontSize: 18, color: TEXT,
   });
 
-  // Remaining slides per section
   for (const s of spec.sections) {
     if (s.type === 'analysis') {
       const slide = pptx.addSlide();
       slide.background = { color: BG };
+      slide.addText(s.title, { x: 0.2, y: 0.2, w: 10, h: 0.6, fontSize: 24, bold: true, color: ACCENT });
 
-      // Title
-      slide.addText(s.title as string, {
-        x: 0.2,
-        y: 0.2,
-        w: 10,
-        h: 0.6,
-        fontSize: 24,
-        bold: true,
-        color: ACCENT,
-      });
-
-      const chartDataUrl = s.chartDataUrl as string;
-      const confidence = s.confidence as number | undefined;
-      const findings = s.findings as string;
-
-      if (chartDataUrl) {
-        slide.addImage({ data: chartDataUrl, x: 0.2, y: 1, w: 5.5, h: 4 });
+      if (s.chartDataUrl) {
+        slide.addImage({ data: s.chartDataUrl, x: 0.2, y: 1, w: 5.5, h: 4 });
       }
 
-      // Findings bullets on right side
-      const findingsBullets = findings
+      const findingsBullets = s.findings
         .split('. ')
         .map((t) => t.trim())
         .filter((t) => t.length > 0)
         .map((t) => ({ text: t, options: { bullet: true } }));
 
-      slide.addText(findingsBullets, {
-        x: 6,
-        y: 1,
-        w: 3.8,
-        h: 4,
-        fontSize: 14,
-        color: TEXT,
-      });
-
-      // Confidence badge
-      slide.addText(`Confidence: ${Math.round((confidence ?? 0) * 100)}%`, {
-        x: 0.2,
-        y: 5.2,
-        w: 4,
-        h: 0.4,
-        fontSize: 12,
-        color: MUTED,
+      slide.addText(findingsBullets, { x: 6, y: 1, w: 3.8, h: 4, fontSize: 14, color: TEXT });
+      slide.addText(`Confidence: ${Math.round(s.confidence * 100)}%`, {
+        x: 0.2, y: 5.2, w: 4, h: 0.4, fontSize: 12, color: MUTED,
       });
     } else if (s.type === 'recommendations') {
       const slide = pptx.addSlide();
       slide.background = { color: BG };
+      slide.addText('Recommendations', { x: 0.2, y: 0.2, w: 10, h: 0.6, fontSize: 24, bold: true, color: ACCENT });
 
-      slide.addText('Recommendations', {
-        x: 0.2,
-        y: 0.2,
-        w: 10,
-        h: 0.6,
-        fontSize: 24,
-        bold: true,
-        color: ACCENT,
-      });
-
-      const items = (s.items as { priority: string; action: string }[]) ?? [];
       const tableRows: PptxGenJS.TableRow[] = [
         [
           { text: 'Priority', options: { bold: true, color: ACCENT, fontSize: 13 } },
           { text: 'Action', options: { bold: true, color: ACCENT, fontSize: 13 } },
         ],
-        ...items.map((item) => [
+        ...s.items.map((item) => [
           { text: item.priority, options: { color: TEXT, fontSize: 13 } },
           { text: item.action, options: { color: TEXT, fontSize: 13 } },
         ]),
       ];
 
       slide.addTable(tableRows, {
-        x: 0.2,
-        y: 1,
-        w: 12,
-        colW: [2, 10],
-        color: TEXT,
-        fontSize: 13,
+        x: 0.2, y: 1, w: 12, colW: [2, 10],
+        color: TEXT, fontSize: 13,
         border: { pt: 1, color: MUTED },
       });
     }

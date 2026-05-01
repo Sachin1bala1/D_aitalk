@@ -139,6 +139,8 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const historyRef = useRef<ConversationTurn[]>(loadTurns());
   const toolsCalledRef = useRef<string[]>([]);
+  // Tracks the user's question that opened the current analysis session (not the static WELCOME message)
+  const sessionQuestionRef = useRef<string>("");
 
   // Load API keys from OS keychain on mount and merge into settings
   useEffect(() => {
@@ -236,6 +238,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
     setSessionSections([]);
 
     const userMsg = input.trim();
+    sessionQuestionRef.current = userMsg;
     setInput("");
     addMsg({ role: "user", content: userMsg });
     setIsProcessing(true);
@@ -357,9 +360,9 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       } catch {
         // Memory store failure must not affect UI
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       finalizeStream();
-      const rawMsg: string = e?.message ?? String(e);
+      const rawMsg: string = e instanceof Error ? e.message : String(e);
       const provider = providerSettings.activeProvider;
       let hint = rawMsg;
       if (rawMsg === "Connection error." || rawMsg.includes("fetch")) {
@@ -554,10 +557,10 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
         open={reportPanelOpen}
         onOpenChange={setReportPanelOpen}
         session={sessionSections.length > 0 ? {
-          userQuestion: messages[0]?.content ?? 'Analysis Session',
+          userQuestion: sessionQuestionRef.current || 'Analysis Session',
           sections: sessionSections,
           connectionName: connections.find((c) => c.id === connectionId)?.display_name ?? connectionId ?? 'Unknown',
-          finalText: messages[messages.length - 1]?.content ?? '',
+          finalText: [...messages].reverse().find((m) => m.role === 'assistant')?.content ?? '',
         } : null}
       />
     </div>
