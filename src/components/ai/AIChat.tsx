@@ -118,9 +118,10 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
     activeHypotheses,
     clearHypotheses,
     clearConfidence,
-    pendingChatInput,
-    clearPendingChatInput,
   } = useWorkspaceStore();
+
+  const pendingChatInput = useWorkspaceStore((s) => s.pendingChatInput);
+  const clearPendingChatInput = useWorkspaceStore((s) => s.clearPendingChatInput);
 
   const [providerSettings, setProviderSettings] = useState(loadSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -129,6 +130,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const historyRef = useRef<ConversationTurn[]>(loadTurns());
   const toolsCalledRef = useRef<string[]>([]);
 
@@ -146,6 +148,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
     if (pendingChatInput) {
       setInput(pendingChatInput);
       clearPendingChatInput();
+      inputRef.current?.focus();
     }
   }, [pendingChatInput, clearPendingChatInput]);
 
@@ -426,6 +429,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       <div className="p-3 border-t border-[#262626] shrink-0">
         <div className="relative">
           <textarea
+            ref={inputRef}
             data-ai-input
             value={input}
             onChange={(e) => setInput(e.target.value)}
