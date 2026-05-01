@@ -7,7 +7,7 @@
  * Selection: shift+click to add a point to the selection.
  * TODO: lasso select
  */
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
   ResponsiveContainer,
   Scatter,
@@ -228,17 +228,20 @@ function ScatterChartImpl({
 
   const groupEntries = [...groups.entries()];
 
-  // Simple linear regression for trend line
+  // Simple linear regression for trend line — use paired filter to avoid index mismatch
   let trendPoints: { x: number; y: number }[] = [];
   if (showTrendLine) {
-    const allX = data.map((r) => toNum(r[xCol])).filter((v): v is number => v !== null);
-    const allY = data.map((r) => toNum(r[yCol])).filter((v): v is number => v !== null);
-    const n = Math.min(allX.length, allY.length);
+    const pairs = data
+      .map(d => ({ x: d[xCol] as number, y: d[yCol] as number }))
+      .filter(p => p.x != null && !isNaN(p.x) && p.y != null && !isNaN(p.y));
+    const allX = pairs.map(p => p.x);
+    const allY = pairs.map(p => p.y);
+    const n = allX.length;
     if (n > 1) {
-      const mx = mean(allX.slice(0, n));
-      const my = mean(allY.slice(0, n));
-      const num = allX.slice(0, n).reduce((s, x, i) => s + (x - mx) * (allY[i] - my), 0);
-      const den = allX.slice(0, n).reduce((s, x) => s + (x - mx) ** 2, 0);
+      const mx = mean(allX);
+      const my = mean(allY);
+      const num = allX.reduce((s, x, i) => s + (x - mx) * (allY[i] - my), 0);
+      const den = allX.reduce((s, x) => s + (x - mx) ** 2, 0);
       const slope = den === 0 ? 0 : num / den;
       const intercept = my - slope * mx;
       const xMin = Math.min(...allX);
@@ -250,15 +253,18 @@ function ScatterChartImpl({
     }
   }
 
-  // Confidence interval band around trend line (only when showTrendLine is also true)
+  // Simplified: constant band = mean ± z*stderr (not a true pointwise CI)
   let ciTrendData: { x: number; _upper: number; _lower: number }[] = [];
   if (showTrendLine && trendPoints.length === 2 && (confidenceInterval === '95' || confidenceInterval === '99')) {
-    const allY = data.map((r) => toNum(r[yCol])).filter((v): v is number => v !== null);
+    const pairs = data
+      .map(d => ({ x: d[xCol] as number, y: d[yCol] as number }))
+      .filter(p => p.x != null && !isNaN(p.x) && p.y != null && !isNaN(p.y));
+    const allX = pairs.map(p => p.x);
+    const allY = pairs.map(p => p.y);
     const yMean = mean(allY);
     const variance = allY.reduce((s, v) => s + (v - yMean) ** 2, 0) / allY.length;
     const stderr = Math.sqrt(variance / allY.length);
     const z = confidenceInterval === '95' ? 1.96 : 2.576;
-    const allX = data.map((r) => toNum(r[xCol])).filter((v): v is number => v !== null);
     const xMin = Math.min(...allX);
     const xMax = Math.max(...allX);
     const steps = 20;
@@ -303,12 +309,14 @@ function ScatterChartImpl({
         {groupEntries.length > 1 && <Legend wrapperStyle={{ fontSize: 10, color: '#ffffff60' }} />}
         {ciTrendData.length > 0 && (
           <>
+            {/* Mean ± SE band (constant band = mean ± z*stderr, not a true pointwise CI) */}
             <Area
               data={ciTrendData}
               dataKey="_upper"
               stroke="none"
-              fill="#ffffff"
-              fillOpacity={0.08}
+              fill="#a78bfa"
+              fillOpacity={0.15}
+              name="Mean ± SE band"
               legendType="none"
               dot={false}
               activeDot={false}
@@ -318,8 +326,9 @@ function ScatterChartImpl({
               data={ciTrendData}
               dataKey="_lower"
               stroke="none"
-              fill="#ffffff"
-              fillOpacity={0.08}
+              fill="#a78bfa"
+              fillOpacity={0.15}
+              name="Mean ± SE band"
               legendType="none"
               dot={false}
               activeDot={false}
@@ -403,7 +412,8 @@ function LineChartImpl({
 
   const groupKeys = [...groups.keys()];
 
-  // Compute CI band when requested
+  // Compute Mean ± SE band when requested
+  // Simplified: constant band = mean ± z*stderr (not a true pointwise CI)
   const showCI = confidenceInterval === '95' || confidenceInterval === '99';
   let ciData: Record<string, unknown>[] = [];
   if (showCI) {
@@ -447,12 +457,14 @@ function LineChartImpl({
         )}
         {showCI && (
           <>
+            {/* Mean ± SE band (constant band = mean ± z*stderr, not a true pointwise CI) */}
             <Area
               type="monotone"
               dataKey="_upper"
               stroke="none"
-              fill="#00d2ff"
-              fillOpacity={0.12}
+              fill="#a78bfa"
+              fillOpacity={0.15}
+              name="Mean ± SE band"
               legendType="none"
               dot={false}
               activeDot={false}
@@ -462,8 +474,9 @@ function LineChartImpl({
               type="monotone"
               dataKey="_lower"
               stroke="none"
-              fill="#00d2ff"
-              fillOpacity={0.12}
+              fill="#a78bfa"
+              fillOpacity={0.15}
+              name="Mean ± SE band"
               legendType="none"
               dot={false}
               activeDot={false}
@@ -998,12 +1011,13 @@ function AreaChartImpl({
   xCol: string;
   yCol: string;
 }) {
+  const gradId = React.useId().replace(/:/g, '');  // useId() returns ":r0:" etc, strip colons for SVG id
   const chartData = data.map((r) => ({ x: r[xCol], y: toNum(r[yCol]) }));
   return (
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={chartData} margin={{ top: 10, right: 20, bottom: 30, left: 20 }}>
         <defs>
-          <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="#00d2ff" stopOpacity={0.4} />
             <stop offset="95%" stopColor="#00d2ff" stopOpacity={0} />
           </linearGradient>
@@ -1015,7 +1029,7 @@ function AreaChartImpl({
           contentStyle={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, fontSize: 11 }}
           labelStyle={{ color: '#ffffff60' }}
         />
-        <Area type="monotone" dataKey="y" stroke="#00d2ff" fill="url(#areaGrad)" strokeWidth={2} name={yCol} />
+        <Area type="monotone" dataKey="y" stroke="#00d2ff" fill={`url(#${gradId})`} strokeWidth={2} name={yCol} />
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -1120,10 +1134,14 @@ export function GraphBuilder({
     onRightClickSelection(indices, summary);
   }, [selectedIndices, data, xCol, yCol, onRightClickSelection]);
 
-  const MAX_POINTS = 2000;
-  const displayData = data.length > MAX_POINTS
-    ? data.filter((_, i) => i % Math.ceil(data.length / MAX_POINTS) === 0).slice(0, MAX_POINTS)
-    : data;
+  const displayData = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    if (data.length > 2000) {
+      const stride = Math.ceil(data.length / 2000);
+      return data.filter((_, i) => i % stride === 0);
+    }
+    return data;
+  }, [data]);
 
   const renderChart = () => {
     if (!xCol && !yCol) {
@@ -1220,6 +1238,9 @@ export function GraphBuilder({
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const chart = useMemo(() => renderChart(), [displayData, xCol, yCol, colorCol, chartType, showTrendLine, logScaleX, logScaleY, referenceLineY, confidenceInterval, selectedIndices]);
+
   return (
     <div
       ref={containerRef}
@@ -1227,7 +1248,7 @@ export function GraphBuilder({
       onClick={handleContainerClick}
       onContextMenu={handleContextMenu}
     >
-      {renderChart()}
+      {chart}
       {ctxMenu && (
         <ChartContextMenu
           state={ctxMenu}
