@@ -404,6 +404,34 @@ function toolCallToCommand(
         dataGaps: i.data_gaps as string | undefined,
         risk: "safe" as const,
       };
+    case "pi_search_tags":
+      if (!connectionId) return null;
+      return {
+        type: "pi_search_tags",
+        connectionId,
+        query: i.query as string,
+        maxCount: i.max_count as number | undefined,
+        risk: "safe",
+      };
+    case "pi_get_history":
+      if (!connectionId) return null;
+      return {
+        type: "pi_get_history",
+        connectionId,
+        webIds: i.web_ids as string[],
+        start: i.start as string,
+        end: i.end as string,
+        interval: i.interval as string | undefined,
+        risk: "safe",
+      };
+    case "pi_get_current":
+      if (!connectionId) return null;
+      return {
+        type: "pi_get_current",
+        connectionId,
+        webIds: i.web_ids as string[],
+        risk: "safe",
+      };
     default:
       return null;
   }

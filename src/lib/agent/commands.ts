@@ -229,6 +229,33 @@ export interface DeclareHypothesesCmd {
   risk: "safe";
 }
 
+// ── OSIsoft PI Historian ──────────────────────────────────────────────────────
+
+export interface PISearchTagsCmd {
+  type: "pi_search_tags";
+  connectionId: string;
+  query: string;
+  maxCount?: number;
+  risk: "safe";
+}
+
+export interface PIGetHistoryCmd {
+  type: "pi_get_history";
+  connectionId: string;
+  webIds: string[];
+  start: string;
+  end: string;
+  interval?: string;
+  risk: "safe";
+}
+
+export interface PIGetCurrentCmd {
+  type: "pi_get_current";
+  connectionId: string;
+  webIds: string[];
+  risk: "safe";
+}
+
 // ── Union ─────────────────────────────────────────────────────────────────────
 
 export type AgentCommand =
@@ -254,7 +281,10 @@ export type AgentCommand =
   | CreatePipelineCmd
   | NotifyUserCmd
   | DeclareHypothesesCmd
-  | DeclareConfidenceCmd;
+  | DeclareConfidenceCmd
+  | PISearchTagsCmd
+  | PIGetHistoryCmd
+  | PIGetCurrentCmd;
 
 export type CommandType = AgentCommand["type"];
 
@@ -296,5 +326,8 @@ export function describeCommand(cmd: AgentCommand): string {
     case "notify_user": return `Notify: ${cmd.message}`;
     case "declare_hypotheses": return `Declare ${cmd.hypotheses.length} hypothesis${cmd.hypotheses.length !== 1 ? "es" : ""}: ${cmd.problemFrame.slice(0, 60)}`;
     case "declare_confidence": return `Confidence: ${cmd.confidenceLabel} (${Math.round(cmd.confidence * 100)}%)`;
+    case "pi_search_tags": return `PI search tags: "${cmd.query}"`;
+    case "pi_get_history": return `PI history for ${cmd.webIds.length} tag(s): ${cmd.start} → ${cmd.end}`;
+    case "pi_get_current": return `PI current values for ${cmd.webIds.length} tag(s)`;
   }
 }

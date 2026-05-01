@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+fn default_true() -> bool { true }
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ColumnMeta {
     pub name: String,
@@ -203,6 +205,6 @@ pub struct PIConfig {
     pub base_url: String,
     pub username: String,
     pub password: String,
-    #[serde(default)]
+    #[serde(default = "default_true")]
     pub verify_ssl: bool,
 }

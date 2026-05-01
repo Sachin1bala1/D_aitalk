@@ -132,28 +132,24 @@ pub async fn db_get_schema(
             .await {
                 use sqlx::Row;
                 use std::collections::HashMap;
+                // Build schema-qualified maps to avoid false positives when
+                // same table name appears in multiple schemas.
                 let chunk_counts: HashMap<String, u32> = rows.iter()
                     .filter_map(|r| {
-                        let name = r.try_get::<String, _>("hypertable_name").ok()?;
+                        let s = r.try_get::<String, _>("hypertable_schema").ok()?;
+                        let t = r.try_get::<String, _>("hypertable_name").ok()?;
                         let chunks = r.try_get::<i64, _>("num_chunks").ok()? as u32;
-                        Some((name, chunks))
+                        Some((format!("{}.{}", s, t), chunks))
                     })
                     .collect();
-                schema.hypertable_tables = rows.iter()
-                    .map(|r| {
-                        let s: String = r.try_get("hypertable_schema").unwrap_or_default();
-                        let t: String = r.try_get("hypertable_name").unwrap_or_default();
-                        format!("{}.{}", s, t)
-                    })
-                    .collect();
-                // Also mark individual TableMeta entries
-                let hypertable_set: std::collections::HashSet<String> = rows.iter()
-                    .map(|r| r.try_get::<String, _>("hypertable_name").unwrap_or_default())
-                    .collect();
+                let hypertable_set: std::collections::HashSet<String> = chunk_counts.keys()
+                    .cloned().collect();
+                schema.hypertable_tables = hypertable_set.iter().cloned().collect();
                 for table in &mut schema.tables {
-                    if hypertable_set.contains(&table.name) {
+                    let key = format!("{}.{}", table.schema, table.name);
+                    if hypertable_set.contains(&key) {
                         table.is_hypertable = true;
-                        table.hypertable_chunks = chunk_counts.get(&table.name).copied();
+                        table.hypertable_chunks = chunk_counts.get(&key).copied();
                     }
                 }
             }

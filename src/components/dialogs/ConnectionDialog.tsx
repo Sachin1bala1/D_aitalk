@@ -137,7 +137,7 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
   // PI Historian fields
   const [piUsername, setPiUsername] = useState("");
   const [piPassword, setPiPassword] = useState("");
-  const [piVerifySsl, setPiVerifySsl] = useState(false);
+  const [piVerifySsl, setPiVerifySsl] = useState(true);
 
   const isPIHistorian = driver === "p_i_historian";
 
@@ -207,7 +207,6 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
         await invoke("pi_test_connection", {
           piConfig: {
             base_url: connectionString,
-            auth_method: "basic",
             username: piUsername,
             password: piPassword,
             verify_ssl: piVerifySsl,
