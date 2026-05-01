@@ -29,6 +29,8 @@ interface SidebarProps {
   connectionHealth?: Record<string, "healthy" | "error" | "checking">;
   onSwitchConnection?: (id: string) => void;
   onDisconnect?: (id: string) => void;
+  // Loading state
+  isLoadingSchema?: boolean;
 }
 
 interface ContextMenuState {
@@ -71,6 +73,7 @@ export function Sidebar({
   connectionHealth = {},
   onSwitchConnection,
   onDisconnect,
+  isLoadingSchema,
 }: SidebarProps) {
   const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -117,6 +120,25 @@ export function Sidebar({
   };
 
   if (!schema) {
+    // No active connection at all — show empty state
+    if (!activeConnectionId) {
+      return (
+        <div className="flex flex-col items-center justify-center h-32 text-white/20 text-xs text-center px-4">
+          <Database className="w-6 h-6 mb-2 opacity-30" />
+          Connect a database to browse its schema
+        </div>
+      );
+    }
+    // Connection exists but schema is loading — show skeleton
+    if (isLoadingSchema) {
+      return (
+        <div className="flex flex-col gap-2 p-3">
+          <div className="animate-pulse bg-zinc-700/30 h-3 rounded w-3/4" />
+          <div className="animate-pulse bg-zinc-700/30 h-3 rounded w-3/4" />
+          <div className="animate-pulse bg-zinc-700/30 h-3 rounded w-3/4" />
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col items-center justify-center h-full text-white/20 gap-2">
         <Table className="w-8 h-8" />

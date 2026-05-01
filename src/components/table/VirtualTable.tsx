@@ -660,7 +660,11 @@ function PivotView({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function VirtualTable() {
+interface VirtualTableProps {
+  isLoading?: boolean;
+}
+
+export function VirtualTable({ isLoading }: VirtualTableProps = {}) {
   const store = useRowStore();
   const { rows, columns, isStreaming, elapsedMs } = store;
   const chartRequest = useWorkspaceStore((s) => s.chartRequest);
@@ -1425,6 +1429,11 @@ export function VirtualTable() {
         }}
       >
         <div style={{ height: virtualizer.getTotalSize(), width: totalWidth, position: "relative" }}>
+          {isLoading && rows.length === 0 && !isStreaming && (
+            <div className="flex items-center justify-center h-20 text-white/30 text-sm">
+              Executing…
+            </div>
+          )}
           {isStreaming && rows.length === 0 && (
             <div className="flex items-center justify-center h-16 text-white/20 text-xs font-mono">
               Waiting for first batch…

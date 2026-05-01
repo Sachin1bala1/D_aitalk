@@ -512,7 +512,7 @@ export function GraphBuilderPanel({ columns, data }: GraphBuilderPanelProps) {
           {!savedChartsCollapsed && (
             <div className="space-y-1">
               {savedCharts.length === 0 ? (
-                <p className="text-[9px] text-white/15 text-center py-2">No saved charts</p>
+                <p className="text-[9px] text-white/15 text-center py-2">No saved charts. Build a chart and save it.</p>
               ) : (
                 savedCharts.map((sc) => (
                   <div
