@@ -17,7 +17,6 @@ import {
   AreaChart,
   Area,
   BarChart,
-  LineChart,
   ScatterChart,
   XAxis,
   YAxis,
@@ -27,6 +26,7 @@ import {
   Brush,
   ReferenceLine,
   Cell,
+  Customized,
 } from 'recharts';
 import type { ChartType } from '../../lib/charts/chartAutoSelect';
 
@@ -202,13 +202,16 @@ function ChartContextMenu({
 // ── Scatter chart ─────────────────────────────────────────────────────────────
 
 function ScatterChartImpl({
-  data, xCol, yCol, colorCol, showTrendLine, selectedIndices, onPointClick,
+  data, xCol, yCol, colorCol, showTrendLine, logScaleX, logScaleY, confidenceInterval, selectedIndices, onPointClick,
 }: {
   data: Record<string, unknown>[];
   xCol: string;
   yCol: string;
   colorCol?: string | null;
   showTrendLine?: boolean;
+  logScaleX?: boolean;
+  logScaleY?: boolean;
+  confidenceInterval?: 'none' | '95' | '99';
   selectedIndices: Set<number>;
   onPointClick?: (i: number) => void;
 }) {
@@ -247,20 +250,83 @@ function ScatterChartImpl({
     }
   }
 
+  // Confidence interval band around trend line (only when showTrendLine is also true)
+  let ciTrendData: { x: number; _upper: number; _lower: number }[] = [];
+  if (showTrendLine && trendPoints.length === 2 && (confidenceInterval === '95' || confidenceInterval === '99')) {
+    const allY = data.map((r) => toNum(r[yCol])).filter((v): v is number => v !== null);
+    const yMean = mean(allY);
+    const variance = allY.reduce((s, v) => s + (v - yMean) ** 2, 0) / allY.length;
+    const stderr = Math.sqrt(variance / allY.length);
+    const z = confidenceInterval === '95' ? 1.96 : 2.576;
+    const allX = data.map((r) => toNum(r[xCol])).filter((v): v is number => v !== null);
+    const xMin = Math.min(...allX);
+    const xMax = Math.max(...allX);
+    const steps = 20;
+    const slope = trendPoints.length === 2
+      ? (trendPoints[1].y - trendPoints[0].y) / (trendPoints[1].x - trendPoints[0].x || 1)
+      : 0;
+    const intercept = trendPoints.length === 2 ? trendPoints[0].y - slope * trendPoints[0].x : 0;
+    ciTrendData = Array.from({ length: steps + 1 }, (_, i) => {
+      const x = xMin + (xMax - xMin) * (i / steps);
+      const yHat = slope * x + intercept;
+      return { x, _upper: yHat + z * stderr, _lower: yHat - z * stderr };
+    });
+  }
+
   const tooltipFormatter = makeFormatter((v, n) => [v.toFixed(3), n]);
 
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart margin={{ top: 10, right: 20, bottom: 20, left: 20 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-        <XAxis dataKey="x" type="number" name={xCol} stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
-        <YAxis dataKey="y" type="number" name={yCol} stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
+        <XAxis
+          dataKey="x"
+          type="number"
+          name={xCol}
+          stroke="#ffffff30"
+          tick={{ fill: '#ffffff40', fontSize: 10 }}
+          {...(logScaleX ? { scale: 'log', domain: ['auto', 'auto'] } : {})}
+        />
+        <YAxis
+          dataKey="y"
+          type="number"
+          name={yCol}
+          stroke="#ffffff30"
+          tick={{ fill: '#ffffff40', fontSize: 10 }}
+          {...(logScaleY ? { scale: 'log', domain: ['auto', 'auto'] } : {})}
+        />
         <Tooltip
           contentStyle={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, fontSize: 11 }}
           labelStyle={{ color: '#ffffff60' }}
           formatter={tooltipFormatter}
         />
         {groupEntries.length > 1 && <Legend wrapperStyle={{ fontSize: 10, color: '#ffffff60' }} />}
+        {ciTrendData.length > 0 && (
+          <>
+            <Area
+              data={ciTrendData}
+              dataKey="_upper"
+              stroke="none"
+              fill="#ffffff"
+              fillOpacity={0.08}
+              legendType="none"
+              dot={false}
+              activeDot={false}
+              connectNulls
+            />
+            <Area
+              data={ciTrendData}
+              dataKey="_lower"
+              stroke="none"
+              fill="#ffffff"
+              fillOpacity={0.08}
+              legendType="none"
+              dot={false}
+              activeDot={false}
+              connectNulls
+            />
+          </>
+        )}
         {groupEntries.map(([groupKey, points], gi) => (
           <Scatter
             key={groupKey}
@@ -303,13 +369,17 @@ function ScatterChartImpl({
 // ── Line chart ────────────────────────────────────────────────────────────────
 
 function LineChartImpl({
-  data, xCol, yCol, colorCol, referenceLineY, selectedIndices,
+  data, xCol, yCol, colorCol, referenceLineY, showDataPoints, logScaleX, logScaleY, confidenceInterval, selectedIndices,
 }: {
   data: Record<string, unknown>[];
   xCol: string;
   yCol: string;
   colorCol?: string | null;
   referenceLineY?: { value: number; label: string } | null;
+  showDataPoints?: boolean;
+  logScaleX?: boolean;
+  logScaleY?: boolean;
+  confidenceInterval?: 'none' | '95' | '99';
   selectedIndices: Set<number>;
 }) {
   const groups: Map<string, boolean> = new Map();
@@ -333,12 +403,39 @@ function LineChartImpl({
 
   const groupKeys = [...groups.keys()];
 
+  // Compute CI band when requested
+  const showCI = confidenceInterval === '95' || confidenceInterval === '99';
+  let ciData: Record<string, unknown>[] = [];
+  if (showCI) {
+    const allY = data.map((r) => toNum(r[yCol])).filter((v): v is number => v !== null);
+    const yMean = mean(allY);
+    const variance = allY.reduce((s, v) => s + (v - yMean) ** 2, 0) / allY.length;
+    const stderr = Math.sqrt(variance / allY.length);
+    const z = confidenceInterval === '95' ? 1.96 : 2.576;
+    ciData = chartData.map((d) => {
+      const yv = toNum(d['__all__'] ?? d[groupKeys[0]]);
+      if (yv === null) return { ...d, _upper: null, _lower: null };
+      return { ...d, _upper: yv + z * stderr, _lower: yv - z * stderr };
+    });
+  }
+
+  const displayData = showCI ? ciData : chartData;
+
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={chartData} margin={{ top: 10, right: 30, bottom: 30, left: 20 }}>
+      <ComposedChart data={displayData} margin={{ top: 10, right: 30, bottom: 30, left: 20 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-        <XAxis dataKey="_x" stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
-        <YAxis stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
+        <XAxis
+          dataKey="_x"
+          stroke="#ffffff30"
+          tick={{ fill: '#ffffff40', fontSize: 10 }}
+          {...(logScaleX ? { scale: 'log', domain: ['auto', 'auto'] } : {})}
+        />
+        <YAxis
+          stroke="#ffffff30"
+          tick={{ fill: '#ffffff40', fontSize: 10 }}
+          {...(logScaleY ? { scale: 'log', domain: ['auto', 'auto'] } : {})}
+        />
         <Tooltip
           contentStyle={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, fontSize: 11 }}
           labelStyle={{ color: '#ffffff60' }}
@@ -348,6 +445,32 @@ function LineChartImpl({
         {referenceLineY && (
           <ReferenceLine y={referenceLineY.value} label={{ value: referenceLineY.label, fill: '#ffd166', fontSize: 9 }} stroke="#ffd166" strokeDasharray="4 2" />
         )}
+        {showCI && (
+          <>
+            <Area
+              type="monotone"
+              dataKey="_upper"
+              stroke="none"
+              fill="#00d2ff"
+              fillOpacity={0.12}
+              legendType="none"
+              dot={false}
+              activeDot={false}
+              connectNulls
+            />
+            <Area
+              type="monotone"
+              dataKey="_lower"
+              stroke="none"
+              fill="#00d2ff"
+              fillOpacity={0.12}
+              legendType="none"
+              dot={false}
+              activeDot={false}
+              connectNulls
+            />
+          </>
+        )}
         {groupKeys.map((gk, gi) => (
           <Line
             key={gk}
@@ -355,27 +478,30 @@ function LineChartImpl({
             dataKey={gk}
             stroke={colorAt(gi)}
             strokeWidth={2}
-            dot={(props: { cx?: number; cy?: number; index?: number }) => {
-              if (props.cx === undefined || props.cy === undefined) return <g key={props.index} />;
-              const idx = props.index ?? 0;
-              const selected = selectedIndices.has(idx);
-              return (
-                <circle
-                  key={idx}
-                  cx={props.cx}
-                  cy={props.cy}
-                  r={selected ? 5 : 3}
-                  fill={selected ? '#ffffff' : colorAt(gi)}
-                  stroke={selected ? '#00d2ff' : 'none'}
-                  strokeWidth={selected ? 2 : 0}
-                />
-              );
-            }}
+            dot={showDataPoints === false
+              ? false
+              : (props: { cx?: number; cy?: number; index?: number }) => {
+                  if (props.cx === undefined || props.cy === undefined) return <g key={props.index} />;
+                  const idx = props.index ?? 0;
+                  const selected = selectedIndices.has(idx);
+                  return (
+                    <circle
+                      key={idx}
+                      cx={props.cx}
+                      cy={props.cy}
+                      r={selected ? 5 : 3}
+                      fill={selected ? '#ffffff' : colorAt(gi)}
+                      stroke={selected ? '#00d2ff' : 'none'}
+                      strokeWidth={selected ? 2 : 0}
+                    />
+                  );
+                }
+            }
             connectNulls
             name={gk === '__all__' ? yCol : gk}
           />
         ))}
-      </LineChart>
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }
@@ -505,6 +631,18 @@ function HistogramImpl({
 
 // ── Box plot ──────────────────────────────────────────────────────────────────
 
+interface BoxStats {
+  category: string;
+  base: number;
+  lower: number;
+  upper: number;
+  whiskerLow: number;
+  whiskerHigh: number;
+  q1: number;
+  q3: number;
+  median: number;
+}
+
 function BoxPlotImpl({
   data, xCol, yCol,
 }: {
@@ -521,20 +659,90 @@ function BoxPlotImpl({
     groups.get(gk)!.push(yv);
   });
 
-  const boxData = [...groups.entries()].map(([category, vals]) => {
+  const allOutliers: { category: string; value: number }[] = [];
+
+  const boxData: BoxStats[] = [...groups.entries()].map(([category, vals]) => {
     const sorted = [...vals].sort((a, b) => a - b);
     const q1 = quantile(sorted, 0.25);
     const med = quantile(sorted, 0.5);
     const q3 = quantile(sorted, 0.75);
+    const iqr = q3 - q1;
+    const lowerFence = q1 - 1.5 * iqr;
+    const upperFence = q3 + 1.5 * iqr;
+
+    const inliers = sorted.filter((v) => v >= lowerFence && v <= upperFence);
+    const whiskerLow = inliers.length > 0 ? inliers[0] : q1;
+    const whiskerHigh = inliers.length > 0 ? inliers[inliers.length - 1] : q3;
+
+    sorted
+      .filter((v) => v < lowerFence || v > upperFence)
+      .forEach((v) => allOutliers.push({ category, value: v }));
+
     return {
       category,
       base: q1,
       lower: med - q1,
       upper: q3 - med,
+      whiskerLow,
+      whiskerHigh,
+      q1,
+      q3,
+      median: med,
     };
   });
 
   const tooltipFormatter = makeFormatter((v, n) => [v.toFixed(3), n]);
+
+  // Custom whisker rendering using a Customized component
+  const WhiskerLayer = (props: { formattedGraphicalItems?: { props: { data: BoxStats[]; xAxisMap?: Record<string, { scale: (v: unknown) => number }> } }[]; yAxisMap?: Record<string, { scale: (v: number) => number }> }) => {
+    const item = props.formattedGraphicalItems?.[0];
+    const barData = item?.props?.data;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const yAxis = props.yAxisMap ? Object.values(props.yAxisMap)[0] as any : null;
+    if (!barData || !yAxis) return null;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const xAxisMap = item?.props?.xAxisMap ?? ((props as any).xAxisMap);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const xAxis = xAxisMap ? Object.values(xAxisMap as Record<string, any>)[0] as any : null;
+
+    return (
+      <g>
+        {barData.map((d, i) => {
+          if (!xAxis || !yAxis) return null;
+          const barCount = barData.length;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const xScale = (xAxis as any).scale;
+          const bandwidth = typeof xScale?.bandwidth === 'function' ? xScale.bandwidth() : (xAxis.width ?? 400) / barCount;
+          const cx = (typeof xScale === 'function' ? xScale(d.category) : (i * bandwidth)) + bandwidth / 2;
+          const yLow = yAxis.scale(d.whiskerLow);
+          const yHigh = yAxis.scale(d.whiskerHigh);
+          const yQ1 = yAxis.scale(d.q1);
+          const yQ3 = yAxis.scale(d.q3);
+          const halfW = Math.max(4, bandwidth * 0.15);
+
+          return (
+            <g key={`whisker-${i}`}>
+              {/* Vertical whisker line */}
+              <line x1={cx} x2={cx} y1={yLow} y2={yQ1} stroke="#00d2ff" strokeWidth={1.5} strokeDasharray="2 2" />
+              <line x1={cx} x2={cx} y1={yQ3} y2={yHigh} stroke="#00d2ff" strokeWidth={1.5} strokeDasharray="2 2" />
+              {/* Whisker caps */}
+              <line x1={cx - halfW} x2={cx + halfW} y1={yLow} y2={yLow} stroke="#00d2ff" strokeWidth={1.5} />
+              <line x1={cx - halfW} x2={cx + halfW} y1={yHigh} y2={yHigh} stroke="#00d2ff" strokeWidth={1.5} />
+            </g>
+          );
+        })}
+      </g>
+    );
+  };
+
+  // Outlier scatter data — map category to x index for positioning
+  const categoryIndex = new Map(boxData.map((d, i) => [d.category, i]));
+  const outlierPoints = allOutliers.map((o) => ({
+    _catIdx: categoryIndex.get(o.category) ?? 0,
+    _category: o.category,
+    value: o.value,
+  }));
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -553,6 +761,20 @@ function BoxPlotImpl({
         <Bar dataKey="lower" fill="#00d2ff" fillOpacity={0.5} stackId="box" name="Q1→Median" stroke="#00d2ff" strokeWidth={1} />
         {/* median → Q3 */}
         <Bar dataKey="upper" fill="#00d2ff" fillOpacity={0.8} stackId="box" name="Median→Q3" stroke="#00d2ff" strokeWidth={1} />
+        {/* Whiskers as SVG overlay */}
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        <Customized component={WhiskerLayer as any} />
+        {/* Outlier points */}
+        {outlierPoints.length > 0 && (
+          <Scatter
+            data={outlierPoints}
+            dataKey="value"
+            name="Outliers"
+            fill="#ff6b6b"
+            opacity={0.8}
+            legendType="circle"
+          />
+        )}
       </ComposedChart>
     </ResponsiveContainer>
   );
@@ -852,9 +1074,12 @@ export function GraphBuilder({
   colorCol,
   sizeCol,
   chartType,
-  showDataPoints: _showDataPoints,
+  showDataPoints,
   showTrendLine,
+  logScaleX,
+  logScaleY,
   referenceLineY,
+  confidenceInterval,
   selectedIndices = new Set(),
   onPointClick,
   onRightClickSelection,
@@ -918,6 +1143,9 @@ export function GraphBuilder({
             yCol={yCol}
             colorCol={colorCol}
             showTrendLine={showTrendLine}
+            logScaleX={logScaleX}
+            logScaleY={logScaleY}
+            confidenceInterval={confidenceInterval}
             selectedIndices={selectedIndices}
             onPointClick={onPointClick}
           />
@@ -931,6 +1159,10 @@ export function GraphBuilder({
             yCol={yCol}
             colorCol={colorCol}
             referenceLineY={referenceLineY}
+            showDataPoints={showDataPoints}
+            logScaleX={logScaleX}
+            logScaleY={logScaleY}
+            confidenceInterval={confidenceInterval}
             selectedIndices={selectedIndices}
           />
         ) : null;
