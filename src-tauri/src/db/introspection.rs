@@ -85,6 +85,8 @@ async fn introspect_postgres(pool: &sqlx::PgPool, connection_id: &str) -> Result
                 } else {
                     TableObjectType::Table
                 },
+                is_hypertable: false,
+                hypertable_chunks: None,
             }
         })
         .collect();
@@ -233,6 +235,8 @@ async fn introspect_mysql(pool: &sqlx::MySqlPool, connection_id: &str) -> Result
                 row_estimate: Some(row_estimate),
                 size_bytes: Some(size_bytes),
                 object_type: if table_type == "VIEW" { TableObjectType::View } else { TableObjectType::Table },
+                is_hypertable: false,
+                hypertable_chunks: None,
             }
         })
         .collect();
@@ -298,6 +302,8 @@ async fn introspect_sqlite(pool: &sqlx::SqlitePool, connection_id: &str) -> Resu
             row_estimate: None,
             size_bytes: None,
             object_type: TableObjectType::Table,
+            is_hypertable: false,
+            hypertable_chunks: None,
         });
 
         let pragma_rows = sqlx::query(&format!("PRAGMA table_info(\"{}\")", name))
@@ -390,6 +396,8 @@ async fn introspect_mssql(
                 row_estimate: Some(row_estimate),
                 size_bytes: Some(size_bytes),
                 object_type: if table_type == "VIEW" { TableObjectType::View } else { TableObjectType::Table },
+                is_hypertable: false,
+                hypertable_chunks: None,
             }
         })
         .collect();
@@ -502,6 +510,8 @@ async fn introspect_mongodb(
             row_estimate: Some(count as i64),
             size_bytes: None,
             object_type: TableObjectType::Table,
+            is_hypertable: false,
+            hypertable_chunks: None,
         });
 
         // Sample up to 20 documents to infer field names + types
@@ -644,6 +654,8 @@ async fn introspect_redis(
             row_estimate: Some(prefix_keys.len() as i64),
             size_bytes: None,
             object_type: TableObjectType::Table,
+            is_hypertable: false,
+            hypertable_chunks: None,
         });
         columns.insert(format!("redis.{}", prefix), pseudo_cols.clone());
     }
@@ -700,6 +712,8 @@ async fn introspect_clickhouse(
             row_estimate: Some(r.total_rows as i64),
             size_bytes: Some(r.total_bytes as i64),
             object_type,
+            is_hypertable: false,
+            hypertable_chunks: None,
         }
     }).collect();
 

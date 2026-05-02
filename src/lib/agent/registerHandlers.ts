@@ -4,6 +4,7 @@
  * Call once at app startup (App.tsx). After this, `commandBus.dispatch(cmd)`
  * will route to the correct Tauri invoke / WorkspaceStore mutation / UI action.
  */
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { toast } from "sonner";
 
@@ -34,6 +35,12 @@ import type {
   CreateChartCmd,
   CreatePipelineCmd,
   NotifyUserCmd,
+  DeclareHypothesesCmd,
+  DeclareConfidenceCmd,
+  ConfidenceDeclaration,
+  PISearchTagsCmd,
+  PIGetHistoryCmd,
+  PIGetCurrentCmd,
 } from "./commands";
 import { useUserToolStore } from "../stores/UserToolStore";
 import { fillTemplate } from "../tools/user.tools";
@@ -486,5 +493,62 @@ export function registerHandlers() {
     }[cmd.level];
     fn(cmd.message);
     return { success: true };
+  });
+
+  // ── Hypothesis Engine ─────────────────────────────────────────────────────
+
+  commandBus.register<DeclareHypothesesCmd>("declare_hypotheses", async (cmd) => {
+    useWorkspaceStore.getState().setActiveHypotheses(cmd.hypotheses, cmd.problemFrame);
+    return { success: true, result: "Hypotheses declared" };
+  });
+
+  // ── Confidence Scoring ────────────────────────────────────────────────────
+
+  commandBus.register<DeclareConfidenceCmd>("declare_confidence", async (cmd) => {
+    const { type, risk, ...declaration } = cmd;
+    useWorkspaceStore.getState().setActiveConfidence(declaration as ConfidenceDeclaration);
+    return { success: true, result: "Confidence declared" };
+  });
+
+  // ── OSIsoft PI Historian ──────────────────────────────────────────────────
+
+  commandBus.register<PISearchTagsCmd>("pi_search_tags", async (cmd) => {
+    try {
+      const tags = await invoke("pi_search_tags", {
+        connectionId: cmd.connectionId,
+        query: cmd.query,
+        maxCount: cmd.maxCount,
+      });
+      return { success: true, result: tags };
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
+  commandBus.register<PIGetHistoryCmd>("pi_get_history", async (cmd) => {
+    try {
+      const data = await invoke("pi_get_history", {
+        connectionId: cmd.connectionId,
+        webIds: cmd.webIds,
+        start: cmd.start,
+        end: cmd.end,
+        interval: cmd.interval,
+      });
+      return { success: true, result: data };
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
+  commandBus.register<PIGetCurrentCmd>("pi_get_current", async (cmd) => {
+    try {
+      const values = await invoke("pi_get_current", {
+        connectionId: cmd.connectionId,
+        webIds: cmd.webIds,
+      });
+      return { success: true, result: values };
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   });
 }

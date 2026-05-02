@@ -121,23 +121,37 @@ pub async fn db_get_schema(
         .await
         .map_err(|e| e.to_string())?;
 
-    // Detect TimescaleDB hypertables — populate hypertable_tables list (no name mutation)
+    // Detect TimescaleDB hypertables — populate hypertable_tables list and enrich TableMeta
     if is_timescale {
         schema.driver = "timescaledb".to_string();
         if let crate::db::connection_manager::ActiveConnection::Postgres(pool) = conn.as_ref() {
             if let Ok(rows) = sqlx::query(
-                "SELECT hypertable_schema, hypertable_name FROM timescaledb_information.hypertables"
+                "SELECT hypertable_schema, hypertable_name, num_chunks FROM timescaledb_information.hypertables"
             )
             .fetch_all(pool)
             .await {
                 use sqlx::Row;
-                schema.hypertable_tables = rows.iter()
-                    .map(|r| {
-                        let s: String = r.try_get("hypertable_schema").unwrap_or_default();
-                        let t: String = r.try_get("hypertable_name").unwrap_or_default();
-                        format!("{}.{}", s, t)
+                use std::collections::HashMap;
+                // Build schema-qualified maps to avoid false positives when
+                // same table name appears in multiple schemas.
+                let chunk_counts: HashMap<String, u32> = rows.iter()
+                    .filter_map(|r| {
+                        let s = r.try_get::<String, _>("hypertable_schema").ok()?;
+                        let t = r.try_get::<String, _>("hypertable_name").ok()?;
+                        let chunks = r.try_get::<i64, _>("num_chunks").ok()? as u32;
+                        Some((format!("{}.{}", s, t), chunks))
                     })
                     .collect();
+                let hypertable_set: std::collections::HashSet<String> = chunk_counts.keys()
+                    .cloned().collect();
+                schema.hypertable_tables = hypertable_set.iter().cloned().collect();
+                for table in &mut schema.tables {
+                    let key = format!("{}.{}", table.schema, table.name);
+                    if hypertable_set.contains(&key) {
+                        table.is_hypertable = true;
+                        table.hypertable_chunks = chunk_counts.get(&key).copied();
+                    }
+                }
             }
         }
     }
@@ -515,6 +529,123 @@ pub fn delete_api_key(service: String) -> Result<(), String> {
     }
 }
 
+// ── Credential Vault ──────────────────────────────────────────────────────────
+
+/// Save an arbitrary credential (e.g. a connection password) to the OS keychain.
+#[tauri::command]
+pub fn save_credential(key: String, value: String) -> Result<(), String> {
+    let entry = keyring::Entry::new("daitalk", &key)
+        .map_err(|e| e.to_string())?;
+    entry.set_password(&value).map_err(|e| e.to_string())
+}
+
+/// Retrieve a credential from the OS keychain. Returns None if not set.
+#[tauri::command]
+pub fn get_credential(key: String) -> Result<Option<String>, String> {
+    let entry = keyring::Entry::new("daitalk", &key)
+        .map_err(|e| e.to_string())?;
+    match entry.get_password() {
+        Ok(pw) => Ok(Some(pw)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Delete a credential from the OS keychain. No-op if not found.
+#[tauri::command]
+pub fn delete_credential(key: String) -> Result<(), String> {
+    let entry = keyring::Entry::new("daitalk", &key)
+        .map_err(|e| e.to_string())?;
+    match entry.delete_credential() {
+        Ok(()) => Ok(()),
+        Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+// ── License Key ───────────────────────────────────────────────────────────────
+
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
+type HmacSha256 = Hmac<Sha256>;
+
+// NOTE: Client-side HMAC validation is a known MVP limitation — the secret is
+// visible to anyone with source access. Move to server-side validation before
+// public release.
+const LICENSE_SECRET: &str = "dataiq-mvp-secret-2026";
+
+// License key format: "{TIER}-{HEX16}"
+// Where HEX16 = first 16 hex chars of HMAC-SHA256(LICENSE_SECRET, TIER)
+// Valid TIER values: "PRO", "ENT"
+
+fn validate_license_key(key: &str) -> Option<String> {
+    let parts: Vec<&str> = key.splitn(2, '-').collect();
+    if parts.len() != 2 {
+        return None;
+    }
+    let tier = parts[0].to_uppercase();
+    if tier != "PRO" && tier != "ENT" {
+        return None;
+    }
+    let expected_hmac = compute_license_hmac(&tier);
+    if parts[1].to_uppercase() == expected_hmac {
+        Some(tier)
+    } else {
+        None
+    }
+}
+
+fn compute_license_hmac(tier: &str) -> String {
+    let mut mac = HmacSha256::new_from_slice(LICENSE_SECRET.as_bytes())
+        .expect("HMAC can take key of any size");
+    mac.update(tier.as_bytes());
+    let result = mac.finalize();
+    let bytes = result.into_bytes();
+    hex::encode(&bytes[..8]).to_uppercase()
+}
+
+#[tauri::command]
+pub fn activate_license(key: String) -> Result<String, String> {
+    let trimmed = key.trim().to_uppercase();
+    match validate_license_key(&trimmed) {
+        Some(tier) => {
+            let entry = keyring::Entry::new("daitalk", "license_key").map_err(|e| e.to_string())?;
+            entry.set_password(&trimmed).map_err(|e| e.to_string())?;
+            Ok(tier)
+        }
+        None => Err("Invalid license key".to_string()),
+    }
+}
+
+#[tauri::command]
+pub fn check_license() -> Result<serde_json::Value, String> {
+    let entry = keyring::Entry::new("daitalk", "license_key").map_err(|e| e.to_string())?;
+    match entry.get_password() {
+        Ok(stored_key) => {
+            match validate_license_key(&stored_key) {
+                Some(tier) => {
+                    let display = if tier == "ENT" { "enterprise" } else { "pro" };
+                    Ok(serde_json::json!({ "tier": display, "valid": true }))
+                }
+                None => Ok(serde_json::json!({ "tier": "free", "valid": false })),
+            }
+        }
+        Err(keyring::Error::NoEntry) => Ok(serde_json::json!({ "tier": "free", "valid": false })),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Remove the stored license key from the OS keychain.
+#[tauri::command]
+pub fn remove_license() -> Result<(), String> {
+    let entry = keyring::Entry::new("daitalk", "license_key").map_err(|e| e.to_string())?;
+    match entry.delete_credential() {
+        Ok(()) => Ok(()),
+        Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 // ── Health Check ──────────────────────────────────────────────────────────────
 
 #[tauri::command]
@@ -693,4 +824,75 @@ pub async fn memory_update_calibration(
         .await
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+// ── OSIsoft PI Web API Commands ───────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn pi_search_tags(
+    connection_id: String,
+    query: String,
+    max_count: Option<u32>,
+    state: State<'_, AppState>,
+) -> Result<Vec<crate::db::pi_client::PITag>, String> {
+    let config = {
+        state.connections
+            .get_config(&connection_id)
+            .await
+            .and_then(|c| c.pi_config)
+            .ok_or_else(|| "No PI config for this connection".to_string())?
+    };
+    let client = crate::db::pi_client::PIClient::new(
+        &config.base_url, &config.username, &config.password, config.verify_ssl
+    )?;
+    client.search_tags(&query, max_count.unwrap_or(50)).await
+}
+
+#[tauri::command]
+pub async fn pi_get_history(
+    connection_id: String,
+    web_ids: Vec<String>,
+    start: String,
+    end: String,
+    interval: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<Vec<crate::db::pi_client::TagData>, String> {
+    let config = {
+        state.connections
+            .get_config(&connection_id)
+            .await
+            .and_then(|c| c.pi_config)
+            .ok_or_else(|| "No PI config for this connection".to_string())?
+    };
+    let client = crate::db::pi_client::PIClient::new(
+        &config.base_url, &config.username, &config.password, config.verify_ssl
+    )?;
+    client.get_tag_history(&web_ids, &start, &end, &interval.unwrap_or("1h".to_string())).await
+}
+
+#[tauri::command]
+pub async fn pi_get_current(
+    connection_id: String,
+    web_ids: Vec<String>,
+    state: State<'_, AppState>,
+) -> Result<Vec<crate::db::pi_client::CurrentValue>, String> {
+    let config = {
+        state.connections
+            .get_config(&connection_id)
+            .await
+            .and_then(|c| c.pi_config)
+            .ok_or_else(|| "No PI config for this connection".to_string())?
+    };
+    let client = crate::db::pi_client::PIClient::new(
+        &config.base_url, &config.username, &config.password, config.verify_ssl
+    )?;
+    client.get_current_values(&web_ids).await
+}
+
+#[tauri::command]
+pub async fn pi_test_connection(pi_config: crate::db::types::PIConfig) -> Result<String, String> {
+    let client = crate::db::pi_client::PIClient::new(
+        &pi_config.base_url, &pi_config.username, &pi_config.password, pi_config.verify_ssl
+    )?;
+    client.test_connection().await
 }

@@ -276,4 +276,89 @@ export const AGENT_TOOLS: UnifiedTool[] = [
       required: ["message", "level"],
     },
   },
+
+    // ── Confidence Scoring ──────────────────────────────────────────────
+  {
+    name: 'declare_confidence',
+    description:
+      'After completing an analysis, declare your confidence in the findings and what evidence would change your conclusion. Call this as the LAST tool call before giving the final narrative.',
+    parameters: {
+      type: 'object',
+      properties: {
+        confidence: { type: 'number', description: '0.0 to 1.0' },
+        confidence_label: { type: 'string', enum: ['high', 'medium', 'low', 'insufficient_data'] },
+        data_quality: { type: 'string', enum: ['good', 'limited', 'sparse', 'unreliable'] },
+        what_would_change_conclusion: { type: 'string' },
+        data_gaps: { type: 'string', description: 'What data is missing that would help?' },
+      },
+      required: ['confidence', 'confidence_label', 'what_would_change_conclusion'],
+    },
+  },
+
+  // ── Hypothesis Engine ─────────────────────────────────────────────────────
+  {
+    name: "declare_hypotheses",
+    description:
+      "Before running any analysis tool, declare your competing hypotheses about what is causing the observed pattern. ALWAYS call this first when analyzing an anomaly, quality issue, or process upset.",
+    parameters: {
+      type: "object",
+      properties: {
+        hypotheses: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              statement: { type: "string" },
+              probability: { type: "number", description: "0.0 to 1.0" },
+              evidence_for: { type: "string" },
+              evidence_against: { type: "string" },
+              discriminating_test: { type: "string", description: "What single analysis would confirm this?" },
+            },
+            required: ["statement", "probability"],
+          },
+        } as any,
+        problem_frame: { type: "string", description: "One sentence: what exactly is being investigated?" },
+      },
+      required: ["hypotheses", "problem_frame"],
+    },
+  },
+
+  // ── OSIsoft PI Historian ───────────────────────────────────────────────────
+  {
+    name: 'pi_search_tags',
+    description: 'Search OSIsoft PI tags by name or description. Use this to find process data tags in a PI historian.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search query, e.g. "temperature" or "PLANT.UNIT.*"' },
+        max_count: { type: 'number', description: 'Maximum results to return (default 50)' }
+      },
+      required: ['query']
+    }
+  },
+  {
+    name: 'pi_get_history',
+    description: 'Get historical time-series data for PI tags. Specify start/end as ISO8601 strings.',
+    parameters: {
+      type: 'object',
+      properties: {
+        web_ids: { type: 'array', items: { type: 'string' }, description: 'List of PI tag WebIds' } as any,
+        start: { type: 'string', description: 'Start time (ISO8601 or relative like "*-24h")' },
+        end: { type: 'string', description: 'End time (ISO8601 or "*" for now)' },
+        interval: { type: 'string', description: 'Interpolation interval e.g. "1h", "5m"' }
+      },
+      required: ['web_ids', 'start', 'end']
+    }
+  },
+  {
+    name: 'pi_get_current',
+    description: 'Get current snapshot values for PI tags.',
+    parameters: {
+      type: 'object',
+      properties: {
+        web_ids: { type: 'array', items: { type: 'string' }, description: 'List of PI tag WebIds' } as any
+      },
+      required: ['web_ids']
+    }
+  },
 ];

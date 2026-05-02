@@ -158,7 +158,7 @@ export function MemoryPanel() {
         ) : episodesError ? (
           <p className="text-xs text-red-400/80 py-1">{episodesError}</p>
         ) : episodes.length === 0 ? (
-          <p className="text-xs text-white/30 py-1">No past analyses yet</p>
+          <p className="text-xs text-white/30 py-1">No past analyses yet. Start asking APEX questions.</p>
         ) : (
           <ul className="space-y-1.5">
             {episodes.map((ep) => (
