@@ -28,9 +28,12 @@ import { SchemaSearch } from "./components/schema/SchemaSearch";
 import { BindParamsDialog, detectParams } from "./components/dialogs/BindParamsDialog";
 import { SessionMonitor } from "./components/panels/SessionMonitor";
 import { DatabaseOverview } from "./components/panels/DatabaseOverview";
+import { FounderDashboard } from "./components/panels/FounderDashboard";
 import { QuickOpenDialog } from "./components/dialogs/QuickOpenDialog";
 import { WelcomeScreen } from "./components/onboarding/WelcomeScreen";
 import { OnboardingTour } from "./components/onboarding/OnboardingTour";
+import { MemoryPanel } from "./components/ai/MemoryPanel";
+import { BusinessClient, type ProactiveSuggestion } from "./lib/business/BusinessClient";
 
 export default function App() {
   const {
@@ -58,7 +61,7 @@ export default function App() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem("daitalk_onboarding_dismissed"));
   const [showTour, setShowTour] = useState(false);
-  const [activePanel, setActivePanel] = useState<"history" | "agent" | "erd" | "snippets" | "search" | "sessions" | "overview">("agent");
+  const [activePanel, setActivePanel] = useState<"history" | "agent" | "erd" | "snippets" | "search" | "sessions" | "overview" | "founder" | "memory">("agent");
   const [inTransaction, setInTransaction] = useState(false);
   const [autoCommit, setAutoCommit] = useState(true);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -69,6 +72,7 @@ export default function App() {
   const splitContainerRef = useRef<HTMLDivElement>(null);
   const [bindParams, setBindParams] = useState<{ open: boolean; sql: string } | null>(null);
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
+  const [proactiveSuggestions, setProactiveSuggestions] = useState<ProactiveSuggestion[]>([]);
 
   // Cancel query refs — survive re-renders without state
   const currentQueryIdRef = useRef<string | null>(null);
@@ -77,6 +81,8 @@ export default function App() {
   // Register CommandBus handlers once on mount + restore saved connections
   useEffect(() => {
     registerHandlers();
+    BusinessClient.initMemoryDb().catch(() => {});
+    BusinessClient.trackUsageEvent({ event_type: "session", feature: "app_open" }).catch(() => {});
     restoreSavedConnections();
   }, []);
 
@@ -210,6 +216,77 @@ export default function App() {
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const activeSchema = activeConnectionId ? schemas[activeConnectionId] : null;
 
+  useEffect(() => {
+    BusinessClient.trackUsageEvent({
+      event_type: "navigation",
+      feature: `panel:${activePanel}`,
+      connection_id: activeConnectionId,
+      driver: connections.find((c) => c.id === activeConnectionId)?.driver ?? null,
+    }).catch(() => {});
+  }, [activePanel, activeConnectionId, connections]);
+
+  useEffect(() => {
+    const sql = activeTab?.sql ?? "";
+    if (!sql.trim()) {
+      setProactiveSuggestions([]);
+      return;
+    }
+    const id = setTimeout(() => {
+      BusinessClient.getProactiveSuggestions(activeConnectionId, sql)
+        .then(setProactiveSuggestions)
+        .catch(() => {});
+    }, 400);
+    return () => clearTimeout(id);
+  }, [activeConnectionId, activeTab?.sql]);
+
+  useEffect(() => {
+    const runScheduledMonitors = async () => {
+      const rules = await BusinessClient.listMonitoringRules().catch(() => []);
+      const now = Date.now();
+      for (const rule of rules) {
+        if (!rule.is_active) continue;
+        const lastRunAt = rule.last_run_at ?? 0;
+        if (lastRunAt > 0 && now - lastRunAt < rule.cadence_minutes * 60_000) continue;
+        try {
+          const rows = await DbClient.query(rule.connection_id, rule.sql);
+          const status = rule.notify_on_nonzero && rows.length > 0 ? "alert" : "ok";
+          await BusinessClient.recordMonitoringRun({
+            id: `run-${rule.id}-${now}`,
+            rule_id: rule.id,
+            connection_id: rule.connection_id,
+            status,
+            row_count: rows.length,
+            message: rows.length > 0 ? JSON.stringify(rows[0]).slice(0, 180) : "no rows",
+            started_at: now,
+            finished_at: Date.now(),
+          });
+          if (status === "alert") {
+            toast.warning(`Monitor alert: ${rule.name}`, {
+              description: `${rows.length} rows matched the alert condition.`,
+            });
+          }
+        } catch (error: any) {
+          await BusinessClient.recordMonitoringRun({
+            id: `run-${rule.id}-${now}`,
+            rule_id: rule.id,
+            connection_id: rule.connection_id,
+            status: "error",
+            row_count: 0,
+            message: error?.message ?? String(error),
+            started_at: now,
+            finished_at: Date.now(),
+          }).catch(() => {});
+        }
+      }
+    };
+
+    void runScheduledMonitors();
+    const timer = setInterval(() => {
+      void runScheduledMonitors();
+    }, 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
   // ── Execute query ─────────────────────────────────────────────────────────
 
   /** Split SQL on statement boundaries, ignoring semicolons inside strings/comments. */
@@ -302,6 +379,13 @@ export default function App() {
 
     try {
       const response = await DbClient.executeStreaming(activeConnectionId, sql);
+      BusinessClient.trackUsageEvent({
+        event_type: "query",
+        feature: "execute_sql",
+        connection_id: activeConnectionId,
+        driver: connections.find((c) => c.id === activeConnectionId)?.driver ?? null,
+        metadata_json: { sql_preview: sql.slice(0, 160) },
+      }).catch(() => {});
       const queryId = response.query_id;
       rowStore.reset(queryId);
 
@@ -314,6 +398,13 @@ export default function App() {
         if (batch.query_id !== queryId) return;
 
         if (batch.error) {
+          BusinessClient.trackUsageEvent({
+            event_type: "error",
+            feature: "execute_sql",
+            connection_id: activeConnectionId,
+            driver: connections.find((c) => c.id === activeConnectionId)?.driver ?? null,
+            metadata_json: { message: batch.error },
+          }).catch(() => {});
           toast.error(batch.error);
           rowStore.finalize();
           setTabExecuting(false);
@@ -334,6 +425,13 @@ export default function App() {
         finalElapsed = batch.total_elapsed_ms;
 
         if (batch.is_final) {
+          BusinessClient.trackUsageEvent({
+            event_type: "result",
+            feature: "query_completed",
+            connection_id: activeConnectionId,
+            driver: connections.find((c) => c.id === activeConnectionId)?.driver ?? null,
+            metadata_json: { row_count: allRows.length, elapsed_ms: finalElapsed },
+          }).catch(() => {});
           unlisten();
           setTabExecuting(false);
           currentQueryIdRef.current = null;
@@ -362,6 +460,13 @@ export default function App() {
       currentQueryIdRef.current = queryId;
       currentUnlistenRef.current = unlisten;
     } catch (error: any) {
+      BusinessClient.trackUsageEvent({
+        event_type: "error",
+        feature: "execute_sql",
+        connection_id: activeConnectionId,
+        driver: connections.find((c) => c.id === activeConnectionId)?.driver ?? null,
+        metadata_json: { message: error.message ?? "Query failed" },
+      }).catch(() => {});
       toast.error(error.message ?? "Query failed");
       rowStore.finalize();
       setTabExecuting(false);
@@ -444,6 +549,12 @@ export default function App() {
       saveConnection(config);
     }
     toast.success("Connected");
+    BusinessClient.trackUsageEvent({
+      event_type: "connection",
+      feature: "connect",
+      connection_id: connectionId,
+      driver: config?.driver ?? connections.find((c) => c.id === connectionId)?.driver ?? null,
+    }).catch(() => {});
     // First-run onboarding: dismiss welcome screen and launch tour if not yet completed
     setShowWelcome(false);
     if (!localStorage.getItem("daitalk_tour_completed")) {
@@ -534,6 +645,12 @@ export default function App() {
 
     try {
       const response = await DbClient.executeStreaming(activeConnectionId, explainSql);
+      BusinessClient.trackUsageEvent({
+        event_type: "query",
+        feature: "explain",
+        connection_id: activeConnectionId,
+        driver: connections.find((c) => c.id === activeConnectionId)?.driver ?? null,
+      }).catch(() => {});
       const queryId = response.query_id;
       rowStore.reset(queryId);
       QueryManager.setBaseQuery(explainSql, activeConnectionId);
@@ -819,6 +936,25 @@ export default function App() {
 
         {/* SQL Editor — resizable top pane */}
         <div data-tour="sql-editor" style={{ height: `${editorPct}%` }} className="border-b border-[#262626] shrink-0">
+          {proactiveSuggestions.length > 0 && (
+            <div className="border-b border-[#1a1a1a] bg-[#0d1117] px-3 py-2 flex flex-wrap gap-2">
+              {proactiveSuggestions.slice(0, 4).map((suggestion) => (
+                <div
+                  key={suggestion.id}
+                  className={`rounded-full border px-2.5 py-1 text-[10px] font-mono ${
+                    suggestion.severity === "high"
+                      ? "border-red-500/30 text-red-300/80 bg-red-500/5"
+                      : suggestion.severity === "medium"
+                        ? "border-amber-500/30 text-amber-300/80 bg-amber-500/5"
+                        : "border-[#262626] text-white/55 bg-white/[0.02]"
+                  }`}
+                  title={suggestion.detail}
+                >
+                  {suggestion.title}
+                </div>
+              ))}
+            </div>
+          )}
           <SQLEditor
             value={activeTab?.sql ?? ""}
             onChange={(sql) => setEditorSql(sql)}
@@ -846,7 +982,7 @@ export default function App() {
       {/* Right: AI Panel */}
       <div data-tour="ai-panel" className="w-96 border-l border-[#262626] flex flex-col bg-[#0d0d0d] shrink-0">
         <div className="h-12 border-b border-[#262626] flex items-center px-4 gap-4 shrink-0">
-          {(["agent", "history", "snippets", "erd", "search", "sessions", "overview"] as const).map((p) => (
+          {(["agent", "history", "memory", "founder", "snippets", "erd", "search", "sessions", "overview"] as const).map((p) => (
             <button
               key={p}
               onClick={() => setActivePanel(p)}
@@ -854,7 +990,7 @@ export default function App() {
                 activePanel === p ? "text-[#00d2ff]" : "text-white/30 hover:text-white/50"
               }`}
             >
-              {p === "erd" ? "ERD" : p === "agent" ? "AI" : p === "snippets" ? "Snippets" : p === "search" ? "Search" : p === "sessions" ? "Sessions" : p === "overview" ? "DB" : "History"}
+              {p === "erd" ? "ERD" : p === "agent" ? "AI" : p === "snippets" ? "Snippets" : p === "search" ? "Search" : p === "sessions" ? "Sessions" : p === "overview" ? "DB" : p === "founder" ? "Founder" : p === "memory" ? "Memory" : "History"}
             </button>
           ))}
           {planQueue.length > 0 && (
@@ -885,6 +1021,10 @@ export default function App() {
             />
           ) : activePanel === "sessions" ? (
             <SessionMonitor />
+          ) : activePanel === "founder" ? (
+            <FounderDashboard />
+          ) : activePanel === "memory" ? (
+            <MemoryPanel />
           ) : activePanel === "overview" ? (
             <DatabaseOverview />
           ) : (

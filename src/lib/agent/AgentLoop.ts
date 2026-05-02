@@ -24,6 +24,18 @@ export interface MemoryContext {
   recentEpisodes: import("../memory/EpisodicMemory").Episode[];
   priorityParams: string[];
   expertiseLevel: string;
+  customerBrief?: Array<{
+    name: string;
+    company?: string | null;
+    stage: string;
+    priority: string;
+    notes?: string | null;
+  }>;
+  pendingOutcomes?: Array<{
+    title: string;
+    status: string;
+    due_at?: number | null;
+  }>;
 }
 
 export interface AgentLoopOptions {
@@ -237,6 +249,25 @@ For any question about anomalies, quality issues, process upsets, or unexplained
       parts.push(
         `## User Priority Parameters\nBased on past sessions, this user frequently analyzes: ${memoryContext.priorityParams.join(", ")}\nCalibrated expertise level: ${memoryContext.expertiseLevel}`
       );
+    }
+    if (memoryContext.customerBrief && memoryContext.customerBrief.length > 0) {
+      const lines = memoryContext.customerBrief
+        .slice(0, 6)
+        .map((customer) =>
+          `- ${customer.name}${customer.company ? ` @ ${customer.company}` : ""} · stage=${customer.stage} · priority=${customer.priority}${customer.notes ? ` · ${customer.notes.slice(0, 80)}` : ""}`
+        )
+        .join("\n");
+      parts.push(`## Founder / Customer Context\n${lines}`);
+    }
+    if (memoryContext.pendingOutcomes && memoryContext.pendingOutcomes.length > 0) {
+      const lines = memoryContext.pendingOutcomes
+        .slice(0, 5)
+        .map((outcome) => {
+          const due = outcome.due_at ? new Date(outcome.due_at).toLocaleDateString() : "unscheduled";
+          return `- ${outcome.title.slice(0, 80)} · ${outcome.status} · due ${due}`;
+        })
+        .join("\n");
+      parts.push(`## Open Learning Loops\n${lines}`);
     }
   }
 
