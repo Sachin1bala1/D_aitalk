@@ -63,7 +63,8 @@ export function registerHandlers() {
     setTabExecuting(true);
 
     try {
-      const queryId = await DbClient.executeStreaming(cmd.connectionId, cmd.sql);
+      const response = await DbClient.executeStreaming(cmd.connectionId, cmd.sql);
+      const queryId = response.query_id;
       rowStore.reset(queryId);
 
       return new Promise((resolve) => {
@@ -97,6 +98,7 @@ export function registerHandlers() {
               rowCount: allRows.length,
               elapsedMs: batch.total_elapsed_ms,
               queryId,
+              source_tables: response.source_tables,
             });
             resolve({
               success: true,

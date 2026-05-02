@@ -251,6 +251,19 @@ function copyText(text: string) {
   });
 }
 
+function parseSingleSourceTable(sourceTables: string[]): { schema: string; table: string } | null {
+  if (sourceTables.length !== 1) return null;
+  const [schema, table] = sourceTables[0].split(".");
+  if (!schema || !table) return null;
+  return { schema, table };
+}
+
+function getSingleSourceTableName(sourceTables: string[]): string | null {
+  const table = parseSingleSourceTable(sourceTables);
+  if (!table) return null;
+  return `${table.schema}.${table.table}`;
+}
+
 // ── Cell context menu ─────────────────────────────────────────────────────────
 
 interface CellCtxMenu {
@@ -669,13 +682,22 @@ export function VirtualTable({ isLoading }: VirtualTableProps = {}) {
   const { rows, columns, isStreaming, elapsedMs } = store;
   const chartRequest = useWorkspaceStore((s) => s.chartRequest);
   const setChartRequest = useWorkspaceStore((s) => s.setChartRequest);
+  const activeConnectionId = useWorkspaceStore((s) => s.activeConnectionId);
+  const activeTabId = useWorkspaceStore((s) => s.activeTabId);
+  const currentQueryResult = useWorkspaceStore((s) =>
+    s.tabs.find((tab) => tab.id === s.activeTabId)?.queryResults ?? null
+  );
+  const queryView = useWorkspaceStore((s) =>
+    s.tabs.find((tab) => tab.id === s.activeTabId)?.queryView ?? null
+  );
+  const singleSourceTableName = getSingleSourceTableName(currentQueryResult?.source_tables ?? []);
 
-  const [filterText, setFilterText] = useState("");
+  const [filterText, setFilterText] = useState(queryView?.globalFilter ?? "");
   const [filterVisible, setFilterVisible] = useState(false);
   const [colFilterVisible, setColFilterVisible] = useState(false);
-  const [colFilterValues, setColFilterValues] = useState<Record<string, string>>({});
+  const [colFilterValues, setColFilterValues] = useState<Record<string, string>>(queryView?.columnFilters ?? {});
   const colFilterDebounce = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const [sort, setSort] = useState(QueryManager.getSort());
+  const [sort, setSort] = useState(queryView?.sort ?? QueryManager.getSort());
   const [expandedCell, setExpandedCell] = useState<{ value: unknown; colName: string } | null>(null);
   const [editingCell, setEditingCell] = useState<{
     rowIndex: number;
@@ -696,6 +718,7 @@ export function VirtualTable({ isLoading }: VirtualTableProps = {}) {
   const [chartVisible, setChartVisible] = useState(false);
   const [graphBuilderVisible, setGraphBuilderVisible] = useState(false);
   const [pivotMode, setPivotMode] = useState(false);
+  const lastTrackedChartSignatureRef = useRef<string | null>(null);
 
   // Respond to create_chart command from agent
   useEffect(() => {
@@ -704,6 +727,9 @@ export function VirtualTable({ isLoading }: VirtualTableProps = {}) {
       setChartRequest(null); // consume
     }
   }, [chartRequest, rows.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    lastTrackedChartSignatureRef.current = null;
+  }, [activeConnectionId, currentQueryResult?.queryId]);
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const lastSelectedRef = useRef<number | null>(null);
   const [rowDetailIdx, setRowDetailIdx] = useState<number | null>(null);
@@ -817,7 +843,7 @@ export function VirtualTable({ isLoading }: VirtualTableProps = {}) {
       // Delete key — generate DELETE SQL for selected rows
       if (e.key === "Delete" && selectedRows.size > 0 && !editingCell) {
         e.preventDefault();
-        const tableInfo = QueryManager.getBaseTable();
+        const tableInfo = parseSingleSourceTable(currentQueryResult?.source_tables ?? []);
         if (!tableInfo) { toast.error("Run a simple SELECT from a single table to enable row deletion"); return; }
         const cols = rowStore.columns;
         const pkCol = cols.find((c) => c.is_primary_key) ?? cols.find((c) => c.name.toLowerCase() === "id") ?? cols[0];
@@ -853,25 +879,51 @@ export function VirtualTable({ isLoading }: VirtualTableProps = {}) {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [rows, columns, rowDetailIdx, selectedRows, editingCell]);
+  }, [rows, columns, rowDetailIdx, selectedRows, editingCell, currentQueryResult]);
 
   // Keep local sort state in sync with QueryManager; clear selection on new result set
   const prevColumnsKey = useRef<string>("");
   useEffect(() => {
-    setSort(QueryManager.getSort());
+    setSort(queryView?.sort ?? QueryManager.getSort());
+    setFilterText(
+      queryView?.nullFilter ? `${queryView.nullFilter} IS NULL` : (queryView?.globalFilter ?? "")
+    );
+    setColFilterValues(queryView?.columnFilters ?? {});
     const key = columns.map((c) => c.name).join(",");
     if (key !== prevColumnsKey.current) {
       prevColumnsKey.current = key;
       setSelectedRows(new Set());
       setHiddenCols(new Set());
-      setColFilterValues({});
       lastSelectedRef.current = null;
     }
-  }, [rows, columns]);
+  }, [rows, columns, queryView, activeTabId]);
 
   const handleSortClick = useCallback(async (colName: string) => {
     await QueryManager.toggleSort(colName);
     setSort(QueryManager.getSort());
+  }, []);
+
+  const handleChartRendered = useCallback(async (
+    queryId: string | null | undefined,
+    chartType: string,
+    columnCount: number,
+    selection: { xColumn: string; yColumn: string }
+  ) => {
+    if (!queryId) return;
+    const signature = [queryId, chartType, selection.xColumn, selection.yColumn].join("|");
+    if (lastTrackedChartSignatureRef.current === signature) return;
+    lastTrackedChartSignatureRef.current = signature;
+
+    try {
+      await DbClient.recordVisualizationViewed({
+        query_id: queryId,
+        chart_type: chartType,
+        column_count: columnCount,
+        viewed_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Failed to record visualization view", error);
+    }
   }, []);
 
   const handleFilterChange = useCallback((value: string) => {
@@ -1163,7 +1215,13 @@ export function VirtualTable({ isLoading }: VirtualTableProps = {}) {
               <Download className="w-2.5 h-2.5" /> HTML
             </button>
             <button
-              onClick={() => exportInsert(QueryManager.inferTableName(), columns, rows)}
+              onClick={() => {
+                if (!singleSourceTableName) {
+                  toast.error("INSERT export requires a single source table");
+                  return;
+                }
+                exportInsert(singleSourceTableName, columns, rows);
+              }}
               className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] text-white/20 hover:text-white/50 transition-colors font-mono uppercase tracking-wider"
               title="Export as INSERT statements"
             >
@@ -1239,7 +1297,12 @@ export function VirtualTable({ isLoading }: VirtualTableProps = {}) {
       {/* ── Chart view (replaces table when active) ──────────────────── */}
       {chartVisible && (
         <div className="flex-1 overflow-hidden">
-          <ChartView rows={rows} columns={columns} />
+          <ChartView
+            rows={rows}
+            columns={columns}
+            queryId={currentQueryResult?.queryId}
+            onChartRendered={handleChartRendered}
+          />
         </div>
       )}
 

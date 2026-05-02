@@ -89,6 +89,7 @@ export interface ConnectionConfig {
   connection_string: string;
   pool_min?: number;
   pool_max?: number;
+  read_only?: boolean;
   pi_config?: PIConfig;
 }
 
@@ -113,6 +114,54 @@ export interface QueryBatch {
   total_elapsed_ms: number;
   rows_so_far: number;
   error: string | null;
+}
+
+export interface ExecuteStreamingResponse {
+  query_id: string;
+  source_tables: string[];
+}
+
+export interface SortStateLike {
+  column: string;
+  direction: "asc" | "desc";
+}
+
+export interface QueryTransformInput {
+  base_sql: string;
+  sort: SortStateLike | null;
+  global_filter: string;
+  null_filter: string | null;
+  column_filters: Record<string, string>;
+  columns: string[];
+}
+
+export interface VisualizationViewedEvent {
+  query_id: string;
+  chart_type: string;
+  column_count: number;
+  viewed_at: string;
+}
+
+export interface ParameterHotspotRecord {
+  connection_id: string;
+  table_name: string;
+  column_name: string;
+  hit_count: number;
+  last_observed_at: string;
+}
+
+export interface LocalDataStats {
+  query_history_count: number;
+  visualization_count: number;
+  benchmark_count: number;
+  hotspot_count: number;
+  security_audit_count: number;
+}
+
+export interface QueryConcurrencyStatus {
+  total_in_flight: number;
+  max_global: number;
+  per_connection: Record<string, number>;
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -163,11 +212,22 @@ export const DbClient = {
     return invoke("db_get_schema", { connectionId });
   },
 
+  async buildEffectiveSql(input: QueryTransformInput): Promise<string> {
+    const response = await invoke<{ effective_sql: string }>("db_build_effective_sql", {
+      request: input,
+    });
+    return response.effective_sql;
+  },
+
   /**
    * Execute a SELECT query — streams results as "query_batch" Tauri events.
    * Returns the query_id to correlate batches.
    */
-  async executeStreaming(connectionId: string, sql: string, queryId?: string): Promise<string> {
+  async executeStreaming(
+    connectionId: string,
+    sql: string,
+    queryId?: string
+  ): Promise<ExecuteStreamingResponse> {
     return invoke("db_execute_streaming", { connectionId, sql, queryId });
   },
 
@@ -248,6 +308,26 @@ export const DbClient = {
    */
   async cancelQuery(queryId: string): Promise<void> {
     return invoke("db_cancel_query", { queryId });
+  },
+
+  async recordVisualizationViewed(event: VisualizationViewedEvent): Promise<void> {
+    return invoke("record_visualization_viewed", { event });
+  },
+
+  async getParameterHotspots(input: {
+    connection_id?: string | null;
+    table_name?: string | null;
+    limit?: number;
+  }): Promise<ParameterHotspotRecord[]> {
+    return invoke("db_get_parameter_hotspots", { input });
+  },
+
+  async getLocalDataStats(): Promise<LocalDataStats> {
+    return invoke("db_get_local_data_stats");
+  },
+
+  async getQueryConcurrencyStatus(): Promise<QueryConcurrencyStatus> {
+    return invoke("get_query_concurrency_status");
   },
 
   async healthCheck(): Promise<{ status: string; version: string }> {

@@ -301,7 +301,8 @@ export default function App() {
     QueryManager.setBaseQuery(sql, activeConnectionId);
 
     try {
-      const queryId = await DbClient.executeStreaming(activeConnectionId, sql);
+      const response = await DbClient.executeStreaming(activeConnectionId, sql);
+      const queryId = response.query_id;
       rowStore.reset(queryId);
 
       const allRows: Record<string, unknown>[] = [];
@@ -350,6 +351,7 @@ export default function App() {
             rowCount: allRows.length,
             elapsedMs: finalElapsed,
             queryId,
+            source_tables: response.source_tables,
           });
 
           pushHistory({ sql, rowCount: allRows.length, elapsedMs: finalElapsed, timestamp: Date.now() });
@@ -531,7 +533,8 @@ export default function App() {
     setTabExecuting(true);
 
     try {
-      const queryId = await DbClient.executeStreaming(activeConnectionId, explainSql);
+      const response = await DbClient.executeStreaming(activeConnectionId, explainSql);
+      const queryId = response.query_id;
       rowStore.reset(queryId);
       QueryManager.setBaseQuery(explainSql, activeConnectionId);
 
@@ -567,6 +570,7 @@ export default function App() {
             rowCount: allRows.length,
             elapsedMs: batch.total_elapsed_ms,
             queryId,
+            source_tables: response.source_tables,
           });
         }
       });

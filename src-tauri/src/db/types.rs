@@ -156,6 +156,12 @@ pub struct QueryBatch {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecuteStreamingResponse {
+    pub query_id: String,
+    pub source_tables: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum SshAuth {
     Password { password: String },
@@ -179,6 +185,8 @@ pub struct ConnectionConfig {
     pub pool_min: Option<u32>,
     pub pool_max: Option<u32>,
     pub ssh: Option<SshConfig>,
+    #[serde(default)]
+    pub read_only: bool,
     #[serde(default)]
     pub pi_config: Option<PIConfig>,
 }

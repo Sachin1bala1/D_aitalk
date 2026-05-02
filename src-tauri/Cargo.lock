@@ -758,12 +758,16 @@ dependencies = [
  "chrono",
  "clickhouse",
  "futures",
+ "hex",
+ "hmac",
  "keyring",
  "mongodb",
  "redis",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "sha2",
+ "sqlparser",
  "sqlx",
  "tauri",
  "tauri-build",
@@ -4572,6 +4576,15 @@ checksum = "d91ed6c858b01f942cd56b37a94b3e0a1798290327d1236e4d9cf4eaca44d29d"
 dependencies = [
  "base64ct",
  "der",
+]
+
+[[package]]
+name = "sqlparser"
+version = "0.43.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f95c4bae5aba7cd30bd506f7140026ade63cff5afd778af8854026f9606bf5d4"
+dependencies = [
+ "log",
 ]
 
 [[package]]

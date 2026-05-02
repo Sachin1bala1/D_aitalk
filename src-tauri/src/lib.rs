@@ -1,6 +1,8 @@
 pub mod commands;
 pub mod db;
 pub mod error;
+pub mod intelligence;
+pub mod security;
 
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
@@ -8,6 +10,8 @@ use std::sync::{Arc, Mutex};
 use commands::AppState;
 use db::connection_manager::ConnectionManager;
 use db::duckdb_engine::DuckDbEngine;
+use intelligence::store::IntelligenceStore;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -26,7 +30,14 @@ pub fn run() {
             connections: Arc::new(ConnectionManager::new()),
             duckdb: Arc::new(duckdb),
             cancelled_queries: Arc::new(Mutex::new(HashSet::new())),
+            query_guards: Arc::new(Mutex::new(security::QueryGuardState::default())),
             memory_db: Arc::new(tokio::sync::Mutex::new(None)),
+        })
+        .setup(|app| {
+            let store =
+                tauri::async_runtime::block_on(IntelligenceStore::initialize(&app.handle()))?;
+            app.manage(store);
+            Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::health_check,
@@ -35,15 +46,29 @@ pub fn run() {
             commands::db_list_connections,
             commands::db_ping,
             commands::db_get_schema,
+            commands::db_build_effective_sql,
             commands::db_execute_streaming,
             commands::db_execute,
             commands::db_cancel_query,
+            commands::get_query_concurrency_status,
             commands::db_add_column,
             commands::duckdb_query,
             commands::duckdb_load_parquet,
             commands::duckdb_load_csv,
             commands::duckdb_list_views,
             commands::db_get_table_ddl,
+            commands::db_update_parameter_affinity,
+            commands::db_save_benchmark,
+            commands::record_visualization_viewed,
+            commands::record_security_audit,
+            commands::db_get_parameter_hotspots,
+            commands::db_get_recent_benchmarks,
+            commands::db_get_query_history,
+            commands::db_get_security_audit,
+            commands::db_get_security_audit_event_types,
+            commands::db_get_security_audit_outcomes,
+            commands::db_get_local_data_stats,
+            commands::db_clear_local_data,
             commands::save_connections,
             commands::load_connections,
             commands::store_api_key,

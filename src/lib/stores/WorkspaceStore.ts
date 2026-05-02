@@ -38,6 +38,7 @@ export interface TabState {
   connectionId: string | null;
   queryResults: QueryResults | null;
   isExecuting: boolean;
+  queryView: QueryViewState;
 }
 
 export interface QueryResults {
@@ -46,7 +47,40 @@ export interface QueryResults {
   rowCount: number;
   elapsedMs: number;
   queryId: string;
+  source_tables: string[];
 }
+
+export interface SortState {
+  column: string;
+  direction: "asc" | "desc";
+}
+
+export interface QueryViewState {
+  baseSql: string;
+  connectionId: string | null;
+  effectiveSql: string;
+  sort: SortState | null;
+  globalFilter: string;
+  nullFilter: string | null;
+  columnFilters: Record<string, string>;
+  columns: string[];
+  currentQueryId: string | null;
+}
+
+export const createDefaultQueryViewState = (
+  sql = "",
+  connectionId: string | null = null
+): QueryViewState => ({
+  baseSql: sql,
+  connectionId,
+  effectiveSql: sql,
+  sort: null,
+  globalFilter: "",
+  nullFilter: null,
+  columnFilters: {},
+  columns: [],
+  currentQueryId: null,
+});
 
 export interface WorkspaceState {
   // Agent mode
@@ -100,8 +134,10 @@ export interface WorkspaceState {
   // Actions — Tabs
   setActiveTab: (tabId: string) => void;
   updateTab: (tabId: string, updates: Partial<TabState>) => void;
-  addTab: (tab: TabState) => void;
+  addTab: (tab: Omit<TabState, "queryView"> & { queryView?: QueryViewState }) => void;
   closeTab: (tabId: string) => void;
+  updateTabQueryView: (updates: Partial<QueryViewState>, tabId?: string) => void;
+  resetTabQueryView: (sql: string, connectionId: string | null, tabId?: string) => void;
 
   // Convenience: active tab helpers
   setEditorSql: (sql: string, tabId?: string) => void;
@@ -141,6 +177,7 @@ const DEFAULT_TAB: TabState = {
   connectionId: null,
   queryResults: null,
   isExecuting: false,
+  queryView: createDefaultQueryViewState(),
 };
 
 export const useWorkspaceStore = create<WorkspaceState>()(
@@ -283,7 +320,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
     addTab: (tab) =>
       set((state) => {
-        state.tabs.push(tab);
+        state.tabs.push({
+          ...tab,
+          queryView: tab.queryView ?? createDefaultQueryViewState(tab.sql, tab.connectionId),
+        });
         state.activeTabId = tab.id;
       }),
 
@@ -293,6 +333,21 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         if (state.activeTabId === tabId && state.tabs.length > 0) {
           state.activeTabId = state.tabs[state.tabs.length - 1].id;
         }
+      }),
+
+    updateTabQueryView: (updates, tabId) =>
+      set((state) => {
+        const id = tabId ?? state.activeTabId;
+        const tab = state.tabs.find((t) => t.id === id);
+        if (tab) Object.assign(tab.queryView, updates);
+      }),
+
+    resetTabQueryView: (sql, connectionId, tabId) =>
+      set((state) => {
+        const id = tabId ?? state.activeTabId;
+        const tab = state.tabs.find((t) => t.id === id);
+        if (!tab) return;
+        tab.queryView = createDefaultQueryViewState(sql, connectionId);
       }),
 
     setEditorSql: (sql, tabId) =>
