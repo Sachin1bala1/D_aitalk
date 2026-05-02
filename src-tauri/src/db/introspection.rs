@@ -21,31 +21,48 @@ pub async fn introspect(conn: &ActiveConnection, connection_id: &str) -> Result<
 }
 
 async fn introspect_postgres(pool: &sqlx::PgPool, connection_id: &str) -> Result<FullSchema, DbError> {
-    // Tables with fast row estimates (no COUNT(*))
+    // Core table list — uses only information_schema, works on all PostgreSQL
+    // configurations including Supabase poolers and restricted roles.
     let tables_raw = sqlx::query(
         r#"
         SELECT
             t.table_schema,
             t.table_name,
-            t.table_type,
-            COALESCE(s.n_live_tup, 0) AS row_estimate,
-            COALESCE(
-                pg_total_relation_size(
-                    (SELECT c.oid FROM pg_class c
-                     JOIN pg_namespace n ON n.oid = c.relnamespace
-                     WHERE c.relname = t.table_name AND n.nspname = t.table_schema
-                     LIMIT 1)
-                ), 0
-            ) AS size_bytes
+            t.table_type
         FROM information_schema.tables t
-        LEFT JOIN pg_stat_user_tables s
-            ON s.relname = t.table_name AND s.schemaname = t.table_schema
-        WHERE t.table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+        WHERE t.table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast',
+                                     'pg_internal', '_timescaledb_cache', '_timescaledb_config',
+                                     '_timescaledb_internal', '_timescaledb_catalog')
         ORDER BY t.table_schema, t.table_name
         "#,
     )
     .fetch_all(pool)
     .await?;
+
+    // Optional stats (row count + size) — requires pg_monitor or table ownership.
+    // Falls back to zeros silently so restricted connections still show tables.
+    let stats_map: std::collections::HashMap<String, (i64, i64)> = sqlx::query(
+        r#"
+        SELECT
+            schemaname,
+            relname,
+            COALESCE(n_live_tup, 0) AS row_estimate,
+            COALESCE(pg_total_relation_size(schemaname || '.' || quote_ident(relname)), 0) AS size_bytes
+        FROM pg_stat_user_tables
+        "#,
+    )
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default()
+    .iter()
+    .fold(std::collections::HashMap::new(), |mut m, r| {
+        let schema: String = r.try_get("schemaname").unwrap_or_default();
+        let name: String = r.try_get("relname").unwrap_or_default();
+        let rows: i64 = r.try_get("row_estimate").unwrap_or(0);
+        let size: i64 = r.try_get("size_bytes").unwrap_or(0);
+        m.insert(format!("{}.{}", schema, name), (rows, size));
+        m
+    });
 
     let tables: Vec<TableMeta> = tables_raw
         .iter()
@@ -53,8 +70,10 @@ async fn introspect_postgres(pool: &sqlx::PgPool, connection_id: &str) -> Result
             let schema: String = r.try_get("table_schema").unwrap_or_default();
             let name: String = r.try_get("table_name").unwrap_or_default();
             let table_type: String = r.try_get("table_type").unwrap_or_default();
-            let row_estimate: i64 = r.try_get("row_estimate").unwrap_or(0);
-            let size_bytes: i64 = r.try_get("size_bytes").unwrap_or(0);
+            let (row_estimate, size_bytes) = stats_map
+                .get(&format!("{}.{}", schema, name))
+                .copied()
+                .unwrap_or((0, 0));
 
             TableMeta {
                 schema,

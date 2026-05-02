@@ -118,18 +118,38 @@ export function Sidebar({
 
   if (!schema) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-white/20 gap-2">
-        <Table className="w-8 h-8" />
-        <span className="text-xs">No tables found</span>
+      <div className="flex flex-col items-center justify-center h-full text-white/20 gap-2 px-4 text-center">
+        <Database className="w-8 h-8" />
+        <span className="text-xs">Connect a database to browse its schema</span>
+      </div>
+    );
+  }
+
+  const allTableEntries = Object.entries(schema);
+  if (allTableEntries.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 px-4 text-center">
+        <Table className="w-8 h-8 text-white/20" />
+        <span className="text-xs text-white/30">No tables found</span>
+        {onRefreshSchema && (
+          <button
+            onClick={onRefreshSchema}
+            className="px-3 py-1.5 text-xs rounded-md bg-[#00d2ff]/10 border border-[#00d2ff]/20 text-[#00d2ff] hover:bg-[#00d2ff]/20 transition-colors"
+          >
+            Retry loading schema
+          </button>
+        )}
+        <p className="text-[10px] text-white/20 leading-relaxed">
+          Check your connection permissions or try a direct (non-pooler) connection URL.
+        </p>
       </div>
     );
   }
 
   const ctxTable = contextMenu ? schema[contextMenu.tableName] ?? [] : [];
-  const allEntries = Object.entries(schema);
   const filtered = searchText
-    ? allEntries.filter(([name]) => name.toLowerCase().includes(searchText.toLowerCase()))
-    : allEntries;
+    ? allTableEntries.filter(([name]) => name.toLowerCase().includes(searchText.toLowerCase()))
+    : allTableEntries;
 
   return (
     <>
@@ -218,13 +238,13 @@ export function Sidebar({
           >
             <Search className="w-3 h-3" />
             <span>
-              {allEntries.length} table{allEntries.length !== 1 ? "s" : ""}
+              {allTableEntries.length} table{allTableEntries.length !== 1 ? "s" : ""}
             </span>
           </button>
         )}
         {searchText && (
           <p className="text-[9px] text-white/25 px-2 pt-0.5">
-            {filtered.length} of {allEntries.length} matching
+            {filtered.length} of {allTableEntries.length} matching
           </p>
         )}
       </div>
