@@ -39,6 +39,8 @@
     "sonner": "^2.0.7",
     "sql-formatter": "^15.7.3",
     "tailwind-merge": "^3.5.0",
+    "html2canvas": "^1.4.1",
+    "pptxgenjs": "^3.12.0",
     "xlsx": "^0.18.5",
     "zustand": "^5.0.0"
   },

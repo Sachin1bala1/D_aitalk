@@ -49,12 +49,22 @@ pub fn run() {
             commands::store_api_key,
             commands::get_api_key,
             commands::delete_api_key,
+            commands::save_credential,
+            commands::get_credential,
+            commands::delete_credential,
             commands::init_memory_db,
             commands::memory_insert_episode,
             commands::memory_get_episodes,
             commands::memory_get_calibration,
             commands::memory_update_calibration,
             commands::memory_clear_episodes,
+            commands::pi_search_tags,
+            commands::pi_get_history,
+            commands::pi_get_current,
+            commands::pi_test_connection,
+            commands::activate_license,
+            commands::check_license,
+            commands::remove_license,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

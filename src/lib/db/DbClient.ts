@@ -32,6 +32,8 @@ export interface TableMeta {
   row_estimate: number | null;
   size_bytes: number | null;
   object_type: "table" | "view" | "materialized_view" | "foreign_table";
+  is_hypertable: boolean;
+  hypertable_chunks: number | null;
 }
 
 export type FunctionKind = "function" | "procedure" | "aggregate" | "trigger";
@@ -73,6 +75,13 @@ export interface IndexMeta {
   is_primary: boolean;
 }
 
+export interface PIConfig {
+  base_url: string;
+  username: string;
+  password: string;
+  verify_ssl: boolean;
+}
+
 export interface ConnectionConfig {
   id: string;
   display_name: string;
@@ -80,6 +89,7 @@ export interface ConnectionConfig {
   connection_string: string;
   pool_min?: number;
   pool_max?: number;
+  pi_config?: PIConfig;
 }
 
 export type DbDriver =
@@ -91,7 +101,8 @@ export type DbDriver =
   | "timescaledb"
   | "mongodb"
   | "redis"
-  | "clickhouse";
+  | "clickhouse"
+  | "p_i_historian";
 
 export interface QueryBatch {
   query_id: string;
@@ -108,7 +119,31 @@ export interface QueryBatch {
 
 export const DbClient = {
   async connect(config: ConnectionConfig): Promise<void> {
-    return invoke("db_connect", { config });
+    let resolved = config;
+    try {
+      // Detect whether the password was stripped: PI missing password, or URL with empty password component
+      const needsKeychain =
+        config.pi_config !== undefined
+          ? !config.pi_config.password
+          : (() => {
+              try { return !new URL(config.connection_string ?? '').password; } catch { return false; }
+            })();
+      if (needsKeychain) {
+        const pw = await invoke<string | null>('get_credential', { key: `conn_${config.id}_password` });
+        if (pw) {
+          if (config.pi_config !== undefined) {
+            resolved = { ...config, pi_config: { ...config.pi_config, password: pw } };
+          } else if (config.connection_string) {
+            try {
+              const url = new URL(config.connection_string);
+              url.password = encodeURIComponent(pw);
+              resolved = { ...config, connection_string: url.toString() };
+            } catch { /* non-URL (e.g. SQLite file path) — connect without password */ }
+          }
+        }
+      }
+    } catch { /* keychain unavailable — connect with config as-is */ }
+    return invoke("db_connect", { config: resolved });
   },
 
   async disconnect(connectionId: string): Promise<void> {

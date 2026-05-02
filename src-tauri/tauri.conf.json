@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Daitalk",
+  "productName": "DataIQ",
   "version": "0.1.0",
   "identifier": "com.daitalk.app",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Daitalk",
+        "title": "DataIQ — Intelligent Data Operations",
         "width": 1440,
         "height": 900,
         "minWidth": 1024,

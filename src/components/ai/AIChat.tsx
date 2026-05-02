@@ -5,7 +5,7 @@
  * Streams text tokens live, shows inline tool steps, handles Plan Mode queuing.
  */
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Sparkles, Settings2, Clock, Trash2, Wrench } from "lucide-react";
+import { Send, Sparkles, Settings2, Clock, Trash2, Wrench, FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import type { FullSchema } from "../../lib/db/DbClient";
 import type { QueryResults } from "../../lib/stores/WorkspaceStore";
@@ -19,9 +19,13 @@ import { ProviderSettingsDialog } from "./ProviderSettingsDialog";
 import { UserToolsPanel } from "./UserToolsPanel";
 import { ToolCallLog } from "./ToolCallLog";
 import type { ToolLogEntry } from "./ToolCallLog";
+import { HypothesisPanel } from "./HypothesisPanel";
+import { ConfidenceBar } from "./ConfidenceBar";
 import { EpisodicMemory } from "../../lib/memory/EpisodicMemory";
 import { UserCalibrationProfile } from "../../lib/memory/UserCalibrationProfile";
 import type { MemoryContext } from "../../lib/agent/AgentLoop";
+import type { AnalysisSection } from "../../lib/reports/ReportBuilder";
+import { ReportPanel } from "../reports/ReportPanel";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -109,7 +113,18 @@ function loadTurns(): ConversationTurn[] {
 }
 
 export function AIChat({ currentSQL, currentResults, currentSchema, connectionId, onApplySQL }: AIChatProps) {
-  const { agentMode, undoStack, popUndo } = useWorkspaceStore();
+  const {
+    agentMode,
+    undoStack,
+    popUndo,
+    activeHypotheses,
+    clearHypotheses,
+    clearConfidence,
+    connections,
+  } = useWorkspaceStore();
+
+  const pendingChatInput = useWorkspaceStore((s) => s.pendingChatInput);
+  const clearPendingChatInput = useWorkspaceStore((s) => s.clearPendingChatInput);
 
   const [providerSettings, setProviderSettings] = useState(loadSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -117,9 +132,15 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
   const [messages, setMessages] = useState<ChatMessage[]>(loadMessages);
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [queryDepth, setQueryDepth] = useState<'fast' | 'deep' | null>(null);
+  const [sessionSections, setSessionSections] = useState<AnalysisSection[]>([]);
+  const [reportPanelOpen, setReportPanelOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const historyRef = useRef<ConversationTurn[]>(loadTurns());
   const toolsCalledRef = useRef<string[]>([]);
+  // Tracks the user's question that opened the current analysis session (not the static WELCOME message)
+  const sessionQuestionRef = useRef<string>("");
 
   // Load API keys from OS keychain on mount and merge into settings
   useEffect(() => {
@@ -129,6 +150,15 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       }
     }).catch(() => {});
   }, []);
+
+  // Consume pending chat input set by StatResultView "Ask APEX" button
+  useEffect(() => {
+    if (pendingChatInput) {
+      setInput(pendingChatInput);
+      clearPendingChatInput();
+      inputRef.current?.focus();
+    }
+  }, [pendingChatInput, clearPendingChatInput]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -201,7 +231,14 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       return;
     }
 
+    // Clear stale hypotheses, confidence, routing badge, and session sections from previous conversation
+    clearHypotheses();
+    clearConfidence();
+    setQueryDepth(null);
+    setSessionSections([]);
+
     const userMsg = input.trim();
+    sessionQuestionRef.current = userMsg;
     setInput("");
     addMsg({ role: "user", content: userMsg });
     setIsProcessing(true);
@@ -224,7 +261,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
     toolsCalledRef.current = [];
 
     try {
-      const { finalText, updatedHistory } = await runAgentLoop(userMsg, historyRef.current, {
+      const { finalText, updatedHistory, queryDepth: resultDepth } = await runAgentLoop(userMsg, historyRef.current, {
         provider,
         model: activeModel,
         connectionId,
@@ -281,6 +318,23 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
             }
             return prev;
           });
+
+          // Track stat tool results for report session
+          if (toolName.startsWith("stat__") && result.success) {
+            const rawResult = result.result;
+            setSessionSections((prev) => [
+              ...prev,
+              {
+                toolName,
+                chartId: `chart-${toolName}-${Date.now()}`,
+                findings:
+                  typeof rawResult === "string"
+                    ? rawResult
+                    : JSON.stringify(rawResult).slice(0, 300),
+                timestamp: Date.now(),
+              },
+            ]);
+          }
         },
 
         onPlanQueued: (_stepId, description) => {
@@ -289,6 +343,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       });
 
       finalizeStream();
+      setQueryDepth(resultDepth ?? null);
       historyRef.current = updatedHistory;
       localStorage.setItem(CONV_STORAGE_KEY, JSON.stringify(updatedHistory));
 
@@ -305,9 +360,9 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       } catch {
         // Memory store failure must not affect UI
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       finalizeStream();
-      const rawMsg: string = e?.message ?? String(e);
+      const rawMsg: string = e instanceof Error ? e.message : String(e);
       const provider = providerSettings.activeProvider;
       let hint = rawMsg;
       if (rawMsg === "Connection error." || rawMsg.includes("fetch")) {
@@ -340,6 +395,9 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
   return (
     <div className="flex flex-col h-full bg-[#0d0d0d]">
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+        {/* Hypothesis Panel — shown only when there are active hypotheses */}
+        {activeHypotheses && activeHypotheses.length > 0 && <HypothesisPanel />}
+
         {messages.map((msg) => {
           if (msg.role === "user") {
             return (
@@ -394,9 +452,13 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
         )}
       </div>
 
+      {/* Confidence bar — always mounted, renders null when no confidence data */}
+      <ConfidenceBar />
+
       <div className="p-3 border-t border-[#262626] shrink-0">
         <div className="relative">
           <textarea
+            ref={inputRef}
             data-ai-input
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -430,6 +492,18 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
             <span className="text-[9px] text-white/25 font-mono truncate max-w-[140px]">
               {activeMeta.name} / {activeModel.split("/").pop()}
             </span>
+            {queryDepth === 'deep' && (
+              <>
+                <span className="text-[9px] text-white/15">·</span>
+                <span className="text-[9px] text-purple-400 font-bold uppercase tracking-widest">● Deep</span>
+              </>
+            )}
+            {queryDepth === 'fast' && (
+              <>
+                <span className="text-[9px] text-white/15">·</span>
+                <span className="text-[9px] text-teal-400 font-bold uppercase tracking-widest">● Fast</span>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -438,6 +512,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
                 historyRef.current = [];
                 localStorage.removeItem(CHAT_STORAGE_KEY);
                 localStorage.removeItem(CONV_STORAGE_KEY);
+                setSessionSections([]);
               }}
               className="flex items-center gap-1 text-[9px] text-white/20 hover:text-white/50 transition-colors uppercase tracking-widest"
               title="Clear conversation"
@@ -461,6 +536,13 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
             >
               <Settings2 className="w-2.5 h-2.5" /> Provider
             </button>
+            <button
+              onClick={() => setReportPanelOpen(true)}
+              title="Export Report"
+              className="p-1.5 rounded hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200"
+            >
+              <FileText className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
@@ -471,6 +553,16 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
         onSave={setProviderSettings}
       />
       {toolsPanelOpen && <UserToolsPanel onClose={() => setToolsPanelOpen(false)} />}
+      <ReportPanel
+        open={reportPanelOpen}
+        onOpenChange={setReportPanelOpen}
+        session={sessionSections.length > 0 ? {
+          userQuestion: sessionQuestionRef.current || 'Analysis Session',
+          sections: sessionSections,
+          connectionName: connections.find((c) => c.id === connectionId)?.display_name ?? connectionId ?? 'Unknown',
+          finalText: [...messages].reverse().find((m) => m.role === 'assistant')?.content ?? '',
+        } : null}
+      />
     </div>
   );
 }

@@ -7,7 +7,7 @@
 import { commandBus } from "./CommandBus";
 import { AGENT_TOOLS } from "./toolDefinitions";
 import { isDestructive, describeCommand } from "./commands";
-import type { AgentCommand, RunUserToolCmd } from "./commands";
+import type { AgentCommand, RunUserToolCmd, DeclareHypothesesCmd, DeclareConfidenceCmd } from "./commands";
 import { useUserToolStore } from "../stores/UserToolStore";
 import { userToolToUnifiedTool } from "../tools/user.tools";
 import { statToolToKernelKey } from "../tools/stat.tools";
@@ -40,6 +40,34 @@ export interface AgentLoopOptions {
   memoryContext?: MemoryContext;
 }
 
+// ── Query Depth Classifier ────────────────────────────────────────────────────
+
+function classifyQueryDepth(question: string): 'fast' | 'deep' {
+  const q = question.toLowerCase();
+
+  // Deep path indicators
+  const deepKeywords = ['why', 'root cause', 'anomaly', 'unusual', 'problem',
+    'investigate', 'analyze', 'analyse', 'diagnose', 'correlate', 'cause'];
+  if (deepKeywords.some(k => q.includes(k))) return 'deep';
+
+  // Multiple variables indicator
+  const commaCount = (q.match(/,/g) || []).length;
+  const andCount = (q.match(/\band\b/g) || []).length;
+  if (commaCount > 2 || andCount > 2) return 'deep';
+
+  // Fast path indicators
+  if (q.includes('how many') || q.includes('count') || q.includes('list') ||
+      q.includes('show me') || q.includes('what columns')) return 'fast';
+
+  // SQL request
+  if (q.startsWith('select') || q.includes('run query') || q.includes('execute')) return 'fast';
+
+  // Very short questions default to fast
+  if (question.trim().split(/\s+/).length < 8) return 'fast';
+
+  return 'fast'; // default
+}
+
 // ── System Prompt ─────────────────────────────────────────────────────────────
 
 function buildSystemPrompt(
@@ -47,9 +75,20 @@ function buildSystemPrompt(
   currentSQL: string | null,
   currentResults: QueryResults | null,
   agentMode: "plan" | "auto",
-  memoryContext?: MemoryContext
+  memoryContext?: MemoryContext,
+  queryDepth?: 'fast' | 'deep'
 ): string {
   const parts: string[] = [];
+
+  if (queryDepth === 'deep') {
+    parts.push(
+      `DEEP ANALYSIS MODE: This question requires careful multi-step reasoning. You MUST: (1) call declare_hypotheses first, (2) run at least 2 independent tools before concluding, (3) call declare_confidence last.`
+    );
+  } else if (queryDepth === 'fast') {
+    parts.push(
+      `FAST MODE: Respond concisely. Use at most 1 tool. Skip hypothesis declaration unless the user is clearly asking about a process problem.`
+    );
+  }
 
   parts.push(
     `You are APEX — Autonomous Process Engineering eXpert, embedded in Daitalk: a desktop SQL IDE.
@@ -149,7 +188,11 @@ Always prefer stat tools over manual SQL aggregations for statistical work — t
 - Hypertables are standard PostgreSQL tables partitioned by time
 - Use time_bucket() for time-series aggregation: SELECT time_bucket('1 hour', ts) AS bucket, avg(val) FROM sensor_data GROUP BY bucket ORDER BY bucket
 - Use first() / last() aggregate functions for time-series selects
-- Schema is otherwise identical to PostgreSQL`);
+- Schema is otherwise identical to PostgreSQL
+
+For TimescaleDB hypertables: prefer time_bucket() aggregation before running stat tools.
+Use stat__time_series_decompose for trend analysis on hypertable data.
+Avoid SELECT * on large hypertables — always add a time range WHERE clause.`);
     }
   }
 
@@ -166,6 +209,9 @@ Always prefer stat tools over manual SQL aggregations for statistical work — t
       .join("\n");
     parts.push(`## Your Custom Tools (call these proactively when user intent matches)\n${lines}`);
   }
+
+  parts.push(`## Mandatory Hypothesis Protocol
+For any question about anomalies, quality issues, process upsets, or unexplained changes: you MUST call declare_hypotheses BEFORE calling any analysis tool. List 2-5 competing explanations with rough probabilities. After each tool result, update your hypotheses (call declare_hypotheses again with revised probabilities). State which hypothesis was confirmed or eliminated.`);
 
   parts.push(`GUIDELINES:
 - Explain what you are doing before calling tools
@@ -341,6 +387,51 @@ function toolCallToCommand(
         level: i.level as "info" | "success" | "warning" | "error",
         risk: "safe",
       };
+    case "declare_hypotheses":
+      return {
+        type: "declare_hypotheses",
+        hypotheses: i.hypotheses as DeclareHypothesesCmd["hypotheses"],
+        problemFrame: i.problem_frame as string,
+        risk: "safe" as const,
+      };
+    case "declare_confidence":
+      return {
+        type: "declare_confidence",
+        confidence: i.confidence as number,
+        confidenceLabel: i.confidence_label as DeclareConfidenceCmd["confidenceLabel"],
+        dataQuality: i.data_quality as DeclareConfidenceCmd["dataQuality"] | undefined,
+        whatWouldChangeConclusion: i.what_would_change_conclusion as string,
+        dataGaps: i.data_gaps as string | undefined,
+        risk: "safe" as const,
+      };
+    case "pi_search_tags":
+      if (!connectionId) return null;
+      return {
+        type: "pi_search_tags",
+        connectionId,
+        query: i.query as string,
+        maxCount: i.max_count as number | undefined,
+        risk: "safe",
+      };
+    case "pi_get_history":
+      if (!connectionId) return null;
+      return {
+        type: "pi_get_history",
+        connectionId,
+        webIds: i.web_ids as string[],
+        start: i.start as string,
+        end: i.end as string,
+        interval: i.interval as string | undefined,
+        risk: "safe",
+      };
+    case "pi_get_current":
+      if (!connectionId) return null;
+      return {
+        type: "pi_get_current",
+        connectionId,
+        webIds: i.web_ids as string[],
+        risk: "safe",
+      };
     default:
       return null;
   }
@@ -352,7 +443,7 @@ export async function runAgentLoop(
   userMessage: string,
   history: ConversationTurn[],
   options: AgentLoopOptions
-): Promise<{ finalText: string; updatedHistory: ConversationTurn[] }> {
+): Promise<{ finalText: string; updatedHistory: ConversationTurn[]; queryDepth: 'fast' | 'deep' }> {
   const {
     provider,
     model,
@@ -367,7 +458,8 @@ export async function runAgentLoop(
   } = options;
 
   const { agentMode, addPlanStep } = useWorkspaceStore.getState();
-  const system = buildSystemPrompt(schema, currentSQL, currentResults, agentMode, options.memoryContext);
+  const queryDepth = classifyQueryDepth(userMessage);
+  const system = buildSystemPrompt(schema, currentSQL, currentResults, agentMode, options.memoryContext, queryDepth);
 
   // Append the user message to working history
   const working: ConversationTurn[] = [
@@ -478,5 +570,5 @@ export async function runAgentLoop(
   }
 
   // Trim to last 40 turns to keep context manageable
-  return { finalText, updatedHistory: working.slice(-40) };
+  return { finalText, updatedHistory: working.slice(-40), queryDepth };
 }

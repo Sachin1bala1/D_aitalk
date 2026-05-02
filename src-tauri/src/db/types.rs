@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+fn default_true() -> bool { true }
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ColumnMeta {
     pub name: String,
@@ -73,6 +75,10 @@ pub struct TableMeta {
     pub row_estimate: Option<i64>,
     pub size_bytes: Option<i64>,
     pub object_type: TableObjectType,
+    #[serde(default)]
+    pub is_hypertable: bool,
+    #[serde(default)]
+    pub hypertable_chunks: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -173,6 +179,8 @@ pub struct ConnectionConfig {
     pub pool_min: Option<u32>,
     pub pool_max: Option<u32>,
     pub ssh: Option<SshConfig>,
+    #[serde(default)]
+    pub pi_config: Option<PIConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -189,4 +197,14 @@ pub enum DbDriver {
     MongoDB,
     Redis,
     ClickHouse,
+    PIHistorian,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PIConfig {
+    pub base_url: String,
+    pub username: String,
+    pub password: String,
+    #[serde(default = "default_true")]
+    pub verify_ssl: bool,
 }
