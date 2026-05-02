@@ -186,9 +186,10 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
       await DbClient.disconnect(config.id);
       setTestStatus("ok");
       toast.success("Connection successful");
-    } catch (error: any) {
+    } catch (error: unknown) {
       setTestStatus("fail");
-      toast.error(error.message ?? "Connection test failed");
+      const msg = error instanceof Error ? error.message : String(error);
+      toast.error(msg || "Connection test failed", { duration: 8000 });
     }
   };
 
@@ -201,8 +202,9 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
       onConnect(config.id, config);
       toast.success(`Connected to ${config.display_name}`);
       onOpenChange(false);
-    } catch (error: any) {
-      toast.error(error.message ?? "Connection failed");
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      toast.error(msg || "Connection failed", { duration: 8000 });
     } finally {
       setIsConnecting(false);
     }

@@ -73,13 +73,34 @@ impl ConnectionManager {
 
         let conn = match &config.driver {
             DbDriver::Postgres | DbDriver::Timescaledb => {
-                // Auto-add sslmode=require for non-local hosts (e.g. Supabase, RDS, Cloud SQL).
-                // Without this, poolers like Supavisor reject the connection silently.
-                let pg_str = ensure_pg_ssl(&effective_conn_str);
+                use std::str::FromStr;
+                use sqlx::postgres::{PgConnectOptions, PgSslMode};
+
+                let mut opts = PgConnectOptions::from_str(&effective_conn_str)
+                    .map_err(|e| DbError::Other(format!("Invalid Postgres URL: {e}")))?;
+
+                // For non-local hosts (Supabase, RDS, Cloud SQL, etc.):
+                // 1. Require SSL — Supavisor/PgBouncer rejects unencrypted connections.
+                // 2. Disable statement cache — PgBouncer/Supavisor transaction mode does
+                //    not support server-side prepared statements; sqlx's default caching
+                //    causes "prepared statement does not exist" errors.
+                let host = opts.get_host().to_string();
+                let is_local = host == "localhost" || host == "127.0.0.1" || host == "::1";
+                if !is_local {
+                    // Only set SSL mode if the URL didn't already specify one
+                    let already_has_ssl = effective_conn_str.contains("sslmode=")
+                        || effective_conn_str.contains("sslrootcert=");
+                    if !already_has_ssl {
+                        opts = opts.ssl_mode(PgSslMode::Require);
+                    }
+                    // Disable prepared-statement caching for pooler compatibility
+                    opts = opts.statement_cache_capacity(0);
+                }
+
                 let pool = sqlx::postgres::PgPoolOptions::new()
                     .max_connections(config.pool_max.unwrap_or(10))
                     .min_connections(config.pool_min.unwrap_or(1))
-                    .connect(&pg_str)
+                    .connect_with(opts)
                     .await?;
                 ActiveConnection::Postgres(pool)
             }
