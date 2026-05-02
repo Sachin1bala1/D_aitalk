@@ -73,10 +73,13 @@ impl ConnectionManager {
 
         let conn = match &config.driver {
             DbDriver::Postgres | DbDriver::Timescaledb => {
+                // Auto-add sslmode=require for non-local hosts (e.g. Supabase, RDS, Cloud SQL).
+                // Without this, poolers like Supavisor reject the connection silently.
+                let pg_str = ensure_pg_ssl(&effective_conn_str);
                 let pool = sqlx::postgres::PgPoolOptions::new()
                     .max_connections(config.pool_max.unwrap_or(10))
                     .min_connections(config.pool_min.unwrap_or(1))
-                    .connect(&effective_conn_str)
+                    .connect(&pg_str)
                     .await?;
                 ActiveConnection::Postgres(pool)
             }
@@ -192,4 +195,19 @@ impl ConnectionManager {
     pub async fn get_config(&self, id: &str) -> Option<ConnectionConfig> {
         self.configs.read().await.get(id).cloned()
     }
+}
+
+/// Add `sslmode=require` to a Postgres connection URL if the host is non-local
+/// and no `sslmode`/`sslrootcert` is already specified.
+fn ensure_pg_ssl(conn_str: &str) -> String {
+    if let Ok(mut url) = url::Url::parse(conn_str) {
+        let host = url.host_str().unwrap_or("localhost");
+        let is_local = host == "localhost" || host == "127.0.0.1" || host == "::1";
+        let already_set = url.query_pairs().any(|(k, _)| k == "sslmode" || k == "sslrootcert");
+        if !is_local && !already_set {
+            url.query_pairs_mut().append_pair("sslmode", "require");
+            return url.to_string();
+        }
+    }
+    conn_str.to_string()
 }
