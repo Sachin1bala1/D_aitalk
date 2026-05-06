@@ -60,8 +60,7 @@ clickhouse = "0.13"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 urlencoding = "2.1"
 
-# Phase 1 — SSH tunnel (deferred: needs system libssh2 or OpenSSL build tools)
-# ssh2 = { version = "0.9", features = ["vendored-openssl"] }
+ssh2 = { version = "0.9" }
 
 [features]
 default = ["custom-protocol"]

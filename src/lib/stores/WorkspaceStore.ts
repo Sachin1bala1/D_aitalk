@@ -167,6 +167,14 @@ export interface WorkspaceState {
   pendingChatInput: string | null;
   setPendingChatInput: (text: string) => void;
   clearPendingChatInput: () => void;
+
+  // Object Properties Panel — selected table node
+  selectedTableNode: { schema: string; table: string } | null;
+  setSelectedTableNode: (node: { schema: string; table: string } | null) => void;
+
+  // Task progress (set by TaskEngine while agent runs a multi-step task)
+  currentTask: { userGoal: string; status: string } | null;
+  setCurrentTask: (task: { userGoal: string; status: string } | null) => void;
 }
 
 const DEFAULT_TAB: TabState = {
@@ -205,6 +213,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
     activeConfidence: null,
     pendingChatInput: null,
+
+    selectedTableNode: null,
+    currentTask: null,
 
     setAgentMode: (mode) =>
       set((state) => {
@@ -414,6 +425,16 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     clearPendingChatInput: () =>
       set((state) => {
         state.pendingChatInput = null;
+      }),
+
+    setSelectedTableNode: (node) =>
+      set((state) => {
+        state.selectedTableNode = node;
+      }),
+
+    setCurrentTask: (task) =>
+      set((state) => {
+        state.currentTask = task;
       }),
   }))
 );

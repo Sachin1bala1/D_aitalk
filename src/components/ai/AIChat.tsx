@@ -27,6 +27,7 @@ import type { MemoryContext } from "../../lib/agent/AgentLoop";
 import type { AnalysisSection } from "../../lib/reports/ReportBuilder";
 import { ReportPanel } from "../reports/ReportPanel";
 import { BusinessClient } from "../../lib/business/BusinessClient";
+import { TaskProgressPanel } from "./TaskProgressPanel";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -461,6 +462,9 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
 
       {/* Confidence bar — always mounted, renders null when no confidence data */}
       <ConfidenceBar />
+
+      {/* Task progress — shows active multi-step task */}
+      <TaskProgressPanel />
 
       <div className="p-3 border-t border-[#262626] shrink-0">
         <div className="relative">

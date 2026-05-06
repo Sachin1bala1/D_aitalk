@@ -29,6 +29,7 @@ import { BindParamsDialog, detectParams } from "./components/dialogs/BindParamsD
 import { SessionMonitor } from "./components/panels/SessionMonitor";
 import { DatabaseOverview } from "./components/panels/DatabaseOverview";
 import { FounderDashboard } from "./components/panels/FounderDashboard";
+import { ObjectPropertiesPanel } from "./components/panels/ObjectPropertiesPanel";
 import { QuickOpenDialog } from "./components/dialogs/QuickOpenDialog";
 import { WelcomeScreen } from "./components/onboarding/WelcomeScreen";
 import { OnboardingTour } from "./components/onboarding/OnboardingTour";
@@ -44,6 +45,8 @@ export default function App() {
     activeTabId,
     planQueue,
     focusedNode,
+    selectedTableNode,
+    setSelectedTableNode,
     setSchema,
     setActiveConnection,
     addConnection,
@@ -770,7 +773,11 @@ export default function App() {
                 subtitle: `${fnSchema}.${fnName}`,
                 customQuery: `SELECT pg_get_functiondef(p.oid) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = '${fnSchema}' AND p.proname = '${fnName}' LIMIT 1`,
               })}
-              onTableClick={(table) => setEditorSql(`SELECT * FROM "${table}" LIMIT 100;`)}
+              onTableClick={(table) => {
+                setEditorSql(`SELECT * FROM "${table}" LIMIT 100;`);
+                const schema = activeSchema?.tables.find((t) => t.name === table)?.schema ?? "public";
+                setSelectedTableNode({ schema, table });
+              }}
               focusedNode={focusedNode}
               schemaName={activeSchema.tables[0]?.schema ?? "public"}
               onSelectAll={(table) => setEditorSql(`SELECT * FROM "${table}" LIMIT 100;`)}
@@ -807,6 +814,15 @@ export default function App() {
             </div>
           )}
         </div>
+
+        {/* Object Properties Panel — shown when a table node is selected */}
+        {selectedTableNode && (
+          <ObjectPropertiesPanel
+            connectionId={activeConnectionId}
+            fullSchema={activeConnectionId ? (schemas[activeConnectionId] ?? null) : null}
+            onClose={() => setSelectedTableNode(null)}
+          />
+        )}
       </div>
 
       {/* Center: Editor + Results */}
