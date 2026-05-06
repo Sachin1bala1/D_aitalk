@@ -11,9 +11,10 @@
  *  - For strings: shortest / longest / avg length
  *  - Top-5 most common values (for low-cardinality columns)
  */
-import React, { useMemo, useEffect, useRef } from "react";
+import React, { useMemo, useEffect, useRef, useState } from "react";
 import { X, BarChart2 } from "lucide-react";
-import type { ColumnMeta } from "../../lib/db/DbClient";
+import { DbClient, type ColumnMeta, type ParameterHotspotRecord } from "../../lib/db/DbClient";
+import { QueryManager } from "../../lib/table/QueryManager";
 
 interface ColumnStatsPopoverProps {
   x: number;
@@ -96,6 +97,7 @@ function computeStats(col: ColumnMeta, rows: Record<string, unknown>[]): Stats {
 
 export function ColumnStatsPopover({ x, y, col, rows, onClose }: ColumnStatsPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
+  const [hotspot, setHotspot] = useState<ParameterHotspotRecord | null>(null);
 
   const stats = useMemo(() => computeStats(col, rows), [col.name, rows.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -111,6 +113,31 @@ export function ColumnStatsPopover({ x, y, col, rows, onClose }: ColumnStatsPopo
       document.removeEventListener("mousedown", handleClick);
     };
   }, [onClose]);
+
+  useEffect(() => {
+    const connectionId = QueryManager.getConnectionId();
+    const tableInfo = QueryManager.getBaseTable();
+    if (!connectionId || !tableInfo) {
+      setHotspot(null);
+      return;
+    }
+
+    let cancelled = false;
+    DbClient.getParameterHotspots({
+      connection_id: connectionId,
+      table_name: `${tableInfo.schema}.${tableInfo.table}`,
+      limit: 50,
+    }).then((records) => {
+      if (cancelled) return;
+      setHotspot(records.find((record) => record.column_name === col.name) ?? null);
+    }).catch(() => {
+      if (!cancelled) setHotspot(null);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [col.name]);
 
   const w = 240;
   const clampedX = Math.min(x, window.innerWidth - w - 8);
@@ -157,6 +184,9 @@ export function ColumnStatsPopover({ x, y, col, rows, onClose }: ColumnStatsPopo
         <Row label="Non-null" value={`${stats.nonNull.toLocaleString()} (${(100 - parseFloat(stats.nullPct)).toFixed(1)}%)`} accent />
         <Row label="Null" value={`${stats.nullCount.toLocaleString()} (${stats.nullPct}%)`} />
         <Row label="Distinct" value={stats.distinct.toLocaleString()} />
+        {hotspot && (
+          <Row label="Hotspot hits" value={`${hotspot.hit_count.toLocaleString()} local`} accent />
+        )}
 
         {/* Numeric stats */}
         {stats.min !== undefined && (

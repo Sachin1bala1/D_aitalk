@@ -229,17 +229,3 @@ impl ConnectionManager {
     }
 }
 
-/// Add `sslmode=require` to a Postgres connection URL if the host is non-local
-/// and no `sslmode`/`sslrootcert` is already specified.
-fn ensure_pg_ssl(conn_str: &str) -> String {
-    if let Ok(mut url) = url::Url::parse(conn_str) {
-        let host = url.host_str().unwrap_or("localhost");
-        let is_local = host == "localhost" || host == "127.0.0.1" || host == "::1";
-        let already_set = url.query_pairs().any(|(k, _)| k == "sslmode" || k == "sslrootcert");
-        if !is_local && !already_set {
-            url.query_pairs_mut().append_pair("sslmode", "require");
-            return url.to_string();
-        }
-    }
-    conn_str.to_string()
-}

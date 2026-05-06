@@ -13,8 +13,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { RefreshCw, Database, Table2, Zap, Wifi, AlertTriangle } from "lucide-react";
 import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
-import { DbClient } from "../../lib/db/DbClient";
-import { toast } from "sonner";
+import { DbClient, type LocalDataStats } from "../../lib/db/DbClient";
 
 interface OverviewData {
   dbSize: string | null;
@@ -24,6 +23,7 @@ interface OverviewData {
   activeConnections: number | null;
   idleConnections: number | null;
   longestQuery: { pid: number; duration: string; query: string } | null;
+  localStats: LocalDataStats | null;
 }
 
 function Stat({
@@ -88,6 +88,7 @@ export function DatabaseOverview() {
     abortRef.current = false;
 
     try {
+      const localStats = await DbClient.getLocalDataStats().catch(() => null);
       if (isPostgres) {
         // DB size
         const sizeRes = await DbClient.query(activeConnectionId, "SELECT pg_size_pretty(pg_database_size(current_database())) AS size");
@@ -171,6 +172,7 @@ export function DatabaseOverview() {
             activeConnections,
             idleConnections,
             longestQuery,
+            localStats,
           });
         }
       } else {
@@ -190,6 +192,7 @@ export function DatabaseOverview() {
             activeConnections: null,
             idleConnections: null,
             longestQuery: null,
+            localStats,
           });
         }
       }
@@ -285,6 +288,16 @@ export function DatabaseOverview() {
                 label="Connections"
                 value={`${data.activeConnections ?? 0} active · ${data.idleConnections ?? 0} idle`}
                 color="text-white/60"
+              />
+            )}
+
+            {data.localStats && (
+              <Stat
+                icon={Database}
+                label="Local Intelligence"
+                value={`${data.localStats.query_history_count} queries / ${data.localStats.visualization_count} charts`}
+                color="text-white/60"
+                sublabel={`${data.localStats.hotspot_count} hotspots / ${data.localStats.benchmark_count} benchmarks`}
               />
             )}
 

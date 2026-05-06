@@ -14,6 +14,7 @@ import { EpisodicMemory } from "../../lib/memory/EpisodicMemory";
 import { UserCalibrationProfile } from "../../lib/memory/UserCalibrationProfile";
 import type { Episode } from "../../lib/memory/EpisodicMemory";
 import type { ExpertiseLevel } from "../../lib/memory/UserCalibrationProfile";
+import { BusinessClient, type OutcomeRecord } from "../../lib/business/BusinessClient";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -68,6 +69,8 @@ export function MemoryPanel() {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [episodesLoading, setEpisodesLoading] = useState(true);
   const [episodesError, setEpisodesError] = useState<string | null>(null);
+  const [outcomes, setOutcomes] = useState<OutcomeRecord[]>([]);
+  const [outcomesError, setOutcomesError] = useState<string | null>(null);
 
   // ── Calibration state ──
   const [priorityParams, setPriorityParams] = useState<string[]>([]);
@@ -95,6 +98,16 @@ export function MemoryPanel() {
     }
   }, []);
 
+  const loadOutcomes = useCallback(async () => {
+    setOutcomesError(null);
+    try {
+      const rows = await BusinessClient.getPendingOutcomes(12);
+      setOutcomes(rows);
+    } catch (e: unknown) {
+      setOutcomesError((e as Error)?.message ?? String(e));
+    }
+  }, []);
+
   // ── Load calibration ──
   const loadCalibration = useCallback(async () => {
     setCalibrationError(null);
@@ -113,7 +126,8 @@ export function MemoryPanel() {
   useEffect(() => {
     loadEpisodes();
     loadCalibration();
-  }, [loadEpisodes, loadCalibration]);
+    loadOutcomes();
+  }, [loadEpisodes, loadCalibration, loadOutcomes]);
 
   // ── Handle expertise change ──
   const handleExpertiseChange = async (level: ExpertiseLevel) => {
@@ -138,6 +152,21 @@ export function MemoryPanel() {
       await loadEpisodes();
     } catch (e: unknown) {
       setClearError((e as Error)?.message ?? String(e));
+    }
+  };
+
+  const handleOutcomeStatus = async (outcome: OutcomeRecord, status: OutcomeRecord["status"]) => {
+    try {
+      await BusinessClient.upsertOutcome({
+        ...outcome,
+        status,
+        resolved_at: status === "resolved" ? Date.now() : outcome.resolved_at ?? null,
+        updated_at: Date.now(),
+      });
+      await loadOutcomes();
+      await loadCalibration();
+    } catch (e: unknown) {
+      setOutcomesError((e as Error)?.message ?? String(e));
     }
   };
 
@@ -172,6 +201,39 @@ export function MemoryPanel() {
               </li>
             ))}
           </ul>
+        )}
+      </Section>
+
+      <Section title="Pending Outcomes" defaultOpen>
+        {outcomesError ? (
+          <p className="text-xs text-red-400/80 py-1">{outcomesError}</p>
+        ) : outcomes.length === 0 ? (
+          <p className="text-xs text-white/30 py-1">No open learning loops.</p>
+        ) : (
+          <div className="space-y-2">
+            {outcomes.map((outcome) => (
+              <div key={outcome.id} className="rounded-lg border border-[#262626] p-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs text-white/70 leading-snug">{truncate(outcome.title, 72)}</p>
+                    <p className="text-[10px] text-white/25 font-mono mt-1">
+                      {outcome.due_at ? `due ${relativeTime(outcome.due_at)}` : "no due date"} · {outcome.status}
+                    </p>
+                  </div>
+                  <select
+                    value={outcome.status}
+                    onChange={(e) => handleOutcomeStatus(outcome, e.target.value as OutcomeRecord["status"])}
+                    className="bg-[#1a1a1a] border border-[#262626] rounded px-1.5 py-1 text-[10px] text-white/70"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="blocked">Blocked</option>
+                    <option value="resolved">Resolved</option>
+                  </select>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </Section>
 

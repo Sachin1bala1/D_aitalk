@@ -12,6 +12,13 @@ import type { ColumnMeta } from "../../lib/db/DbClient";
 interface ChartViewProps {
   rows: Record<string, unknown>[];
   columns: ColumnMeta[];
+  queryId?: string | null;
+  onChartRendered?: (
+    queryId: string | null | undefined,
+    chartType: string,
+    columnCount: number,
+    selection: { xColumn: string; yColumn: string }
+  ) => void;
 }
 
 type ChartType = "bar" | "line";
@@ -56,7 +63,7 @@ interface TooltipState {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export function ChartView({ rows, columns }: ChartViewProps) {
+export function ChartView({ rows, columns, queryId, onChartRendered }: ChartViewProps) {
   const numericCols = columns.filter((c) => {
     const kind = c.display_type?.kind;
     return kind === "integer" || kind === "float";
@@ -138,6 +145,17 @@ export function ChartView({ rows, columns }: ChartViewProps) {
     })
     .filter(Boolean);
   const linePath = linePts.length > 1 ? `M ${linePts.join(" L ")}` : "";
+  const handleSvgRendered = useCallback((node: SVGSVGElement | null) => {
+    svgRef.current = node;
+    if (!node || !xCol || !yCol || validYValues.length === 0) return;
+
+    requestAnimationFrame(() => {
+      onChartRendered?.(queryId, chartType, new Set([xCol, yCol]).size, {
+        xColumn: xCol,
+        yColumn: yCol,
+      });
+    });
+  }, [chartType, onChartRendered, queryId, validYValues.length, xCol, yCol]);
 
   return (
     <div className="flex flex-col h-full bg-[#0a0a0a]">
@@ -201,7 +219,7 @@ export function ChartView({ rows, columns }: ChartViewProps) {
       {/* SVG Chart */}
       <div className="flex-1 relative" onMouseLeave={() => setTooltip(null)}>
         <svg
-          ref={svgRef}
+          ref={handleSvgRendered}
           viewBox={`0 0 ${VB_W} ${VB_H}`}
           preserveAspectRatio="none"
           className="w-full h-full"

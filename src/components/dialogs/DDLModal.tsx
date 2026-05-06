@@ -49,7 +49,8 @@ export function DDLModal({ open, onClose, connectionId, schema, table, onSendToE
 
       // Proper path: use executeStreaming + listen for batch
       import("@tauri-apps/api/event").then(({ listen }) => {
-        DbClient.executeStreaming(connectionId, customQuery).then((queryId) => {
+        DbClient.executeStreaming(connectionId, customQuery).then((response) => {
+          const queryId = response.query_id;
           listen<import("../../lib/db/DbClient").QueryBatch>("query_batch", (event) => {
             const batch = event.payload;
             if (batch.query_id !== queryId) return;

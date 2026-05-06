@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use redis::AsyncCommands;
 use sqlx::Row;
 
 use super::connection_manager::{ActiveConnection, MssqlClient};
@@ -483,7 +482,7 @@ async fn introspect_mongodb(
     connection_id: &str,
 ) -> Result<FullSchema, DbError> {
     use futures::TryStreamExt;
-    use mongodb::bson::{Bson, Document};
+    use mongodb::bson::Document;
 
     let db = client.database(db_name);
 

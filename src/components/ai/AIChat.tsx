@@ -26,6 +26,7 @@ import { UserCalibrationProfile } from "../../lib/memory/UserCalibrationProfile"
 import type { MemoryContext } from "../../lib/agent/AgentLoop";
 import type { AnalysisSection } from "../../lib/reports/ReportBuilder";
 import { ReportPanel } from "../reports/ReportPanel";
+import { BusinessClient } from "../../lib/business/BusinessClient";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -250,10 +251,16 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
         EpisodicMemory.search(userMsg, 5, connectionId ?? undefined),
         UserCalibrationProfile.getProfile(),
       ]);
+      const [customerBrief, pendingOutcomes] = await Promise.all([
+        BusinessClient.getCustomerBrief().catch(() => []),
+        BusinessClient.getPendingOutcomes(5).catch(() => []),
+      ]);
       memoryContext = {
         recentEpisodes: episodes,
         priorityParams: profile.parameterPriorities,
         expertiseLevel: profile.expertiseLevel,
+        customerBrief,
+        pendingOutcomes,
       };
     } catch {
       // Memory failure must not block the agent

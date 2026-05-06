@@ -4,7 +4,6 @@ use std::time::Instant;
 
 use futures::StreamExt;
 use futures::TryStreamExt;
-use redis::AsyncCommands;
 use serde_json::{Map, Value};
 use sqlx::Column;
 use tauri::{AppHandle, Emitter};
@@ -489,7 +488,7 @@ async fn stream_mongodb(
     cancelled: CancelSet,
 ) -> Result<(), DbError> {
     use futures::TryStreamExt;
-    use mongodb::bson::{Bson, Document};
+    use mongodb::bson::Document;
 
     let start = Instant::now();
     let coll = client.database(db_name).collection::<Document>(collection.trim());
@@ -673,7 +672,6 @@ fn pg_row_to_json(row: &sqlx::postgres::PgRow, columns: &[ColumnMeta]) -> Value 
 }
 
 fn mssql_row_to_json(row: &tiberius::Row) -> Value {
-    use tiberius::ColumnData;
     let mut obj = Map::new();
     for (col, data) in row.cells() {
         let val = mssql_cell_to_value(data);

@@ -4,6 +4,7 @@ pub mod introspection;
 pub mod memory;
 pub mod pi_client;
 pub mod query_executor;
+pub mod query_transform;
 pub mod ssh_tunnel;
 pub mod types;
 
