@@ -118,6 +118,10 @@ ${
   parts.push(`GUIDELINES:
 - Explain what you are doing before calling tools
 - Use execute_sql to fetch data for answering questions
+- Use create_dashboard when the user wants a reusable graph-builder workspace
+- Use create_chart to place a chart into dashboard workflow from current results
+- Use update_dashboard_widget to refine an existing dashboard widget after it exists
+- When updating a dashboard widget, prefer targeting the currently selected widget unless the user names a different one
 - Use set_editor_content when the user wants to review SQL before running
 - Quote all SQL identifiers: "schema"."table"."column"
 - Never attempt to auto-execute mutating SQL or schema changes without explicit user confirmation
@@ -148,6 +152,37 @@ function toolCallToCommand(
       return { type: "open_table", schema: i.schema as string, table: i.table as string, risk: "safe" };
     case "open_new_tab":
       return { type: "open_new_tab", title: i.title as string | undefined, risk: "safe" };
+    case "create_dashboard":
+      return {
+        type: "create_dashboard",
+        title: i.title as string | undefined,
+        useCurrentResults: i.useCurrentResults as boolean | undefined,
+        risk: "safe",
+      };
+    case "update_dashboard_widget":
+      return {
+        type: "update_dashboard_widget",
+        widgetId: i.widgetId as string | undefined,
+        widgetTitle: i.widgetTitle as string | undefined,
+        datasourceId: i.datasourceId as string | undefined,
+        datasourceName: i.datasourceName as string | undefined,
+        widgetType: i.widgetType as
+          | "bar_chart"
+          | "line_chart"
+          | "scatter_chart"
+          | "area_chart"
+          | "pie_chart"
+          | "metric"
+          | "table"
+          | "text"
+          | undefined,
+        title: i.title as string | undefined,
+        xField: i.xField as string | undefined,
+        yField: i.yField as string | undefined,
+        metricField: i.metricField as string | null | undefined,
+        aggregate: i.aggregate as "row_count" | "sum" | "avg" | "min" | "max" | undefined,
+        risk: "safe",
+      };
     case "add_column":
       return {
         type: "add_column",

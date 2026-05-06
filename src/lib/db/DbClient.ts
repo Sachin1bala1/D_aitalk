@@ -208,6 +208,10 @@ export const DbClient = {
     return invoke("db_connect", { config });
   },
 
+  async testConnection(config: ConnectionConfig): Promise<void> {
+    return invoke("db_test_connection", { config });
+  },
+
   async disconnect(connectionId: string): Promise<void> {
     return invoke("db_disconnect", { connectionId });
   },

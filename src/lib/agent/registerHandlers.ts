@@ -8,8 +8,13 @@ import { toast } from "sonner";
 
 import { commandBus } from "./CommandBus";
 import { DbClient } from "../db/DbClient";
+import {
+  buildDashboardSnapshot,
+  buildDashboardWidgetFromChartIntent,
+  buildInitialDashboardWidget,
+} from "../dashboard/dashboardState";
 import { rowStore } from "../table/RowStore";
-import { useWorkspaceStore } from "../stores/WorkspaceStore";
+import { isDashboardTab, useWorkspaceStore } from "../stores/WorkspaceStore";
 import { collectStreamingQuery, runDuckDbQuery } from "../query/runtime";
 import type {
   SetEditorContentCmd,
@@ -17,6 +22,7 @@ import type {
   CancelQueryCmd,
   OpenTableCmd,
   OpenNewTabCmd,
+  CreateDashboardCmd,
   CloseTabCmd,
   AddColumnCmd,
   DropColumnCmd,
@@ -31,9 +37,152 @@ import type {
   CreateChartCmd,
   CreatePipelineCmd,
   NotifyUserCmd,
+  UpdateDashboardWidgetCmd,
 } from "./commands";
 
 export function registerHandlers() {
+  const createDashboardFromCurrentResults = (input?: {
+    title?: string;
+    useCurrentResults?: boolean;
+  }) => {
+    const store = useWorkspaceStore.getState();
+    const activeTab = store.tabs.find((tab) => tab.id === store.activeTabId) ?? null;
+    const activeQueryTab = activeTab && !isDashboardTab(activeTab) ? activeTab : null;
+    const activeDashboardTab = activeTab && isDashboardTab(activeTab) ? activeTab : null;
+    const sourceResults =
+      input?.useCurrentResults === false ? null : activeQueryTab?.queryResults ?? null;
+    const sourceConnectionId = activeQueryTab?.connectionId ?? store.activeConnectionId;
+    const dashboardId = activeDashboardTab?.id ?? `dashboard-${Date.now()}`;
+    const title =
+      input?.title
+      ?? activeDashboardTab?.title
+      ?? (activeQueryTab?.title
+        ? `${activeQueryTab.title} Dashboard`
+        : `Dashboard ${store.tabs.filter((tab) => isDashboardTab(tab)).length + 1}`);
+
+    if (!activeDashboardTab) {
+      store.createDashboardTab({
+        id: dashboardId,
+        title,
+        connectionId: sourceConnectionId,
+      });
+    }
+
+    let snapshotId: string | null = null;
+    if (sourceResults && activeQueryTab) {
+      const snapshot = buildDashboardSnapshot(
+        sourceResults,
+        activeQueryTab.sql,
+        sourceConnectionId,
+        title,
+      );
+      store.upsertDashboardDatasourceSnapshot(dashboardId, snapshot);
+      snapshotId = snapshot.id;
+    } else if (activeDashboardTab) {
+      const latestSnapshot = Object.values(activeDashboardTab.dashboard.datasources).sort(
+        (left, right) => right.capturedAt - left.capturedAt,
+      )[0];
+      snapshotId = latestSnapshot?.id ?? null;
+    }
+
+    return { dashboardId, snapshotId, created: !activeDashboardTab };
+  };
+
+  const findLatestDashboardSnapshot = (dashboardId: string) => {
+    const dashboardTab = useWorkspaceStore
+      .getState()
+      .tabs.find((tab) => tab.id === dashboardId);
+    if (!dashboardTab || !isDashboardTab(dashboardTab)) {
+      return null;
+    }
+
+    return (
+      Object.values(dashboardTab.dashboard.datasources).sort(
+        (left, right) => right.capturedAt - left.capturedAt,
+      )[0] ?? null
+    );
+  };
+
+  const makeDashboardWidgetId = () =>
+    `dashboard-widget-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  const resolveDashboardWidgetTarget = (
+    dashboardTab: Extract<ReturnType<typeof useWorkspaceStore.getState>["tabs"][number], { type: "dashboard" }>,
+    cmd: UpdateDashboardWidgetCmd,
+  ) => {
+    if (cmd.widgetId) {
+      return dashboardTab.dashboard.widgets.find((widget) => widget.id === cmd.widgetId) ?? null;
+    }
+
+    if (cmd.widgetTitle) {
+      const normalizedTitle = cmd.widgetTitle.trim().toLowerCase();
+      return (
+        dashboardTab.dashboard.widgets.find(
+          (widget) => widget.title.trim().toLowerCase() === normalizedTitle,
+        ) ?? null
+      );
+    }
+
+    if (dashboardTab.dashboard.selectedWidget.widgetId) {
+      return (
+        dashboardTab.dashboard.widgets.find(
+          (widget) => widget.id === dashboardTab.dashboard.selectedWidget.widgetId,
+        ) ?? null
+      );
+    }
+
+    return dashboardTab.dashboard.widgets[0] ?? null;
+  };
+
+  const resolveDashboardDatasourceId = (
+    dashboardTab: Extract<ReturnType<typeof useWorkspaceStore.getState>["tabs"][number], { type: "dashboard" }>,
+    cmd: UpdateDashboardWidgetCmd,
+    fallbackDatasourceId: string | null,
+  ) => {
+    if (cmd.datasourceId && dashboardTab.dashboard.datasources[cmd.datasourceId]) {
+      return cmd.datasourceId;
+    }
+
+    if (cmd.datasourceName) {
+      const normalizedName = cmd.datasourceName.trim().toLowerCase();
+      const datasource = Object.values(dashboardTab.dashboard.datasources).find(
+        (candidate) => candidate.name.trim().toLowerCase() === normalizedName,
+      );
+      if (datasource) return datasource.id;
+    }
+
+    return fallbackDatasourceId;
+  };
+
+  const addChartWidgetToDashboard = (
+    dashboardId: string,
+    snapshotId: string,
+    cmd: CreateChartCmd,
+  ) => {
+    const store = useWorkspaceStore.getState();
+    const dashboardTab = store.tabs.find((tab) => tab.id === dashboardId);
+    if (!dashboardTab || !isDashboardTab(dashboardTab)) {
+      return false;
+    }
+
+    const snapshot = dashboardTab.dashboard.datasources[snapshotId];
+    if (!snapshot) {
+      return false;
+    }
+
+    const widget = buildDashboardWidgetFromChartIntent({
+      snapshot,
+      chartType: cmd.chartType,
+      xColumn: cmd.xColumn,
+      yColumn: cmd.yColumn,
+      title: cmd.title,
+    });
+    store.addDashboardWidget(dashboardId, {
+      id: makeDashboardWidgetId(),
+      ...widget,
+    });
+    return true;
+  };
   // ── SQL ───────────────────────────────────────────────────────────────────
 
   commandBus.register<SetEditorContentCmd>("set_editor_content", async (cmd) => {
@@ -116,6 +265,36 @@ export function registerHandlers() {
       isExecuting: false,
     });
     return { success: true, result: `Opened new tab: ${cmd.title ?? "New Query"}` };
+  });
+
+  commandBus.register<CreateDashboardCmd>("create_dashboard", async (cmd) => {
+    const { dashboardId, snapshotId, created } = createDashboardFromCurrentResults({
+      title: cmd.title,
+      useCurrentResults: cmd.useCurrentResults,
+    });
+    const dashboardTab = useWorkspaceStore.getState().tabs.find((tab) => tab.id === dashboardId);
+
+    if (
+      snapshotId &&
+      dashboardTab &&
+      isDashboardTab(dashboardTab) &&
+      dashboardTab.dashboard.widgets.length === 0
+    ) {
+      const snapshot = dashboardTab.dashboard.datasources[snapshotId];
+      if (snapshot) {
+        useWorkspaceStore.getState().addDashboardWidget(dashboardId, {
+          id: makeDashboardWidgetId(),
+          ...buildInitialDashboardWidget(snapshot),
+        });
+      }
+    }
+
+    return {
+      success: true,
+      result: created
+        ? `Opened dashboard ${dashboardId}${snapshotId ? " with current results" : ""}`
+        : `Updated dashboard ${dashboardId}${snapshotId ? " with a new datasource snapshot" : ""}`,
+    };
   });
 
   // ── Schema mutation ───────────────────────────────────────────────────────
@@ -357,6 +536,161 @@ export function registerHandlers() {
   });
 
   // ── UI ────────────────────────────────────────────────────────────────────
+
+  commandBus.register<CreateChartCmd>("create_chart", async (cmd) => {
+    const store = useWorkspaceStore.getState();
+    const activeTab = store.tabs.find((tab) => tab.id === store.activeTabId) ?? null;
+
+    if (activeTab && isDashboardTab(activeTab) && Object.keys(activeTab.dashboard.datasources).length > 0) {
+      const latestSnapshot = Object.values(activeTab.dashboard.datasources).sort(
+        (left, right) => right.capturedAt - left.capturedAt,
+      )[0];
+      const widget = buildDashboardWidgetFromChartIntent({
+        snapshot: latestSnapshot,
+        chartType: cmd.chartType,
+        xColumn: cmd.xColumn,
+        yColumn: cmd.yColumn,
+        title: cmd.title,
+      });
+      store.addDashboardWidget(activeTab.id, {
+        id: `dashboard-widget-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        ...widget,
+      });
+      toast.success(`Dashboard widget: ${cmd.chartType} - ${cmd.xColumn} vs ${cmd.yColumn}`);
+      return { success: true, result: `Dashboard widget added: ${cmd.chartType}` };
+    }
+
+    const { dashboardId, snapshotId } = createDashboardFromCurrentResults({
+      title: cmd.title ? `${cmd.title} Dashboard` : undefined,
+      useCurrentResults: true,
+    });
+
+    if (snapshotId) {
+      const dashboardTab = store.tabs.find((tab) => tab.id === dashboardId);
+      if (dashboardTab && isDashboardTab(dashboardTab)) {
+        const snapshot = dashboardTab.dashboard.datasources[snapshotId];
+        const widget = buildDashboardWidgetFromChartIntent({
+          snapshot,
+          chartType: cmd.chartType,
+          xColumn: cmd.xColumn,
+          yColumn: cmd.yColumn,
+          title: cmd.title,
+        });
+        store.addDashboardWidget(dashboardId, {
+          id: `dashboard-widget-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          ...widget,
+        });
+        toast.success(`Dashboard chart: ${cmd.chartType} - ${cmd.xColumn} vs ${cmd.yColumn}`);
+        return { success: true, result: `Dashboard chart created: ${cmd.chartType}` };
+      }
+    }
+
+    store.setChartRequest({
+      chartType: cmd.chartType,
+      xColumn: cmd.xColumn,
+      yColumn: cmd.yColumn,
+      title: cmd.title,
+    });
+    toast.success(`Chart: ${cmd.chartType} - ${cmd.xColumn} vs ${cmd.yColumn}`);
+    return { success: true, result: `Chart opened: ${cmd.chartType}` };
+  });
+
+  commandBus.register<CreateChartCmd>("create_chart", async (cmd) => {
+    const store = useWorkspaceStore.getState();
+    const activeTab = store.tabs.find((tab) => tab.id === store.activeTabId) ?? null;
+
+    if (activeTab && isDashboardTab(activeTab) && Object.keys(activeTab.dashboard.datasources).length > 0) {
+      const latestSnapshot = Object.values(activeTab.dashboard.datasources).sort(
+        (left, right) => right.capturedAt - left.capturedAt,
+      )[0];
+      const widget = buildDashboardWidgetFromChartIntent({
+        snapshot: latestSnapshot,
+        chartType: cmd.chartType,
+        xColumn: cmd.xColumn,
+        yColumn: cmd.yColumn,
+        title: cmd.title,
+      });
+      store.addDashboardWidget(activeTab.id, {
+        id: `dashboard-widget-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        ...widget,
+      });
+      toast.success(`Dashboard widget: ${cmd.chartType} - ${cmd.xColumn} vs ${cmd.yColumn}`);
+      return { success: true, result: `Dashboard widget added: ${cmd.chartType}` };
+    }
+
+    const { dashboardId, snapshotId } = createDashboardFromCurrentResults({
+      title: cmd.title ? `${cmd.title} Dashboard` : undefined,
+      useCurrentResults: true,
+    });
+
+    if (snapshotId) {
+      const dashboardTab = store.tabs.find((tab) => tab.id === dashboardId);
+      if (dashboardTab && isDashboardTab(dashboardTab)) {
+        const snapshot = dashboardTab.dashboard.datasources[snapshotId];
+        const widget = buildDashboardWidgetFromChartIntent({
+          snapshot,
+          chartType: cmd.chartType,
+          xColumn: cmd.xColumn,
+          yColumn: cmd.yColumn,
+          title: cmd.title,
+        });
+        store.addDashboardWidget(dashboardId, {
+          id: `dashboard-widget-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          ...widget,
+        });
+        toast.success(`Dashboard chart: ${cmd.chartType} - ${cmd.xColumn} vs ${cmd.yColumn}`);
+        return { success: true, result: `Dashboard chart created: ${cmd.chartType}` };
+      }
+    }
+
+    store.setChartRequest({
+      chartType: cmd.chartType,
+      xColumn: cmd.xColumn,
+      yColumn: cmd.yColumn,
+      title: cmd.title,
+    });
+    toast.success(`Chart: ${cmd.chartType} - ${cmd.xColumn} vs ${cmd.yColumn}`);
+    return { success: true, result: `Chart opened: ${cmd.chartType}` };
+  });
+
+  commandBus.register<import("./commands").UpdateDashboardWidgetCmd>("update_dashboard_widget", async (cmd) => {
+    const store = useWorkspaceStore.getState();
+    const activeTab = store.tabs.find((tab) => tab.id === store.activeTabId) ?? null;
+    if (!activeTab || !isDashboardTab(activeTab)) {
+      return { success: false, error: "No active dashboard tab" };
+    }
+
+    const targetWidget = cmd.widgetTitle
+      ? activeTab.dashboard.widgets.find((widget) => widget.title === cmd.widgetTitle)
+      : activeTab.dashboard.widgets.find(
+          (widget) => widget.id === activeTab.dashboard.selectedWidget.widgetId,
+        ) ?? activeTab.dashboard.widgets[0];
+
+    if (!targetWidget) {
+      return { success: false, error: "No dashboard widget found to update" };
+    }
+
+    const configUpdates: Record<string, unknown> = {};
+    if (cmd.xField !== undefined) configUpdates.xField = cmd.xField;
+    if (cmd.yField !== undefined) configUpdates.yField = cmd.yField;
+    if (cmd.metricField !== undefined) configUpdates.metricField = cmd.metricField;
+    if (cmd.aggregate !== undefined) configUpdates.aggregate = cmd.aggregate;
+
+    store.updateDashboardWidget(activeTab.id, targetWidget.id, {
+      title: cmd.title ?? targetWidget.title,
+      type: cmd.widgetType ?? targetWidget.type,
+      config: Object.keys(configUpdates).length > 0 ? configUpdates : undefined,
+    });
+    store.setDashboardSelectedWidget(activeTab.id, {
+      widgetId: targetWidget.id,
+      mode: "edit",
+    });
+
+    return {
+      success: true,
+      result: `Updated dashboard widget ${cmd.title ?? cmd.widgetTitle ?? targetWidget.title}`,
+    };
+  });
 
   commandBus.register<NotifyUserCmd>("notify_user", async (cmd) => {
     const fn = {

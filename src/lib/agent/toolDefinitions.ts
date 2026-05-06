@@ -54,6 +54,64 @@ export const AGENT_TOOLS: UnifiedTool[] = [
       },
     },
   },
+  {
+    name: "create_dashboard",
+    description:
+      "Create a dashboard tab. Use current query results when available so charts and widgets can be seeded immediately.",
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Optional dashboard title" },
+        useCurrentResults: {
+          type: "boolean",
+          description: "Whether to seed the dashboard from the current query results if available",
+        },
+      },
+    },
+  },
+  {
+    name: "update_dashboard_widget",
+    description:
+      "Update an existing widget in the active dashboard. Use this to retitle widgets, switch widget type, change datasource bindings, or rebind x/y/metric fields after a dashboard already exists.",
+    parameters: {
+      type: "object",
+      properties: {
+        widgetId: {
+          type: "string",
+          description: "Optional exact widget id when you know it",
+        },
+        widgetTitle: {
+          type: "string",
+          description: "Optional current widget title to target when id is unknown",
+        },
+        datasourceId: {
+          type: "string",
+          description: "Optional datasource id to bind the widget to",
+        },
+        datasourceName: {
+          type: "string",
+          description: "Optional datasource name to bind by name when id is unknown",
+        },
+        widgetType: {
+          type: "string",
+          enum: ["bar_chart", "line_chart", "scatter_chart", "area_chart", "pie_chart", "metric", "table", "text"],
+          description: "Optional widget type to switch to",
+        },
+        title: { type: "string", description: "Optional new widget title" },
+        xField: { type: "string", description: "Optional X/category field for chart widgets" },
+        yField: { type: "string", description: "Optional Y/value field for chart widgets" },
+        metricField: {
+          anyOf: [{ type: "string" }, { type: "null" }],
+          description: "Optional numeric field for metric widgets. Use null for row count metrics.",
+        } as any,
+        aggregate: {
+          type: "string",
+          enum: ["row_count", "sum", "avg", "min", "max"],
+          description: "Optional aggregate for metric widgets",
+        },
+      },
+    },
+  },
 
   // ── Schema mutation ───────────────────────────────────────────────────────
   {
@@ -229,7 +287,8 @@ export const AGENT_TOOLS: UnifiedTool[] = [
   // ── Charts ────────────────────────────────────────────────────────────────
   {
     name: "create_chart",
-    description: "Request a chart visualization of the current query results.",
+    description:
+      "Create a chart visualization from the current query results. If a dashboard tab is active, add a widget there. Otherwise create or seed a dashboard from the current results.",
     parameters: {
       type: "object",
       properties: {

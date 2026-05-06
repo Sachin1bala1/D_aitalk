@@ -1,5 +1,5 @@
 /**
- * WorkspaceStore — central Zustand state for the entire app.
+ * WorkspaceStore - central Zustand state for the entire app.
  * Replaces the scattered useState() calls in the old App.tsx.
  */
 import { create } from "zustand";
@@ -9,6 +9,17 @@ import type { AgentCommand } from "../agent/commands";
 import type { QueryRuntimeHandle, QuerySessionState } from "../query/runtime";
 
 export type AgentMode = "plan" | "auto";
+export type QueryTabType = "sql_editor" | "table_viewer";
+export type TabType = QueryTabType | "dashboard";
+export type DashboardWidgetType =
+  | "table"
+  | "metric"
+  | "line_chart"
+  | "bar_chart"
+  | "scatter_chart"
+  | "area_chart"
+  | "pie_chart"
+  | "text";
 
 export interface PlanStep {
   id: string;
@@ -27,17 +38,6 @@ export interface UndoEntry {
   humanReadable: string;
   command: AgentCommand;
   timestamp: number;
-}
-
-export interface TabState {
-  id: string;
-  type: "sql_editor" | "table_viewer";
-  title: string;
-  sql: string;
-  connectionId: string | null;
-  queryResults: QueryResults | null;
-  isExecuting: boolean;
-  queryView: QueryViewState;
 }
 
 export interface QueryResults {
@@ -68,6 +68,94 @@ export interface QueryViewState {
   sessionState: QuerySessionState | null;
 }
 
+export interface DashboardDatasourceSnapshot {
+  id: string;
+  name: string;
+  connectionId: string | null;
+  sql: string;
+  capturedAt: number;
+  rowCount: number;
+  elapsedMs: number;
+  queryId: string | null;
+  fields: QueryResults["fields"];
+  rows: QueryResults["rows"];
+  sourceTables: string[];
+}
+
+export interface DashboardWidgetLayout {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  minW?: number;
+  minH?: number;
+}
+
+export interface DashboardWidget {
+  id: string;
+  type: DashboardWidgetType;
+  title: string;
+  datasourceId: string | null;
+  layout: DashboardWidgetLayout;
+  config: Record<string, unknown>;
+}
+
+export interface DashboardSelectedWidgetState {
+  widgetId: string | null;
+  mode: "browse" | "edit";
+}
+
+export interface DashboardTabStateData {
+  datasources: Record<string, DashboardDatasourceSnapshot>;
+  widgets: DashboardWidget[];
+  selectedWidget: DashboardSelectedWidgetState;
+}
+
+export interface TabStateBase {
+  id: string;
+  type: TabType;
+  title: string;
+  connectionId: string | null;
+  // Compatibility fields kept on every tab until the UI is split by tab type.
+  sql: string;
+  queryResults: QueryResults | null;
+  isExecuting: boolean;
+  queryView: QueryViewState;
+}
+
+export interface QueryTabState extends TabStateBase {
+  type: QueryTabType;
+}
+
+export interface DashboardTabState extends TabStateBase {
+  type: "dashboard";
+  dashboard: DashboardTabStateData;
+}
+
+export type TabState = QueryTabState | DashboardTabState;
+
+export type QueryTabInput = Omit<QueryTabState, "queryView"> & {
+  queryView?: QueryViewState;
+};
+
+export type CreateDashboardTabInput = Omit<
+  DashboardTabState,
+  "type" | "sql" | "queryResults" | "isExecuting" | "queryView" | "dashboard"
+> & {
+  dashboard?: Partial<DashboardTabStateData>;
+  queryView?: QueryViewState;
+};
+
+export type AddTabInput = QueryTabInput | ({ type: "dashboard" } & CreateDashboardTabInput);
+
+export type TabStateUpdate = Partial<
+  Pick<TabStateBase, "title" | "connectionId" | "sql" | "queryResults" | "isExecuting" | "queryView">
+>;
+
+export type DashboardTabUpdate = Partial<Pick<DashboardTabState, "title" | "connectionId">> & {
+  dashboard?: Partial<DashboardTabStateData>;
+};
+
 export const createDefaultQueryViewState = (
   sql = "",
   connectionId: string | null = null
@@ -85,6 +173,60 @@ export const createDefaultQueryViewState = (
   sessionState: null,
 });
 
+export const createDefaultDashboardSelectedWidgetState =
+  (): DashboardSelectedWidgetState => ({
+    widgetId: null,
+    mode: "browse",
+  });
+
+export const createDefaultDashboardTabStateData = (
+  input?: Partial<DashboardTabStateData>
+): DashboardTabStateData => ({
+  datasources: input?.datasources ?? {},
+  widgets: input?.widgets ?? [],
+  selectedWidget:
+    input?.selectedWidget ?? createDefaultDashboardSelectedWidgetState(),
+});
+
+export function isDashboardTab(tab: TabState): tab is DashboardTabState {
+  return tab.type === "dashboard";
+}
+
+export function isQueryTab(tab: TabState): tab is QueryTabState {
+  return tab.type !== "dashboard";
+}
+
+function createTabState(tab: AddTabInput): TabState {
+  if (tab.type === "dashboard") {
+    return {
+      ...tab,
+      sql: "",
+      queryResults: null,
+      isExecuting: false,
+      queryView:
+        tab.queryView ?? createDefaultQueryViewState("", tab.connectionId),
+      dashboard: createDefaultDashboardTabStateData(tab.dashboard),
+    };
+  }
+
+  return {
+    ...tab,
+    queryView:
+      tab.queryView ?? createDefaultQueryViewState(tab.sql, tab.connectionId),
+  };
+}
+
+const DEFAULT_TAB: QueryTabState = {
+  id: "tab-1",
+  type: "sql_editor",
+  title: "Query 1",
+  sql: "SELECT * FROM users LIMIT 100;",
+  connectionId: null,
+  queryResults: null,
+  isExecuting: false,
+  queryView: createDefaultQueryViewState(),
+};
+
 export interface WorkspaceState {
   // Agent mode
   agentMode: AgentMode;
@@ -95,15 +237,15 @@ export interface WorkspaceState {
 
   // Connections
   activeConnectionId: string | null;
-  connections: ConnectionConfig[];                           // all open connections
-  schemas: Record<string, FullSchema>;                       // keyed by connectionId
+  connections: ConnectionConfig[];
+  schemas: Record<string, FullSchema>;
   connectionHealth: Record<string, "healthy" | "error" | "checking">;
-  connectionColors: Record<string, string>; // connectionId → tailwind color class
+  connectionColors: Record<string, string>;
 
   // Sidebar focus (set by focus_schema_node command)
-  focusedNode: string | null; // "schema.table"
+  focusedNode: string | null;
 
-  // Chart request (set by create_chart command → consumed by VirtualTable)
+  // Chart request (set by create_chart command -> consumed by VirtualTable)
   chartRequest: { chartType: string; xColumn: string; yColumn: string; title?: string } | null;
   setChartRequest: (req: WorkspaceState["chartRequest"]) => void;
 
@@ -111,22 +253,22 @@ export interface WorkspaceState {
   tabs: TabState[];
   activeTabId: string;
 
-  // Actions — Agent Mode
+  // Actions - Agent Mode
   setAgentMode: (mode: AgentMode) => void;
   addPlanStep: (step: PlanStep) => void;
   updatePlanStep: (id: string, updates: Partial<PlanStep>) => void;
   removePlanStep: (id: string) => void;
   clearPlanQueue: () => void;
 
-  // Actions — Undo
+  // Actions - Undo
   pushUndo: (entry: UndoEntry) => void;
   popUndo: () => UndoEntry | undefined;
   clearUndo: () => void;
 
-  // Actions — Focus
+  // Actions - Focus
   setFocusedNode: (node: string | null) => void;
 
-  // Actions — Connections
+  // Actions - Connections
   setActiveConnection: (id: string | null) => void;
   addConnection: (config: ConnectionConfig) => void;
   removeConnection: (id: string) => void;
@@ -134,10 +276,10 @@ export interface WorkspaceState {
   setConnectionHealth: (id: string, status: "healthy" | "error" | "checking") => void;
   setConnectionColor: (id: string, color: string) => void;
 
-  // Actions — Tabs
+  // Actions - Tabs
   setActiveTab: (tabId: string) => void;
-  updateTab: (tabId: string, updates: Partial<TabState>) => void;
-  addTab: (tab: Omit<TabState, "queryView"> & { queryView?: QueryViewState }) => void;
+  updateTab: (tabId: string, updates: TabStateUpdate) => void;
+  addTab: (tab: AddTabInput) => void;
   closeTab: (tabId: string) => void;
   updateTabQueryView: (
     updates: Partial<QueryViewState>,
@@ -145,22 +287,31 @@ export interface WorkspaceState {
   ) => void;
   resetTabQueryView: (sql: string, connectionId: string | null, tabId?: string) => void;
 
+  // Actions - Dashboard tabs
+  createDashboardTab: (tab: CreateDashboardTabInput) => void;
+  updateDashboardTab: (tabId: string, updates: DashboardTabUpdate) => void;
+  upsertDashboardDatasourceSnapshot: (
+    tabId: string,
+    snapshot: DashboardDatasourceSnapshot
+  ) => void;
+  removeDashboardDatasourceSnapshot: (tabId: string, datasourceId: string) => void;
+  addDashboardWidget: (tabId: string, widget: DashboardWidget) => void;
+  updateDashboardWidget: (
+    tabId: string,
+    widgetId: string,
+    updates: Partial<DashboardWidget>
+  ) => void;
+  removeDashboardWidget: (tabId: string, widgetId: string) => void;
+  setDashboardSelectedWidget: (
+    tabId: string,
+    selectedWidget: DashboardSelectedWidgetState
+  ) => void;
+
   // Convenience: active tab helpers
   setEditorSql: (sql: string, tabId?: string) => void;
   setQueryResults: (results: QueryResults, tabId?: string) => void;
   setTabExecuting: (executing: boolean, tabId?: string) => void;
 }
-
-const DEFAULT_TAB: TabState = {
-  id: "tab-1",
-  type: "sql_editor",
-  title: "Query 1",
-  sql: "SELECT * FROM users LIMIT 100;",
-  connectionId: null,
-  queryResults: null,
-  isExecuting: false,
-  queryView: createDefaultQueryViewState(),
-};
 
 export const useWorkspaceStore = create<WorkspaceState>()(
   immer((set) => ({
@@ -247,7 +398,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         const exists = state.connections.findIndex((c) => c.id === config.id);
         if (exists === -1) {
           state.connections.push(config);
-          // Auto-assign a color based on index
           const palette = ["#00d2ff", "#a78bfa", "#34d399", "#f59e0b", "#f87171", "#60a5fa", "#fb923c", "#e879f9"];
           state.connectionColors[config.id] = palette[state.connections.length % palette.length];
         } else {
@@ -288,18 +438,14 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
     updateTab: (tabId, updates) =>
       set((state) => {
-        const tab = state.tabs.find((t) => t.id === tabId);
-        if (tab) Object.assign(tab, updates);
+        const tab = state.tabs.find((candidate) => candidate.id === tabId);
+        if (!tab) return;
+        Object.assign(tab, updates);
       }),
 
     addTab: (tab) =>
       set((state) => {
-        state.tabs.push({
-          ...tab,
-          queryView:
-            tab.queryView ??
-            createDefaultQueryViewState(tab.sql, tab.connectionId),
-        });
+        state.tabs.push(createTabState(tab));
         state.activeTabId = tab.id;
       }),
 
@@ -314,7 +460,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     updateTabQueryView: (updates, tabId) =>
       set((state) => {
         const id = tabId ?? state.activeTabId;
-        const tab = state.tabs.find((t) => t.id === id);
+        const tab = state.tabs.find((candidate) => candidate.id === id);
         if (tab) {
           Object.assign(tab.queryView, updates);
         }
@@ -323,29 +469,143 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     resetTabQueryView: (sql, connectionId, tabId) =>
       set((state) => {
         const id = tabId ?? state.activeTabId;
-        const tab = state.tabs.find((t) => t.id === id);
+        const tab = state.tabs.find((candidate) => candidate.id === id);
         if (!tab) return;
         tab.queryView = createDefaultQueryViewState(sql, connectionId);
+      }),
+
+    createDashboardTab: (tab) =>
+      set((state) => {
+        state.tabs.push(
+          createTabState({
+            ...tab,
+            type: "dashboard",
+          })
+        );
+        state.activeTabId = tab.id;
+      }),
+
+    updateDashboardTab: (tabId, updates) =>
+      set((state) => {
+        const tab = state.tabs.find((candidate) => candidate.id === tabId);
+        if (!tab || !isDashboardTab(tab)) return;
+
+        if (updates.title !== undefined) tab.title = updates.title;
+        if (updates.connectionId !== undefined) {
+          tab.connectionId = updates.connectionId;
+        }
+        if (updates.dashboard?.datasources !== undefined) {
+          tab.dashboard.datasources = updates.dashboard.datasources;
+        }
+        if (updates.dashboard?.widgets !== undefined) {
+          tab.dashboard.widgets = updates.dashboard.widgets;
+        }
+        if (updates.dashboard?.selectedWidget !== undefined) {
+          tab.dashboard.selectedWidget = updates.dashboard.selectedWidget;
+        }
+      }),
+
+    upsertDashboardDatasourceSnapshot: (tabId, snapshot) =>
+      set((state) => {
+        const tab = state.tabs.find((candidate) => candidate.id === tabId);
+        if (!tab || !isDashboardTab(tab)) return;
+        tab.dashboard.datasources[snapshot.id] = snapshot;
+      }),
+
+    removeDashboardDatasourceSnapshot: (tabId, datasourceId) =>
+      set((state) => {
+        const tab = state.tabs.find((candidate) => candidate.id === tabId);
+        if (!tab || !isDashboardTab(tab)) return;
+        delete tab.dashboard.datasources[datasourceId];
+        tab.dashboard.widgets = tab.dashboard.widgets.map((widget) =>
+          widget.datasourceId === datasourceId
+            ? { ...widget, datasourceId: null }
+            : widget
+        );
+        if (tab.dashboard.selectedWidget.widgetId) {
+          const selected = tab.dashboard.widgets.find(
+            (widget) => widget.id === tab.dashboard.selectedWidget.widgetId
+          );
+          if (!selected) {
+            tab.dashboard.selectedWidget =
+              createDefaultDashboardSelectedWidgetState();
+          }
+        }
+      }),
+
+    addDashboardWidget: (tabId, widget) =>
+      set((state) => {
+        const tab = state.tabs.find((candidate) => candidate.id === tabId);
+        if (!tab || !isDashboardTab(tab)) return;
+        tab.dashboard.widgets.push(widget);
+        tab.dashboard.selectedWidget = {
+          widgetId: widget.id,
+          mode: "edit",
+        };
+      }),
+
+    updateDashboardWidget: (tabId, widgetId, updates) =>
+      set((state) => {
+        const tab = state.tabs.find((candidate) => candidate.id === tabId);
+        if (!tab || !isDashboardTab(tab)) return;
+        const widget = tab.dashboard.widgets.find((candidate) => candidate.id === widgetId);
+        if (!widget) return;
+
+        if (updates.layout) {
+          widget.layout = {
+            ...widget.layout,
+            ...updates.layout,
+          };
+        }
+        if (updates.config) {
+          widget.config = {
+            ...widget.config,
+            ...updates.config,
+          };
+        }
+
+        const { layout, config, ...rest } = updates;
+        Object.assign(widget, rest);
+      }),
+
+    removeDashboardWidget: (tabId, widgetId) =>
+      set((state) => {
+        const tab = state.tabs.find((candidate) => candidate.id === tabId);
+        if (!tab || !isDashboardTab(tab)) return;
+        tab.dashboard.widgets = tab.dashboard.widgets.filter(
+          (widget) => widget.id !== widgetId
+        );
+        if (tab.dashboard.selectedWidget.widgetId === widgetId) {
+          tab.dashboard.selectedWidget =
+            createDefaultDashboardSelectedWidgetState();
+        }
+      }),
+
+    setDashboardSelectedWidget: (tabId, selectedWidget) =>
+      set((state) => {
+        const tab = state.tabs.find((candidate) => candidate.id === tabId);
+        if (!tab || !isDashboardTab(tab)) return;
+        tab.dashboard.selectedWidget = selectedWidget;
       }),
 
     setEditorSql: (sql, tabId) =>
       set((state) => {
         const id = tabId ?? state.activeTabId;
-        const tab = state.tabs.find((t) => t.id === id);
+        const tab = state.tabs.find((candidate) => candidate.id === id);
         if (tab) tab.sql = sql;
       }),
 
     setQueryResults: (results, tabId) =>
       set((state) => {
         const id = tabId ?? state.activeTabId;
-        const tab = state.tabs.find((t) => t.id === id);
+        const tab = state.tabs.find((candidate) => candidate.id === id);
         if (tab) tab.queryResults = results;
       }),
 
     setTabExecuting: (executing, tabId) =>
       set((state) => {
         const id = tabId ?? state.activeTabId;
-        const tab = state.tabs.find((t) => t.id === id);
+        const tab = state.tabs.find((candidate) => candidate.id === id);
         if (tab) tab.isExecuting = executing;
       }),
   }))

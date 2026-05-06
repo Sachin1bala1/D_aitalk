@@ -39,6 +39,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::health_check,
             commands::db_connect,
+            commands::db_test_connection,
             commands::db_disconnect,
             commands::db_list_connections,
             commands::db_ping,

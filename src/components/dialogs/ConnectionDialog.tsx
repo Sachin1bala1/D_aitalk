@@ -186,9 +186,7 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
     setTestStatus("testing");
     const config = buildConfig();
     try {
-      const connection = await DbClient.connect(config);
-      await DbClient.ping(connection.id);
-      await DbClient.disconnect(connection.id);
+      await DbClient.testConnection(config);
       setTestStatus("ok");
       toast.success("Connection successful");
     } catch (error: any) {

@@ -1,54 +1,70 @@
 import React, { Suspense, useEffect, useState } from "react";
 import { Toaster, toast } from "sonner";
-import { Database, Play, Save, FolderOpen, Plus, Settings, Keyboard, GitCommitVertical, RotateCcw, Square, Zap, Upload, AlignLeft } from "lucide-react";
+import {
+  AlignLeft,
+  Database,
+  FolderOpen,
+  GitCommitVertical,
+  Keyboard,
+  LayoutDashboard,
+  Play,
+  Plus,
+  RotateCcw,
+  Save,
+  Settings,
+  Square,
+  Upload,
+  Zap,
+} from "lucide-react";
 
-import { useWorkspaceStore } from "./lib/stores/WorkspaceStore";
-import { QueryManager } from "./lib/table/QueryManager";
-import { useAppQueryController } from "./lib/query/useAppQueryController";
-
+import { DashboardWorkspace } from "./components/dashboard/DashboardWorkspace";
+import { AgentModeToggle } from "./components/ai/AgentModeToggle";
+import { BindParamsDialog, detectParams } from "./components/dialogs/BindParamsDialog";
+import { ConnectionDialog } from "./components/dialogs/ConnectionDialog";
+import { FileImportDialog } from "./components/dialogs/FileImportDialog";
+import { KeyboardShortcutsDialog } from "./components/dialogs/KeyboardShortcutsDialog";
+import { QuickOpenDialog } from "./components/dialogs/QuickOpenDialog";
+import { SafetyDataDialog } from "./components/dialogs/SafetyDataDialog";
 import { SQLEditor } from "./components/editor/SQLEditor";
 import { TabBar } from "./components/editor/TabBar";
-import { VirtualTable } from "./components/table/VirtualTable";
-import { Sidebar } from "./components/schema/Sidebar";
-import { ConnectionDialog } from "./components/dialogs/ConnectionDialog";
-import { AgentModeToggle } from "./components/ai/AgentModeToggle";
-import { registerHandlers } from "./lib/agent/registerHandlers";
-import { KeyboardShortcutsDialog } from "./components/dialogs/KeyboardShortcutsDialog";
-import { FileImportDialog } from "./components/dialogs/FileImportDialog";
-import { SafetyDataDialog } from "./components/dialogs/SafetyDataDialog";
 import { SchemaSearch } from "./components/schema/SchemaSearch";
-import { BindParamsDialog, detectParams } from "./components/dialogs/BindParamsDialog";
-import { QuickOpenDialog } from "./components/dialogs/QuickOpenDialog";
-import { useWorkspaceConnectionRuntime } from "./lib/workspace/useWorkspaceConnectionRuntime";
-import { useWorkspaceConnectionActions } from "./lib/workspace/useWorkspaceConnectionActions";
-import { useWorkspaceTransactionActions } from "./lib/workspace/useWorkspaceTransactionActions";
-import { useWorkspaceEditorActions } from "./lib/workspace/useWorkspaceEditorActions";
-import { useAppShellUi } from "./lib/app/useAppShellUi";
+import { Sidebar } from "./components/schema/Sidebar";
+import { VirtualTable } from "./components/table/VirtualTable";
+import { registerHandlers } from "./lib/agent/registerHandlers";
 import { useAppKeyboardShortcuts } from "./lib/app/useAppKeyboardShortcuts";
 import { useAppQueryFeedback } from "./lib/app/useAppQueryFeedback";
+import { useAppShellUi } from "./lib/app/useAppShellUi";
+import { buildDashboardSnapshot, buildInitialDashboardWidget } from "./lib/dashboard/dashboardState";
+import { useWorkspaceStore, isDashboardTab, type QueryResults } from "./lib/stores/WorkspaceStore";
+import { QueryManager } from "./lib/table/QueryManager";
+import { useAppQueryController } from "./lib/query/useAppQueryController";
+import { useWorkspaceConnectionActions } from "./lib/workspace/useWorkspaceConnectionActions";
+import { useWorkspaceConnectionRuntime } from "./lib/workspace/useWorkspaceConnectionRuntime";
+import { useWorkspaceEditorActions } from "./lib/workspace/useWorkspaceEditorActions";
+import { useWorkspaceTransactionActions } from "./lib/workspace/useWorkspaceTransactionActions";
 
 const AIPanel = React.lazy(() =>
-  import("./components/ai/AIPanel").then((module) => ({ default: module.AIPanel }))
-);
-const ERDiagram = React.lazy(() =>
-  import("./components/schema/ERDiagram").then((module) => ({ default: module.ERDiagram }))
+  import("./components/ai/AIPanel").then((module) => ({ default: module.AIPanel })),
 );
 const DDLModal = React.lazy(() =>
-  import("./components/dialogs/DDLModal").then((module) => ({ default: module.DDLModal }))
+  import("./components/dialogs/DDLModal").then((module) => ({ default: module.DDLModal })),
 );
 const SnippetsPanel = React.lazy(() =>
-  import("./components/editor/SnippetsPanel").then((module) => ({ default: module.SnippetsPanel }))
-);
-const SessionMonitor = React.lazy(() =>
-  import("./components/panels/SessionMonitor").then((module) => ({ default: module.SessionMonitor }))
+  import("./components/editor/SnippetsPanel").then((module) => ({ default: module.SnippetsPanel })),
 );
 const DatabaseOverview = React.lazy(() =>
-  import("./components/panels/DatabaseOverview").then((module) => ({ default: module.DatabaseOverview }))
+  import("./components/panels/DatabaseOverview").then((module) => ({ default: module.DatabaseOverview })),
+);
+const SessionMonitor = React.lazy(() =>
+  import("./components/panels/SessionMonitor").then((module) => ({ default: module.SessionMonitor })),
+);
+const ERDiagram = React.lazy(() =>
+  import("./components/schema/ERDiagram").then((module) => ({ default: module.ERDiagram })),
 );
 
 function PanelFallback({ label = "Loading..." }: { label?: string }) {
   return (
-    <div className="h-full w-full flex items-center justify-center text-xs font-mono text-white/30">
+    <div className="flex h-full w-full items-center justify-center text-xs font-mono text-white/30">
       {label}
     </div>
   );
@@ -74,9 +90,14 @@ export default function App() {
     setQueryResults,
     setTabExecuting,
     updateTab,
+    createDashboardTab,
+    upsertDashboardDatasourceSnapshot,
+    addDashboardWidget,
+    updateDashboardWidget,
+    removeDashboardWidget,
+    setDashboardSelectedWidget,
   } = useWorkspaceStore();
 
-  // Register CommandBus handlers once on mount
   useEffect(() => {
     registerHandlers();
   }, []);
@@ -139,12 +160,31 @@ export default function App() {
     setInTransaction,
   });
 
-  const activeTab = tabs.find((t) => t.id === activeTabId);
+  const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
+  const activeDashboardTab = activeTab && isDashboardTab(activeTab) ? activeTab : null;
+  const activeQueryTab = activeTab && !isDashboardTab(activeTab) ? activeTab : null;
   const activeSchema = activeConnectionId ? schemas[activeConnectionId] : null;
+  const activeDashboardSnapshot = activeDashboardTab
+    ? Object.values(activeDashboardTab.dashboard.datasources).sort(
+        (left, right) => right.capturedAt - left.capturedAt,
+      )[0] ?? null
+    : null;
+  const aiPanelCurrentSQL = activeQueryTab?.sql ?? activeDashboardSnapshot?.sql ?? null;
+  const aiPanelCurrentResults: QueryResults | null = activeQueryTab?.queryResults
+    ?? (activeDashboardSnapshot
+      ? {
+          rows: activeDashboardSnapshot.rows,
+          fields: activeDashboardSnapshot.fields,
+          rowCount: activeDashboardSnapshot.rowCount,
+          elapsedMs: activeDashboardSnapshot.elapsedMs,
+          queryId: activeDashboardSnapshot.queryId ?? `dashboard-${activeDashboardTab?.id ?? "snapshot"}`,
+          source_tables: activeDashboardSnapshot.sourceTables,
+        }
+      : null);
 
   const { handleFormatSql, handleSaveSql, handleOpenFile } = useWorkspaceEditorActions({
     activeConnectionId,
-    activeTab,
+    activeTab: activeQueryTab ?? undefined,
     connections,
     setEditorSql,
   });
@@ -155,7 +195,7 @@ export default function App() {
 
   const { handleExecute, handleExplain, handleStop } = useAppQueryController({
     activeConnectionId,
-    activeTab,
+    activeTab: activeQueryTab ?? undefined,
     hasBindParams: (sql) => detectParams(sql).length > 0,
     onRequireBindParams: (sql) => setBindParams({ open: true, sql }),
     onColumns: (columns) => QueryManager.setColumns(columns),
@@ -182,33 +222,61 @@ export default function App() {
     toast.info("Query cancelled");
   };
 
+  const handleCreateDashboard = () => {
+    const dashboardTabId = `dashboard-${Date.now()}`;
+    const sourceTab = activeQueryTab;
+    const sourceResults = sourceTab?.queryResults ?? null;
+    const sourceConnectionId = sourceTab?.connectionId ?? activeConnectionId;
+
+    createDashboardTab({
+      id: dashboardTabId,
+      title: sourceTab?.title
+        ? `${sourceTab.title} Dashboard`
+        : `Dashboard ${tabs.filter((tab) => isDashboardTab(tab)).length + 1}`,
+      connectionId: sourceConnectionId,
+    });
+
+    if (!sourceTab || !sourceResults) {
+      toast.success("Blank dashboard created");
+      return;
+    }
+
+    const snapshot = buildDashboardSnapshot(sourceResults, sourceTab.sql, sourceConnectionId);
+    const initialWidget = buildInitialDashboardWidget(snapshot);
+    upsertDashboardDatasourceSnapshot(dashboardTabId, snapshot);
+    addDashboardWidget(dashboardTabId, {
+      id: `dashboard-widget-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      ...initialWidget,
+    });
+    toast.success(`Dashboard created from ${sourceTab.title}`);
+  };
+
   return (
-    <div className="flex h-screen w-full bg-[#0a0a0a] text-white overflow-hidden">
+    <div className="flex h-screen w-full overflow-hidden bg-[#0a0a0a] text-white">
       <Toaster position="bottom-right" theme="dark" />
 
-      {/* Left: Schema sidebar */}
-      <div className="w-64 border-r border-[#262626] flex flex-col bg-[#0d0d0d] shrink-0">
-        <div className="h-12 flex items-center justify-between px-4 border-b border-[#262626]">
+      <div className="flex w-64 shrink-0 flex-col border-r border-[#262626] bg-[#0d0d0d]">
+        <div className="flex h-12 items-center justify-between border-b border-[#262626] px-4">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-[#00d2ff] rounded flex items-center justify-center">
-              <Database className="w-3.5 h-3.5 text-black" />
+            <div className="flex h-6 w-6 items-center justify-center rounded bg-[#00d2ff]">
+              <Database className="h-3.5 w-3.5 text-black" />
             </div>
-            <span className="font-bold tracking-tight text-sm">DAITALK</span>
+            <span className="text-sm font-bold tracking-tight">DAITALK</span>
           </div>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setFileImportOpen(true)}
-              className="p-1 hover:bg-white/10 rounded transition-colors"
+              className="rounded p-1 transition-colors hover:bg-white/10"
               title="Import CSV / Parquet into DuckDB"
             >
-              <Upload className="w-3.5 h-3.5 text-amber-400/50" />
+              <Upload className="h-3.5 w-3.5 text-amber-400/50" />
             </button>
             <button
               onClick={() => setIsConnecting(true)}
-              className="p-1 hover:bg-white/10 rounded transition-colors"
+              className="rounded p-1 transition-colors hover:bg-white/10"
               title="New connection"
             >
-              <Plus className="w-4 h-4 text-white/50" />
+              <Plus className="h-4 w-4 text-white/50" />
             </button>
           </div>
         </div>
@@ -217,23 +285,25 @@ export default function App() {
           {activeSchema ? (
             <Sidebar
               schema={Object.fromEntries(
-                activeSchema.tables.map((t) => [
-                  t.name,
-                  (activeSchema.columns[`${t.schema}.${t.name}`] ?? []).map((c) => ({
-                    name: c.name,
-                    type: c.type_name,
+                activeSchema.tables.map((table) => [
+                  table.name,
+                  (activeSchema.columns[`${table.schema}.${table.name}`] ?? []).map((column) => ({
+                    name: column.name,
+                    type: column.type_name,
                   })),
-                ])
+                ]),
               )}
               fullSchema={activeSchema}
               onViewDdl={(schema, table) => setDdlModal({ schema, table })}
-              onViewFunctionDdl={(fnSchema, fnName) => setDdlModal({
-                schema: fnSchema,
-                table: fnName,
-                title: "Function / Procedure DDL",
-                subtitle: `${fnSchema}.${fnName}`,
-                customQuery: `SELECT pg_get_functiondef(p.oid) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = '${fnSchema}' AND p.proname = '${fnName}' LIMIT 1`,
-              })}
+              onViewFunctionDdl={(fnSchema, fnName) =>
+                setDdlModal({
+                  schema: fnSchema,
+                  table: fnName,
+                  title: "Function / Procedure DDL",
+                  subtitle: `${fnSchema}.${fnName}`,
+                  customQuery: `SELECT pg_get_functiondef(p.oid) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = '${fnSchema}' AND p.proname = '${fnName}' LIMIT 1`,
+                })
+              }
               onTableClick={(table) => setEditorSql(`SELECT * FROM "${table}" LIMIT 100;`)}
               focusedNode={focusedNode}
               schemaName={activeSchema.tables[0]?.schema ?? "public"}
@@ -251,7 +321,7 @@ export default function App() {
                 updateTab(activeTabId, { connectionId: id });
               }}
               onDisconnect={handleDisconnect}
-              driver={connections.find((c) => c.id === activeConnectionId)?.driver}
+              driver={connections.find((connection) => connection.id === activeConnectionId)?.driver}
               onRunTableSql={(sql, description) => {
                 setEditorSql(sql);
                 toast.info(`Running: ${description}`);
@@ -259,12 +329,12 @@ export default function App() {
               }}
             />
           ) : (
-            <div className="p-4 text-xs text-white/30 text-center mt-8">
+            <div className="mt-8 p-4 text-center text-xs text-white/30">
               No connection active.
               <br />
               <button
                 onClick={() => setIsConnecting(true)}
-                className="text-[#00d2ff] hover:underline mt-1"
+                className="mt-1 text-[#00d2ff] hover:underline"
               >
                 Connect a database
               </button>
@@ -273,180 +343,279 @@ export default function App() {
         </div>
       </div>
 
-      {/* Center: Editor + Results */}
       <div
         ref={splitContainerRef}
-        className="flex-1 flex flex-col min-w-0"
-        onMouseMove={(e) => {
+        className="flex min-w-0 flex-1 flex-col"
+        onMouseMove={(event) => {
           if (!splitDragging.current || !splitContainerRef.current) return;
           const rect = splitContainerRef.current.getBoundingClientRect();
-          const pct = ((e.clientY - rect.top) / rect.height) * 100;
+          const pct = ((event.clientY - rect.top) / rect.height) * 100;
           setEditorPct(Math.min(85, Math.max(15, pct)));
         }}
-        onMouseUp={() => { splitDragging.current = false; }}
-        onMouseLeave={() => { splitDragging.current = false; }}
+        onMouseUp={() => {
+          splitDragging.current = false;
+        }}
+        onMouseLeave={() => {
+          splitDragging.current = false;
+        }}
       >
-        {/* Toolbar */}
-        <div className="h-12 border-b border-[#262626] flex items-center px-4 justify-between bg-[#0d0d0d] shrink-0">
+        <div className="flex h-12 items-center justify-between border-b border-[#262626] bg-[#0d0d0d] px-4">
           <div className="flex items-center gap-2">
-            {activeTab?.isExecuting ? (
+            {activeDashboardTab ? (
               <button
-                onClick={handleStopWithToast}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-red-500/80 text-white text-xs font-bold hover:bg-red-500 transition-colors animate-pulse"
-                title="Stop query (cancel)"
+                onClick={handleCreateDashboard}
+                className="flex items-center gap-1.5 rounded border border-[#00d2ff]/25 bg-[#00d2ff]/8 px-3 py-1.5 text-xs font-bold text-[#7ae7ff] transition-colors hover:bg-[#00d2ff]/15"
+                title="Create another dashboard tab"
               >
-                <Square className="w-3 h-3 fill-current" />
-                Stop
-              </button>
-            ) : (
-              <button
-                onClick={() => handleExecute()}
-                disabled={!activeConnectionId}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#00d2ff] text-black text-xs font-bold hover:opacity-90 disabled:opacity-40 transition-opacity"
-              >
-                <Play className="w-3 h-3 fill-current" />
-                Run
-              </button>
-            )}
-            <button
-              onClick={handleExplain}
-              disabled={activeTab?.isExecuting || !activeConnectionId || !activeTab?.sql}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-[#262626] text-white/40 text-xs hover:text-amber-400 hover:border-amber-500/30 disabled:opacity-20 transition-colors"
-              title="EXPLAIN ANALYZE current query (Shift+F5)"
-            >
-              <Zap className="w-3 h-3" />
-              Explain
-            </button>
-            <div className="h-4 w-px bg-[#262626]" />
-            {/* File open/save */}
-            <button onClick={handleOpenFile} className="flex items-center gap-1 text-white/40 hover:text-white text-xs transition-colors" title="Open .sql file">
-              <FolderOpen className="w-3.5 h-3.5" />
-            </button>
-            <button onClick={handleSaveSql} disabled={!activeTab?.sql} className="flex items-center gap-1 text-white/40 hover:text-white text-xs transition-colors disabled:opacity-20" title="Save SQL">
-              <Save className="w-3.5 h-3.5" />
-            </button>
-            <button onClick={handleFormatSql} disabled={!activeTab?.sql} className="flex items-center gap-1 text-white/40 hover:text-purple-400 text-xs transition-colors disabled:opacity-20" title="Format SQL (Ctrl+Shift+F)">
-              <AlignLeft className="w-3.5 h-3.5" />
-            </button>
-            <div className="h-4 w-px bg-[#262626]" />
-            {/* Transaction control */}
-            {!inTransaction ? (
-              <button
-                onClick={handleBegin}
-                disabled={!activeConnectionId || autoCommit}
-                className="flex items-center gap-1 text-white/40 hover:text-emerald-400 text-xs transition-colors disabled:opacity-20"
-                title="BEGIN transaction"
-              >
-                <GitCommitVertical className="w-3.5 h-3.5" /> BEGIN
+                <LayoutDashboard className="h-3.5 w-3.5" />
+                New Dashboard
               </button>
             ) : (
               <>
-                <button onClick={handleCommit} className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 text-xs font-bold transition-colors" title="COMMIT">
-                  <GitCommitVertical className="w-3.5 h-3.5" /> COMMIT
+                {activeQueryTab?.isExecuting ? (
+                  <button
+                    onClick={handleStopWithToast}
+                    className="flex items-center gap-1.5 rounded bg-red-500/80 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-red-500 animate-pulse"
+                    title="Stop query (cancel)"
+                  >
+                    <Square className="h-3 w-3 fill-current" />
+                    Stop
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleExecute()}
+                    disabled={!activeConnectionId}
+                    className="flex items-center gap-1.5 rounded bg-[#00d2ff] px-3 py-1.5 text-xs font-bold text-black transition-opacity hover:opacity-90 disabled:opacity-40"
+                  >
+                    <Play className="h-3 w-3 fill-current" />
+                    Run
+                  </button>
+                )}
+                <button
+                  onClick={handleExplain}
+                  disabled={activeQueryTab?.isExecuting || !activeConnectionId || !activeQueryTab?.sql}
+                  className="flex items-center gap-1.5 rounded border border-[#262626] px-2.5 py-1.5 text-xs text-white/40 transition-colors hover:border-amber-500/30 hover:text-amber-400 disabled:opacity-20"
+                  title="EXPLAIN ANALYZE current query (Shift+F5)"
+                >
+                  <Zap className="h-3 w-3" />
+                  Explain
                 </button>
-                <button onClick={handleRollback} className="flex items-center gap-1 text-red-400 hover:text-red-300 text-xs transition-colors" title="ROLLBACK">
-                  <RotateCcw className="w-3 h-3" /> ROLLBACK
+                <div className="h-4 w-px bg-[#262626]" />
+                <button
+                  onClick={handleOpenFile}
+                  className="flex items-center gap-1 text-xs text-white/40 transition-colors hover:text-white"
+                  title="Open .sql file"
+                >
+                  <FolderOpen className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={handleSaveSql}
+                  disabled={!activeQueryTab?.sql}
+                  className="flex items-center gap-1 text-xs text-white/40 transition-colors hover:text-white disabled:opacity-20"
+                  title="Save SQL"
+                >
+                  <Save className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={handleFormatSql}
+                  disabled={!activeQueryTab?.sql}
+                  className="flex items-center gap-1 text-xs text-white/40 transition-colors hover:text-purple-400 disabled:opacity-20"
+                  title="Format SQL (Ctrl+Shift+F)"
+                >
+                  <AlignLeft className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={handleCreateDashboard}
+                  disabled={!activeQueryTab?.queryResults}
+                  className="flex items-center gap-1.5 rounded border border-[#1f3f47] px-2.5 py-1.5 text-xs text-[#7ae7ff] transition-colors hover:border-[#00d2ff]/40 disabled:opacity-30"
+                  title="Create a dashboard from the current query results"
+                >
+                  <LayoutDashboard className="h-3.5 w-3.5" />
+                  Dashboard
+                </button>
+                <div className="h-4 w-px bg-[#262626]" />
+                {!inTransaction ? (
+                  <button
+                    onClick={handleBegin}
+                    disabled={!activeConnectionId || autoCommit}
+                    className="flex items-center gap-1 text-xs text-white/40 transition-colors hover:text-emerald-400 disabled:opacity-20"
+                    title="BEGIN transaction"
+                  >
+                    <GitCommitVertical className="h-3.5 w-3.5" />
+                    BEGIN
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleCommit}
+                      className="flex items-center gap-1 text-xs font-bold text-emerald-400 transition-colors hover:text-emerald-300"
+                      title="COMMIT"
+                    >
+                      <GitCommitVertical className="h-3.5 w-3.5" />
+                      COMMIT
+                    </button>
+                    <button
+                      onClick={handleRollback}
+                      className="flex items-center gap-1 text-xs text-red-400 transition-colors hover:text-red-300"
+                      title="ROLLBACK"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      ROLLBACK
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={toggleAutoCommit}
+                  className={`rounded border px-1.5 py-0.5 text-[10px] transition-colors ${
+                    autoCommit
+                      ? "border-[#00d2ff]/30 bg-[#00d2ff]/5 text-[#00d2ff]/60"
+                      : "border-amber-500/30 bg-amber-500/5 text-amber-400/60"
+                  }`}
+                  title="Toggle auto-commit"
+                >
+                  {autoCommit ? "AUTO" : "MANUAL"}
                 </button>
               </>
             )}
-            <button
-              onClick={toggleAutoCommit}
-              className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${autoCommit ? "border-[#00d2ff]/30 text-[#00d2ff]/60 bg-[#00d2ff]/5" : "border-amber-500/30 text-amber-400/60 bg-amber-500/5"}`}
-              title="Toggle auto-commit"
-            >
-              {autoCommit ? "AUTO" : "MANUAL"}
-            </button>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Active connection badge */}
-            {activeConnectionId && (() => {
-              const conn = connections.find((c) => c.id === activeConnectionId);
-              const health = connectionHealth[activeConnectionId];
-              const color = useWorkspaceStore.getState().connectionColors[activeConnectionId] ?? "#00d2ff";
-              if (!conn) return null;
-              return (
-                <div
-                  className="flex items-center gap-1.5 px-2 py-1 rounded border max-w-[200px]"
-                  style={{ borderColor: `${color}30`, backgroundColor: `${color}08` }}
-                >
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                      health === "healthy" ? "bg-emerald-400" :
-                      health === "error" ? "bg-red-400 animate-pulse" :
-                      "bg-amber-400/60 animate-pulse"
-                    }`}
-                    title={health === "healthy" ? "Connected" : health === "error" ? "Lost" : "Checking"}
-                  />
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                  <span className="text-[10px] text-white/70 truncate font-medium">{conn.display_name}</span>
-                  <span className="text-[9px] text-white/25 font-mono shrink-0">{conn.driver}</span>
-                </div>
-              );
-            })()}
+            {activeConnectionId &&
+              (() => {
+                const connection = connections.find((candidate) => candidate.id === activeConnectionId);
+                const health = connectionHealth[activeConnectionId];
+                const color =
+                  useWorkspaceStore.getState().connectionColors[activeConnectionId] ?? "#00d2ff";
+                if (!connection) return null;
+                return (
+                  <div
+                    className="flex max-w-[200px] items-center gap-1.5 rounded border px-2 py-1"
+                    style={{ borderColor: `${color}30`, backgroundColor: `${color}08` }}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                        health === "healthy"
+                          ? "bg-emerald-400"
+                          : health === "error"
+                            ? "bg-red-400 animate-pulse"
+                            : "bg-amber-400/60 animate-pulse"
+                      }`}
+                      title={
+                        health === "healthy"
+                          ? "Connected"
+                          : health === "error"
+                            ? "Lost"
+                            : "Checking"
+                      }
+                    />
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                    <span className="truncate text-[10px] font-medium text-white/70">
+                      {connection.display_name}
+                    </span>
+                    <span className="shrink-0 font-mono text-[9px] text-white/25">
+                      {connection.driver}
+                    </span>
+                  </div>
+                );
+              })()}
             <AgentModeToggle />
             <button
               onClick={() => setSafetyDataOpen(true)}
-              className="p-1.5 hover:bg-white/10 rounded text-white/40 hover:text-white transition-colors"
+              className="rounded p-1.5 text-white/40 transition-colors hover:bg-white/10 hover:text-white"
               title="Safety, privacy, and local data"
             >
-              <Settings className="w-4 h-4" />
+              <Settings className="h-4 w-4" />
             </button>
             <button
               onClick={() => setShortcutsOpen(true)}
-              className="p-1.5 hover:bg-white/10 rounded text-white/40 hover:text-white transition-colors"
+              className="rounded p-1.5 text-white/40 transition-colors hover:bg-white/10 hover:text-white"
               title="Keyboard shortcuts (Ctrl+/)"
             >
-              <Keyboard className="w-4 h-4" />
+              <Keyboard className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        {/* Tab strip */}
         <TabBar />
 
-        {/* SQL Editor — resizable top pane */}
-        <div style={{ height: `${editorPct}%` }} className="border-b border-[#262626] shrink-0">
-          <SQLEditor
-            value={activeTab?.sql ?? ""}
-            onChange={(sql) => setEditorSql(sql)}
-            onExecute={handleExecute}
-            onExecuteSelected={(sql) => handleExecute(sql)}
-            schema={activeSchema}
-            resultColumns={activeTab?.queryResults?.fields?.map((f) => f.name)}
-          />
-        </div>
+        {activeDashboardTab ? (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <DashboardWorkspace
+              tab={activeDashboardTab}
+              onAddWidget={(widget) =>
+                addDashboardWidget(activeDashboardTab.id, {
+                  id: `dashboard-widget-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                  ...widget,
+                })
+              }
+              onUpdateWidget={(widgetId, updates) =>
+                updateDashboardWidget(activeDashboardTab.id, widgetId, updates)
+              }
+              onRemoveWidget={(widgetId) =>
+                removeDashboardWidget(activeDashboardTab.id, widgetId)
+              }
+              onSelectWidget={(widgetId, mode = "browse") =>
+                setDashboardSelectedWidget(activeDashboardTab.id, { widgetId, mode })
+              }
+            />
+          </div>
+        ) : (
+          <>
+            <div style={{ height: `${editorPct}%` }} className="shrink-0 border-b border-[#262626]">
+              <SQLEditor
+                value={activeQueryTab?.sql ?? ""}
+                onChange={(sql) => setEditorSql(sql)}
+                onExecute={handleExecute}
+                onExecuteSelected={(sql) => handleExecute(sql)}
+                schema={activeSchema}
+                resultColumns={activeQueryTab?.queryResults?.fields?.map((field) => field.name)}
+              />
+            </div>
 
-        {/* Drag handle */}
-        <div
-          className="h-1.5 bg-[#1a1a1a] hover:bg-[#00d2ff]/30 cursor-row-resize shrink-0 transition-colors"
-          onMouseDown={(e) => { e.preventDefault(); splitDragging.current = true; }}
-          onDoubleClick={() => setEditorPct(45)}
-          title="Drag to resize · Double-click to reset"
-        />
+            <div
+              className="h-1.5 shrink-0 cursor-row-resize bg-[#1a1a1a] transition-colors hover:bg-[#00d2ff]/30"
+              onMouseDown={(event) => {
+                event.preventDefault();
+                splitDragging.current = true;
+              }}
+              onDoubleClick={() => setEditorPct(45)}
+              title="Drag to resize · Double-click to reset"
+            />
 
-        {/* Results — remaining space */}
-        <div className="flex-1 overflow-hidden min-h-0">
-          <VirtualTable />
-        </div>
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <VirtualTable />
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Right: AI Panel */}
-      <div className="w-96 border-l border-[#262626] flex flex-col bg-[#0d0d0d] shrink-0">
-        <div className="h-12 border-b border-[#262626] flex items-center px-4 gap-4 shrink-0">
-          {(["agent", "history", "snippets", "erd", "search", "sessions", "overview"] as const).map((p) => (
+      <div className="flex w-96 shrink-0 flex-col border-l border-[#262626] bg-[#0d0d0d]">
+        <div className="flex h-12 items-center gap-4 border-b border-[#262626] px-4">
+          {(["agent", "history", "snippets", "erd", "search", "sessions", "overview"] as const).map((panel) => (
             <button
-              key={p}
-              onClick={() => setActivePanel(p)}
+              key={panel}
+              onClick={() => setActivePanel(panel)}
               className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${
-                activePanel === p ? "text-[#00d2ff]" : "text-white/30 hover:text-white/50"
+                activePanel === panel ? "text-[#00d2ff]" : "text-white/30 hover:text-white/50"
               }`}
             >
-              {p === "erd" ? "ERD" : p === "agent" ? "AI" : p === "snippets" ? "Snippets" : p === "search" ? "Search" : p === "sessions" ? "Sessions" : p === "overview" ? "DB" : "History"}
+              {panel === "erd"
+                ? "ERD"
+                : panel === "agent"
+                  ? "AI"
+                  : panel === "snippets"
+                    ? "Snippets"
+                    : panel === "search"
+                      ? "Search"
+                      : panel === "sessions"
+                        ? "Sessions"
+                        : panel === "overview"
+                          ? "DB"
+                          : "History"}
             </button>
           ))}
           {planQueue.length > 0 && (
-            <span className="ml-auto text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded px-2 py-0.5 font-bold">
+            <span className="ml-auto rounded border border-amber-500/30 bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">
               {planQueue.length} pending
             </span>
           )}
@@ -459,7 +628,7 @@ export default function App() {
           ) : activePanel === "snippets" ? (
             <Suspense fallback={<PanelFallback label="Loading snippets..." />}>
               <SnippetsPanel
-                currentSQL={activeTab?.sql ?? null}
+                currentSQL={aiPanelCurrentSQL}
                 onInsert={(sql) => setEditorSql(sql)}
               />
             </Suspense>
@@ -486,8 +655,8 @@ export default function App() {
             <Suspense fallback={<PanelFallback label="Loading AI panel..." />}>
               <AIPanel
                 activePanel={activePanel}
-                currentSQL={activeTab?.sql ?? null}
-                currentResults={activeTab?.queryResults ?? null}
+                currentSQL={aiPanelCurrentSQL}
+                currentResults={aiPanelCurrentResults}
                 currentSchema={activeSchema}
                 connectionId={activeConnectionId}
                 onApplySQL={(sql) => setEditorSql(sql)}

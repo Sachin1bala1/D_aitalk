@@ -47,6 +47,36 @@ export interface OpenNewTabCmd {
   risk: "safe";
 }
 
+export interface CreateDashboardCmd {
+  type: "create_dashboard";
+  title?: string;
+  useCurrentResults?: boolean;
+  risk: "safe";
+}
+
+export interface UpdateDashboardWidgetCmd {
+  type: "update_dashboard_widget";
+  widgetId?: string;
+  widgetTitle?: string;
+  datasourceId?: string;
+  datasourceName?: string;
+  widgetType?:
+    | "bar_chart"
+    | "line_chart"
+    | "scatter_chart"
+    | "area_chart"
+    | "pie_chart"
+    | "metric"
+    | "table"
+    | "text";
+  title?: string;
+  xField?: string;
+  yField?: string;
+  metricField?: string | null;
+  aggregate?: "row_count" | "sum" | "avg" | "min" | "max";
+  risk: "safe";
+}
+
 // ── Schema mutation ───────────────────────────────────────────────────────────
 
 export interface AddColumnCmd {
@@ -187,6 +217,8 @@ export type AgentCommand =
   | CancelQueryCmd
   | OpenTableCmd
   | OpenNewTabCmd
+  | CreateDashboardCmd
+  | UpdateDashboardWidgetCmd
   | CloseTabCmd
   | AddColumnCmd
   | DropColumnCmd
@@ -265,6 +297,11 @@ export function describeCommand(cmd: AgentCommand): string {
     case "cancel_query": return `Cancel running query`;
     case "open_table": return `Open table: ${cmd.schema}.${cmd.table}`;
     case "open_new_tab": return `Open new tab${cmd.title ? `: ${cmd.title}` : ""}`;
+    case "create_dashboard": return `Create dashboard${cmd.title ? `: ${cmd.title}` : ""}`;
+    case "update_dashboard_widget":
+      return `Update dashboard widget${
+        cmd.widgetTitle ? `: ${cmd.widgetTitle}` : cmd.widgetId ? `: ${cmd.widgetId}` : ""
+      }`;
     case "add_column": return `Add column "${cmd.columnName}" (${cmd.dataType}) to ${cmd.schema}.${cmd.table}`;
     case "drop_column": return `DROP column "${cmd.columnName}" from ${cmd.schema}.${cmd.table}`;
     case "rename_table": return `Rename ${cmd.schema}.${cmd.oldName} → ${cmd.newName}`;

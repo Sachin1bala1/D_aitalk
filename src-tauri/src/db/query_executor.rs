@@ -62,7 +62,7 @@ async fn stream_postgres(
     cancelled: CancelSet,
 ) -> Result<ExecutionResult, DbError> {
     let start = Instant::now();
-    let mut stream = sqlx::query(sql).fetch(pool);
+    let mut stream = sqlx::query(sql).persistent(false).fetch(pool);
     let mut batch: Vec<Value> = Vec::with_capacity(BATCH_SIZE);
     let mut batch_index = 0u32;
     let mut total_rows = 0u64;
@@ -841,7 +841,7 @@ pub async fn execute_ddl(
 ) -> Result<u64, DbError> {
     match conn.as_ref() {
         ActiveConnection::Postgres(pool) => {
-            Ok(sqlx::query(sql).execute(pool).await?.rows_affected())
+            Ok(sqlx::query(sql).persistent(false).execute(pool).await?.rows_affected())
         }
         ActiveConnection::Mysql(pool) => {
             Ok(sqlx::query(sql).execute(pool).await?.rows_affected())

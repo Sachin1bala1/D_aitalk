@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -38,7 +39,7 @@ impl ConnectionManager {
         }
     }
 
-    pub async fn connect(&self, config: ConnectionConfig) -> Result<(), DbError> {
+    async fn build_active_entry(&self, config: &ConnectionConfig) -> Result<ActiveEntry, DbError> {
         // Open SSH tunnel if configured, rewriting the connection string to use local port
         let (effective_conn_str, tunnel) = if let Some(ref ssh) = config.ssh {
             let url = url::Url::parse(&config.connection_string)
@@ -79,10 +80,13 @@ impl ConnectionManager {
 
         let conn = match &config.driver {
             DbDriver::Postgres | DbDriver::Timescaledb => {
+                let options = sqlx::postgres::PgConnectOptions::from_str(&effective_conn_str)
+                    .map_err(|e| DbError::Other(format!("Invalid PostgreSQL connection string: {e}")))?
+                    .statement_cache_capacity(0);
                 let pool = sqlx::postgres::PgPoolOptions::new()
                     .max_connections(config.pool_max.unwrap_or(10))
                     .min_connections(config.pool_min.unwrap_or(1))
-                    .connect(&effective_conn_str)
+                    .connect_with(options)
                     .await?;
                 ActiveConnection::Postgres(pool)
             }
@@ -173,11 +177,64 @@ impl ConnectionManager {
             }
         };
 
+        Ok(ActiveEntry { connection: Arc::new(conn), _tunnel: tunnel })
+    }
+
+    async fn ping_connection(connection: &ActiveConnection) -> Result<(), DbError> {
+        match connection {
+            ActiveConnection::Postgres(pool) => {
+                sqlx::query("SELECT 1").persistent(false).execute(pool).await?;
+            }
+            ActiveConnection::Mysql(pool) => {
+                sqlx::query("SELECT 1").execute(pool).await?;
+            }
+            ActiveConnection::Sqlite(pool) => {
+                sqlx::query("SELECT 1").execute(pool).await?;
+            }
+            ActiveConnection::Mssql(client) => {
+                let mut guard = client.lock().await;
+                guard
+                    .query("SELECT 1", &[])
+                    .await
+                    .map_err(|e| DbError::Other(e.to_string()))?;
+            }
+            ActiveConnection::Mongodb(client, _) => {
+                client
+                    .database("admin")
+                    .run_command(mongodb::bson::doc! { "ping": 1 })
+                    .await
+                    .map_err(|e| DbError::Other(e.to_string()))?;
+            }
+            ActiveConnection::Redis(mgr) => {
+                let mut c = mgr.clone();
+                redis::cmd("PING")
+                    .query_async::<String>(&mut c)
+                    .await
+                    .map_err(|e| DbError::Other(e.to_string()))?;
+            }
+            ActiveConnection::ClickHouse(client) => {
+                client
+                    .query("SELECT 1")
+                    .execute()
+                    .await
+                    .map_err(|e| DbError::Other(e.to_string()))?;
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn test_connection(&self, config: ConnectionConfig) -> Result<(), DbError> {
+        let entry = self.build_active_entry(&config).await?;
+        Self::ping_connection(entry.connection.as_ref()).await
+    }
+
+    pub async fn connect(&self, config: ConnectionConfig) -> Result<(), DbError> {
+        let entry = self.build_active_entry(&config).await?;
         let id = config.id.clone();
         self.connections
             .write()
             .await
-            .insert(id.clone(), ActiveEntry { connection: Arc::new(conn), _tunnel: tunnel });
+            .insert(id.clone(), entry);
         self.configs.write().await.insert(id, config);
         Ok(())
     }
