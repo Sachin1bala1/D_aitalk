@@ -104,6 +104,15 @@ export interface WorkspaceState {
   chartRequest: { chartType: string; xColumn: string; yColumn: string; title?: string } | null;
   setChartRequest: (req: WorkspaceState["chartRequest"]) => void;
 
+  // GoG chart request (set by create_gog_chart command → consumed by ChartPanel)
+  gogChartRequest: {
+    spec: import("../dashboard/GoGSpec").GoGSpec;
+    binData: Record<string, unknown>[] | null;
+    strategy: "raw" | "binned";
+    estimatedRows: number;
+  } | null;
+  setGogChartRequest: (req: WorkspaceState["gogChartRequest"]) => void;
+
   // Editor tabs
   tabs: TabState[];
   activeTabId: string;
@@ -202,6 +211,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
     focusedNode: null,
     chartRequest: null,
+    gogChartRequest: null,
 
     tabs: [DEFAULT_TAB],
     activeTabId: "tab-1",
@@ -272,6 +282,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     setChartRequest: (req) =>
       set((state) => {
         state.chartRequest = req;
+      }),
+
+    setGogChartRequest: (req) =>
+      set((state) => {
+        state.gogChartRequest = req as any;
       }),
 
     setActiveConnection: (id) =>

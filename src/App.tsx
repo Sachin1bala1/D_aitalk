@@ -35,6 +35,7 @@ import { WelcomeScreen } from "./components/onboarding/WelcomeScreen";
 import { OnboardingTour } from "./components/onboarding/OnboardingTour";
 import { MemoryPanel } from "./components/ai/MemoryPanel";
 import { BusinessClient, type ProactiveSuggestion } from "./lib/business/BusinessClient";
+import { ChartPanel } from "./components/dashboard/ChartPanel";
 
 export default function App() {
   const {
@@ -46,6 +47,7 @@ export default function App() {
     planQueue,
     focusedNode,
     selectedTableNode,
+    gogChartRequest,
     setSelectedTableNode,
     setSchema,
     setActiveConnection,
@@ -990,9 +992,16 @@ export default function App() {
         />
 
         {/* Results — remaining space */}
-        <div data-tour="graph-builder" className="flex-1 overflow-hidden min-h-0">
+        <div data-tour="graph-builder" className={`overflow-hidden min-h-0 ${gogChartRequest ? "flex-none" : "flex-1"}`} style={gogChartRequest ? { height: "40%" } : {}}>
           <VirtualTable />
         </div>
+
+        {/* GoG ChartPanel — shown when a create_gog_chart command fires */}
+        {gogChartRequest && (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ChartPanel />
+          </div>
+        )}
       </div>
 
       {/* Right: AI Panel */}

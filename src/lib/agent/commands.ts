@@ -188,6 +188,30 @@ export interface CreateChartCmd {
   risk: "safe";
 }
 
+export interface CreateGoGChartCmd {
+  type: "create_gog_chart";
+  table: string;
+  schema?: string;
+  geom: "scatter" | "line" | "bar" | "histogram" | "box" | "area";
+  x: string;
+  y?: string;
+  color?: string;
+  facet?: string;
+  title?: string;
+  x_label?: string;
+  y_label?: string;
+  where_clause?: string;
+  overlays?: Array<{
+    type: "ref_line" | "spec_limits" | "mean_line" | "trend_line";
+    axis?: "x" | "y";
+    value?: number;
+    lsl?: number;
+    usl?: number;
+    target?: number;
+  }>;
+  risk: "safe";
+}
+
 // ── Pipeline ──────────────────────────────────────────────────────────────────
 
 export interface CreatePipelineCmd {
@@ -278,6 +302,7 @@ export type AgentCommand =
   | RunStatToolCmd
   | RunUserToolCmd
   | CreateChartCmd
+  | CreateGoGChartCmd
   | CreatePipelineCmd
   | NotifyUserCmd
   | DeclareHypothesesCmd
@@ -321,6 +346,7 @@ export function describeCommand(cmd: AgentCommand): string {
     case "run_user_tool": return `User tool: ${cmd.toolId}`;
     case "run_duckdb_analysis": return `DuckDB: ${cmd.sql.slice(0, 60)}…`;
     case "create_chart": return `Create ${cmd.chartType} chart: ${cmd.xColumn} vs ${cmd.yColumn}`;
+    case "create_gog_chart": return `Create GoG ${cmd.geom} chart: ${cmd.x}${cmd.y ? ` vs ${cmd.y}` : ""} from ${cmd.schema ?? "public"}.${cmd.table}`;
     case "create_pipeline": return `Create pipeline "${cmd.name}" → ${cmd.targetTable}`;
     case "close_tab": return cmd.tabId ? `Close tab ${cmd.tabId}` : `Close active tab`;
     case "notify_user": return `Notify: ${cmd.message}`;

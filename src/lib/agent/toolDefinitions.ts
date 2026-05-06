@@ -361,4 +361,51 @@ export const AGENT_TOOLS: UnifiedTool[] = [
       required: ['web_ids']
     }
   },
+
+  // ── Billion-Scale Visualization ───────────────────────────────────────────
+  {
+    name: "create_gog_chart",
+    description: `Create a chart using the Grammar of Graphics specification. This is the PRIMARY tool for all visualization requests. Automatically handles billion-row datasets by using aggregate SQL (binned strategy). Use this for ALL chart/visualization requests.`,
+    parameters: {
+      type: "object",
+      properties: {
+        table: { type: "string", description: "Table name" },
+        schema: { type: "string", description: "Schema name (default: public)" },
+        geom: {
+          type: "string",
+          enum: ["scatter", "line", "bar", "histogram", "box", "area"],
+          description: "Chart geometry type",
+        },
+        x: { type: "string", description: "Column name for X axis" },
+        y: { type: "string", description: "Column name for Y axis (optional for histogram)" },
+        color: { type: "string", description: "Column for color encoding" },
+        title: { type: "string", description: "Chart title" },
+        x_label: { type: "string", description: "X axis label" },
+        y_label: { type: "string", description: "Y axis label" },
+        where_clause: {
+          type: "string",
+          description: "SQL WHERE clause for filtering (without the WHERE keyword)",
+        },
+        overlays: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              type: {
+                type: "string",
+                enum: ["ref_line", "spec_limits", "mean_line", "trend_line"],
+              },
+              axis: { type: "string", enum: ["x", "y"] },
+              value: { type: "number" },
+              lsl: { type: "number" },
+              usl: { type: "number" },
+              target: { type: "number" },
+            },
+            required: ["type"],
+          },
+        } as any,
+      },
+      required: ["table", "geom", "x"],
+    },
+  },
 ];

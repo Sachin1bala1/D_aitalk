@@ -7,7 +7,7 @@
 import { commandBus } from "./CommandBus";
 import { AGENT_TOOLS } from "./toolDefinitions";
 import { isDestructive, describeCommand } from "./commands";
-import type { AgentCommand, RunUserToolCmd, DeclareHypothesesCmd, DeclareConfidenceCmd } from "./commands";
+import type { AgentCommand, RunUserToolCmd, DeclareHypothesesCmd, DeclareConfidenceCmd, CreateGoGChartCmd } from "./commands";
 import { useUserToolStore } from "../stores/UserToolStore";
 import { userToolToUnifiedTool } from "../tools/user.tools";
 import { statToolToKernelKey } from "../tools/stat.tools";
@@ -222,6 +222,30 @@ Avoid SELECT * on large hypertables — always add a time range WHERE clause.`);
     parts.push(`## Your Custom Tools (call these proactively when user intent matches)\n${lines}`);
   }
 
+  parts.push(
+    `## Billion-Scale Visualization Protocol
+ALWAYS use create_gog_chart for visualization requests. This tool automatically handles any dataset size.
+
+AUTO GEOMETRY SELECTION:
+- timestamp/date column + numeric column → geom: line
+- numeric + numeric → geom: scatter
+- categorical (text/varchar) + numeric → geom: box
+- single numeric column, no y → geom: histogram
+- categorical + numeric with many categories → geom: bar
+
+WHERE CLAUSE: if the user says "for unit A" or "where pressure > 100", include as where_clause (without the WHERE keyword).
+
+OVERLAYS: if user mentions spec limits, control limits, or reference lines:
+- "USL=95 LSL=20" → overlays: [{type:"spec_limits", lsl:20, usl:95}]
+- "trend line" → overlays: [{type:"trend_line", method:"ols"}]
+- "mean line" → overlays: [{type:"mean_line"}]
+- "reference at 100" → overlays: [{type:"ref_line", axis:"y", value:100}]
+
+When you create a chart using binned strategy, ALWAYS mention it briefly:
+Example: "I've created a scatter plot of temperature vs pressure. Your table has 10M rows — I've aggregated them into a 200×200 bin grid so the chart renders instantly. Each dot represents multiple data points (dot size = number of points)."
+Keep this to 2-3 sentences. Do not over-explain.`
+  );
+
   parts.push(`## Mandatory Hypothesis Protocol
 For any question about anomalies, quality issues, process upsets, or unexplained changes: you MUST call declare_hypotheses BEFORE calling any analysis tool. List 2-5 competing explanations with rough probabilities. After each tool result, update your hypotheses (call declare_hypotheses again with revised probabilities). State which hypothesis was confirmed or eliminated.`);
 
@@ -399,6 +423,23 @@ function toolCallToCommand(
         xColumn: i.xColumn as string,
         yColumn: i.yColumn as string,
         title: i.title as string | undefined,
+        risk: "safe",
+      };
+    case "create_gog_chart":
+      return {
+        type: "create_gog_chart",
+        table: i.table as string,
+        schema: i.schema as string | undefined,
+        geom: i.geom as CreateGoGChartCmd["geom"],
+        x: i.x as string,
+        y: i.y as string | undefined,
+        color: i.color as string | undefined,
+        facet: i.facet as string | undefined,
+        title: i.title as string | undefined,
+        x_label: i.x_label as string | undefined,
+        y_label: i.y_label as string | undefined,
+        where_clause: i.where_clause as string | undefined,
+        overlays: i.overlays as CreateGoGChartCmd["overlays"],
         risk: "safe",
       };
     case "create_pipeline":

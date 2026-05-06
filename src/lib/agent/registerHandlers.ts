@@ -12,6 +12,9 @@ import { commandBus } from "./CommandBus";
 import { DbClient } from "../db/DbClient";
 import { rowStore } from "../table/RowStore";
 import { useWorkspaceStore } from "../stores/WorkspaceStore";
+import { ScaleRouter } from "../dashboard/ScaleRouter";
+import { BinQueryBuilder } from "../dashboard/BinQueryBuilder";
+import type { GoGSpec } from "../dashboard/GoGSpec";
 import type { QueryBatch } from "../db/DbClient";
 import type {
   SetEditorContentCmd,
@@ -33,6 +36,7 @@ import type {
   RunStatToolCmd,
   RunUserToolCmd,
   CreateChartCmd,
+  CreateGoGChartCmd,
   CreatePipelineCmd,
   NotifyUserCmd,
   DeclareHypothesesCmd,
@@ -474,6 +478,101 @@ export function registerHandlers() {
     });
     toast.success(`Chart: ${cmd.chartType} — ${cmd.xColumn} vs ${cmd.yColumn}`);
     return { success: true, result: `Chart opened: ${cmd.chartType}` };
+  });
+
+  // ── Grammar-of-Graphics charts (billion-scale) ────────────────────────────
+
+  commandBus.register<CreateGoGChartCmd>("create_gog_chart", async (cmd) => {
+    const { activeConnectionId } = useWorkspaceStore.getState();
+    const connectionId = activeConnectionId ?? "";
+    const schema = cmd.schema ?? "public";
+
+    // 1. Build GoGSpec
+    const spec: GoGSpec = {
+      table: cmd.table,
+      schema,
+      connectionId,
+      whereClause: cmd.where_clause,
+      aes: {
+        x: cmd.x,
+        y: cmd.y,
+        color: cmd.color,
+      },
+      geom: cmd.geom as GoGSpec["geom"],
+      stat: "identity",
+      guides: {
+        title: cmd.title,
+        xLabel: cmd.x_label ?? cmd.x,
+        yLabel: cmd.y_label ?? cmd.y,
+      },
+      overlays: (cmd.overlays ?? []) as GoGSpec["overlays"],
+    };
+
+    // 2. Estimate row count
+    let estimatedRows = 0;
+    try {
+      estimatedRows = await ScaleRouter.estimateRowCount(connectionId, cmd.table, schema, cmd.where_clause);
+    } catch {
+      estimatedRows = 0;
+    }
+
+    // 3. Decide strategy
+    const decision = ScaleRouter.decide(estimatedRows, cmd.geom);
+    const effectiveStrategy: "raw" | "binned" = decision.strategy === "binned" ? "binned" : "raw";
+    spec._runtime = {
+      strategy: effectiveStrategy,
+      estimatedRows: decision.estimatedRows,
+      generatedSQL: "",
+    };
+
+    // 4. If binned: generate and execute bin SQL
+    let binData: Record<string, unknown>[] | null = null;
+    if (decision.strategy === "binned" && connectionId) {
+      let sql = "";
+      try {
+        if (cmd.geom === "scatter" && cmd.y) {
+          sql = BinQueryBuilder.scatter(cmd.table, schema, cmd.x, cmd.y, cmd.color ?? undefined, decision.bins, cmd.where_clause);
+        } else if (cmd.geom === "line" && cmd.y) {
+          // Detect column type from schema
+          const { schemas } = useWorkspaceStore.getState();
+          const schemaData = schemas[connectionId];
+          const colKey = `${schema}.${cmd.table}`;
+          const col = (schemaData?.columns[colKey] ?? []).find((c) => c.name === cmd.x);
+          const xType = col?.type_name ?? "numeric";
+          sql = BinQueryBuilder.line(cmd.table, schema, cmd.x, cmd.y, xType, decision.bins, cmd.where_clause);
+        } else if (cmd.geom === "box" && cmd.y) {
+          sql = BinQueryBuilder.boxPlot(cmd.table, schema, cmd.x, cmd.y, decision.bins, cmd.where_clause);
+        } else if (cmd.geom === "histogram") {
+          sql = BinQueryBuilder.histogram(cmd.table, schema, cmd.x, decision.bins, cmd.where_clause);
+        }
+        if (sql) {
+          spec._runtime!.generatedSQL = sql;
+          const rows = await DbClient.query(connectionId, sql);
+          binData = rows;
+        }
+      } catch (e) {
+        console.error("BinQuery failed:", e);
+      }
+    }
+
+    // 5. Store in WorkspaceStore for ChartPanel to pick up
+    useWorkspaceStore.getState().setGogChartRequest({
+      spec,
+      binData,
+      strategy: effectiveStrategy,
+      estimatedRows: decision.estimatedRows,
+    });
+
+    const strategyMsg =
+      decision.strategy === "binned"
+        ? `${(estimatedRows / 1e6).toFixed(1)}M rows → aggregated to ${decision.bins}×${decision.bins} bins`
+        : `${estimatedRows.toLocaleString()} rows — raw data`;
+
+    toast.success(`Chart created: ${cmd.geom} — ${strategyMsg}`);
+    return {
+      success: true,
+      result: `Created ${cmd.geom} chart from ${schema}.${cmd.table}. Data: ${strategyMsg}.`,
+    };
   });
 
   // ── Pipeline (stub — wires to future PipelinePanel) ──────────────────────
