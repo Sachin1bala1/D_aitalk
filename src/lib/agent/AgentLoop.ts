@@ -17,6 +17,10 @@ import type { FullSchema } from "../db/DbClient";
 import type { QueryResults } from "../stores/WorkspaceStore";
 import type { AIProvider, ConversationTurn, ToolCall } from "../ai/types";
 import { withRetry } from "../ai/resilience";
+import { ContextEngine } from './harness/ContextEngine';
+import { DATAIQ_HOOKS, detectStruggle } from './harness/HarnessLifecycle';
+import type { SessionContext } from './harness/HarnessLifecycle';
+import type { PolicyContext } from './harness/PolicyEngine';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -492,11 +496,37 @@ export async function runAgentLoop(
   const queryDepth = classifyQueryDepth(userMessage);
   const system = buildSystemPrompt(schema, currentSQL, currentResults, agentMode, options.memoryContext, queryDepth);
 
+  const sessionId = `session-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
   // Append the user message to working history
   const working: ConversationTurn[] = [
     ...history,
     { role: "user", text: userMessage },
   ];
+
+  ContextEngine.trackContextBuild(sessionId, system, working);
+
+  const connections = useWorkspaceStore.getState().connections;
+  const activeConn = connections.find(c => c.id === connectionId);
+  const policyCtx: PolicyContext = {
+    sessionId,
+    connectionId,
+    question: userMessage,
+    isReadOnly: activeConn?.read_only ?? false,
+    connectionType: activeConn?.driver ?? '',
+    piiColumns: [],
+  };
+  const sessionCtx: SessionContext = {
+    sessionId,
+    connectionId,
+    question: userMessage,
+    toolsCalledSoFar: [],
+    errorsSoFar: [],
+    startTime: Date.now(),
+    iterationCount: 0,
+    policyContext: policyCtx,
+  };
+  await DATAIQ_HOOKS.onSessionStart(sessionCtx);
 
   const userToolDefs = useUserToolStore.getState().tools.map(userToolToUnifiedTool);
   const allTools = [...AGENT_TOOLS, ...userToolDefs];
@@ -547,6 +577,22 @@ export async function runAgentLoop(
         continue;
       }
 
+      sessionCtx.toolsCalledSoFar.push(tc.name);
+      try {
+        await DATAIQ_HOOKS.onBeforeToolCall(tc.name, tc.input, sessionCtx);
+      } catch (policyErr) {
+        // Policy block — short-circuit this tool
+        const errMsg = policyErr instanceof Error ? policyErr.message : String(policyErr);
+        toolResults!.push({
+          toolCallId: tc.id,
+          name: tc.name,
+          content: errMsg,
+          isError: true,
+        });
+        onToolEnd(tc.name, { success: false, error: errMsg });
+        continue;
+      }
+
       onToolStart(tc.name, tc.input);
 
       let result: CommandResult;
@@ -586,6 +632,12 @@ export async function runAgentLoop(
 
       onToolEnd(tc.name, result);
 
+      const afterDurationMs = Date.now() - sessionCtx.startTime;
+      await DATAIQ_HOOKS.onAfterToolCall(tc.name, tc.input, result, afterDurationMs, sessionCtx);
+      if (!result.success) {
+        sessionCtx.errorsSoFar.push({ tool: tc.name, error: result.error ?? 'unknown' });
+      }
+
       toolResults!.push({
         toolCallId: tc.id,
         name: tc.name,
@@ -598,8 +650,28 @@ export async function runAgentLoop(
 
     // Add tool results as a user turn
     working.push({ role: "user", toolResults });
+
+    // Struggle detection at end of each round
+    sessionCtx.iterationCount = round + 1;
+    const struggle = detectStruggle(sessionCtx);
+    if (struggle) {
+      const hint = await DATAIQ_HOOKS.onStruggleDetected(sessionCtx, struggle);
+      if (hint) {
+        // Inject struggle hint as a user message into working history
+        working.push({ role: 'user', text: hint });
+      }
+    }
   }
 
-  // Trim to last 40 turns to keep context manageable
-  return { finalText, updatedHistory: working.slice(-40), queryDepth };
+  const sessionSuccess = finalText.length > 0;
+  await DATAIQ_HOOKS.onSessionComplete(sessionCtx, {
+    success: sessionSuccess,
+    toolsUsed: sessionCtx.toolsCalledSoFar,
+    totalDurationMs: Date.now() - sessionCtx.startTime,
+    tokenEstimate: ContextEngine.estimateContextUsage(system, working).total,
+    errorCount: sessionCtx.errorsSoFar.length,
+  });
+
+  const compacted = ContextEngine.compactHistory(working);
+  return { finalText, updatedHistory: compacted, queryDepth };
 }
