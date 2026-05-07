@@ -1,5 +1,6 @@
-[build]
+﻿[build]
 target-dir = "C:/Users/sachi/AppData/Local/daitalk-target"
+target = "x86_64-pc-windows-gnu"
 
 [target.x86_64-pc-windows-gnu]
 linker = "C:\\msys64\\mingw64\\bin\\x86_64-w64-mingw32-gcc.exe"
@@ -13,3 +14,4 @@ CXX_x86_64_pc_windows_gnu = "C:\\msys64\\mingw64\\bin\\g++.exe"
 AR_x86_64_pc_windows_gnu = "C:\\msys64\\mingw64\\bin\\ar.exe"
 # dlltool is called by Rust's GNU toolchain for DLL import library generation
 DLLTOOL = "C:\\msys64\\mingw64\\bin\\dlltool.exe"
+
