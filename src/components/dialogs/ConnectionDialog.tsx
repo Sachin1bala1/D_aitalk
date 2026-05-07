@@ -7,6 +7,7 @@ import { DbClient, ConnectionConfig, DbDriver } from "../../lib/db/DbClient";
 import { loadSavedConnections, removeConnection } from "../../lib/db/ConnectionStore";
 import { diagnoseConnection, DiagnosisResult } from "../../lib/connection/ConnectionDoctor";
 import { ConnectionDoctorPanel } from "./ConnectionDoctorPanel";
+import { loadApiKeysFromKeychain } from "../../lib/ai/types";
 
 interface ConnectionDialogProps {
   open: boolean;
@@ -249,7 +250,9 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
       const msg = error instanceof Error ? error.message : String(error);
       // Launch Connection Doctor instead of just toasting
       setDoctorRunning(true);
-      const nvidiaKey = localStorage.getItem("nvidia_api_key") ?? undefined;
+      // Prefer OS keychain key (set via Provider Settings), fall back to seeded localStorage key
+      const keychainKeys = await loadApiKeysFromKeychain().catch(() => ({} as Record<string, string>));
+      const nvidiaKey = (keychainKeys as Record<string, string>)["nvidia"] || localStorage.getItem("nvidia_api_key") || undefined;
       try {
         const result = await diagnoseConnection(
           config,
