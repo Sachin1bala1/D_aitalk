@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import type { GoGSpec } from '../../lib/dashboard/GoGSpec';
+import { selectionBus } from '../../lib/dashboard/SelectionBus';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -920,6 +921,50 @@ export function CanvasChart({
       if (Math.abs(finalRect.w) > 4 || Math.abs(finalRect.h) > 4) {
         const indices = getBinsInRect(finalRect);
         onSelect(indices);
+
+        // Build WHERE clause from selected bins' mean values
+        if (data.length > 0 && spec.aes.x) {
+          const binsInBrush = data.filter((_, i) => indices.includes(i));
+          if (binsInBrush.length > 0) {
+            const xVals = binsInBrush.map(b => Number(b['x'] ?? b['x_bin'])).filter(v => !isNaN(v));
+            const yVals = binsInBrush.map(b => Number(b['y'] ?? b['y_bin'])).filter(v => !isNaN(v));
+            const colorVals = [...new Set(binsInBrush.map(b => b['color_val']).filter(v => v != null))];
+
+            if (xVals.length > 0) {
+              const xMin = Math.min(...xVals);
+              const xMax = Math.max(...xVals);
+              const parts: string[] = [`${spec.aes.x} BETWEEN ${xMin} AND ${xMax}`];
+
+              let yMin: number | undefined, yMax: number | undefined;
+              if (spec.aes.y && yVals.length > 0) {
+                yMin = Math.min(...yVals);
+                yMax = Math.max(...yVals);
+                parts.push(`${spec.aes.y} BETWEEN ${yMin} AND ${yMax}`);
+              }
+              if (colorVals.length > 0 && spec.aes.color) {
+                const vals = colorVals.map(v => `'${v}'`).join(',');
+                parts.push(`${spec.aes.color} IN (${vals})`);
+              }
+
+              selectionBus.emit({
+                sourceId: spec.table,
+                selectedIndices: indices,
+                selectedRowKeys: [],
+                selectionMode: 'range',
+                rangeFilter: {
+                  xColumn: spec.aes.x,
+                  xMin,
+                  xMax,
+                  yColumn: spec.aes.y,
+                  yMin,
+                  yMax,
+                  colorValues: colorVals,
+                },
+                whereClause: parts.join(' AND '),
+              });
+            }
+          }
+        }
       }
 
       setBrushStart(null);

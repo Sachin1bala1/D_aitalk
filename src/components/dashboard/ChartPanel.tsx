@@ -2,12 +2,17 @@ import React, { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
 import { CanvasChart } from "./CanvasChart";
+import { selectionBus } from "../../lib/dashboard/SelectionBus";
+import { addWhereClause } from "../../lib/dashboard/addWhereClause";
+import { DbClient } from "../../lib/db/DbClient";
 
 export function ChartPanel() {
   const gogChartRequest = useWorkspaceStore((s) => s.gogChartRequest);
   const setGogChartRequest = useWorkspaceStore((s) => s.setGogChartRequest);
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = React.useState({ width: 600, height: 400 });
+  const [selectionWhereClause, setSelectionWhereClause] = React.useState<string | null>(null);
+  const [filteredBinData, setFilteredBinData] = React.useState<Record<string, unknown>[] | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -18,6 +23,35 @@ export function ChartPanel() {
     ro.observe(containerRef.current);
     return () => ro.disconnect();
   }, []);
+
+  useEffect(() => {
+    return selectionBus.subscribe(async (event) => {
+      if (!gogChartRequest) return;
+      const { spec, strategy } = gogChartRequest;
+
+      if (event.sourceId === "__clear__") {
+        setSelectionWhereClause(null);
+        setFilteredBinData(null);
+        return;
+      }
+
+      // Skip events from self (same table)
+      if (event.sourceId === spec.table && event.selectionMode === "range") return;
+
+      if (event.selectionMode === "range" && event.whereClause && strategy === "binned") {
+        setSelectionWhereClause(event.whereClause);
+        // Re-run bin query with the selection WHERE clause
+        if (!spec.connectionId || !spec._runtime?.generatedSQL) return;
+        try {
+          const filteredSQL = addWhereClause(spec._runtime.generatedSQL, event.whereClause);
+          const rows = await DbClient.query(spec.connectionId, filteredSQL);
+          setFilteredBinData(rows);
+        } catch (e) {
+          console.error("Selection filter failed:", e);
+        }
+      }
+    });
+  }, [gogChartRequest]);
 
   if (!gogChartRequest) return null;
 
@@ -52,12 +86,25 @@ export function ChartPanel() {
         </button>
       </div>
 
+      {/* Selection filter banner */}
+      {selectionWhereClause && (
+        <div className="flex items-center gap-2 px-4 py-1 bg-[#00d2ff]/10 border-b border-[#00d2ff]/20 text-xs text-[#00d2ff]/70 shrink-0">
+          <span>Selection filter active</span>
+          <button
+            onClick={() => { setSelectionWhereClause(null); setFilteredBinData(null); selectionBus.clear(); }}
+            className="ml-auto hover:text-[#00d2ff] transition-colors underline"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {/* Chart */}
       <div ref={containerRef} className="flex-1 min-h-0 p-2">
         {useCanvas ? (
           <CanvasChart
             spec={spec}
-            data={binData!}
+            data={filteredBinData ?? binData!}
             width={size.width - 16}
             height={size.height - 16}
             selectedIndices={[]}
