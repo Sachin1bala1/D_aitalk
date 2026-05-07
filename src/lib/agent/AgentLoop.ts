@@ -22,6 +22,7 @@ import { DATAIQ_HOOKS, detectStruggle } from './harness/HarnessLifecycle';
 import type { SessionContext } from './harness/HarnessLifecycle';
 import type { PolicyContext } from './harness/PolicyEngine';
 import { FailureTraceStore } from './harness/FailureTraceStore';
+import { ImpactMapEngine } from './harness/ImpactMapEngine';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -611,6 +612,12 @@ export async function runAgentLoop(
       onToolStart(tc.name, tc.input);
 
       let result: CommandResult;
+
+      // Generate impact map for any command in plan mode
+      if (agentMode === "plan") {
+        const impactMap = ImpactMapEngine.fromCommands([cmd], connectionId);
+        useWorkspaceStore.getState().setImpactMapResolution(impactMap);
+      }
 
       if (agentMode === "plan" && isDestructive(cmd)) {
         const stepId = `plan-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;

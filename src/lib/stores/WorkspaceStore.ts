@@ -8,6 +8,7 @@ import { FullSchema, ConnectionConfig } from "../db/DbClient";
 import type { AgentCommand, Hypothesis, ConfidenceDeclaration } from "../agent/commands";
 import type { WorkingMemoryState } from "../memory/WorkingMemory";
 import { DEFAULT_WORKING_MEMORY } from "../memory/WorkingMemory";
+import type { ImpactMap } from '../agent/harness/ImpactMapEngine';
 
 export type AgentMode = "plan" | "auto";
 
@@ -103,6 +104,10 @@ export interface WorkspaceState {
   // Chart request (set by create_chart command → consumed by VirtualTable)
   chartRequest: { chartType: string; xColumn: string; yColumn: string; title?: string } | null;
   setChartRequest: (req: WorkspaceState["chartRequest"]) => void;
+
+  // Impact map (set when AgentLoop queues plan steps)
+  impactMapResolution: ImpactMap | null;
+  setImpactMapResolution: (map: ImpactMap | null) => void;
 
   // Editor tabs
   tabs: TabState[];
@@ -205,6 +210,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
     activeConfidence: null,
     pendingChatInput: null,
+    impactMapResolution: null,
 
     setAgentMode: (mode) =>
       set((state) => {
@@ -414,6 +420,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     clearPendingChatInput: () =>
       set((state) => {
         state.pendingChatInput = null;
+      }),
+
+    setImpactMapResolution: (map) =>
+      set((state) => {
+        state.impactMapResolution = map as ImpactMap | null;
       }),
   }))
 );
