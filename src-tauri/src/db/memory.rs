@@ -214,5 +214,71 @@ pub async fn open_memory_db(path: &str) -> Result<SqlitePool, String> {
     .await
     .map_err(|e| e.to_string())?;
 
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS harness_failure_traces (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            question TEXT NOT NULL,
+            tools_used TEXT NOT NULL,
+            errors TEXT NOT NULL,
+            struggle_events TEXT NOT NULL,
+            final_success INTEGER NOT NULL,
+            token_estimate INTEGER,
+            duration_ms INTEGER,
+            harness_version TEXT NOT NULL DEFAULT 'v1.0',
+            created_at INTEGER NOT NULL
+        )",
+    )
+    .execute(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    sqlx::query(
+        "CREATE INDEX IF NOT EXISTS idx_harness_traces_created
+         ON harness_failure_traces(created_at DESC)",
+    )
+    .execute(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS harness_versions (
+            id TEXT PRIMARY KEY,
+            version_tag TEXT NOT NULL,
+            system_prompt_additions TEXT NOT NULL,
+            success_rate REAL,
+            avg_token_estimate REAL,
+            failure_count INTEGER DEFAULT 0,
+            is_active INTEGER DEFAULT 0,
+            created_at INTEGER NOT NULL
+        )",
+    )
+    .execute(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS analysis_telemetry_graph (
+            id TEXT PRIMARY KEY,
+            from_node TEXT NOT NULL,
+            to_node TEXT NOT NULL,
+            edge_type TEXT NOT NULL,
+            session_id TEXT,
+            weight REAL DEFAULT 1.0,
+            created_at INTEGER NOT NULL
+        )",
+    )
+    .execute(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    sqlx::query(
+        "CREATE INDEX IF NOT EXISTS idx_telemetry_graph_nodes
+         ON analysis_telemetry_graph(from_node, to_node)",
+    )
+    .execute(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
     Ok(pool)
 }
