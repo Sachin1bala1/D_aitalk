@@ -1092,7 +1092,7 @@ pub async fn harness_get_failures(
     let pool = get_pool(&state).await?;
     let n = limit.unwrap_or(50) as i64;
     let rows = sqlx::query_as::<_, HarnessFailureTrace>(
-        "SELECT * FROM harness_failure_traces ORDER BY created_at DESC LIMIT ?",
+        "SELECT id, session_id, question, tools_used, errors, struggle_events, final_success, token_estimate, duration_ms, harness_version, created_at FROM harness_failure_traces ORDER BY created_at DESC LIMIT ?",
     )
     .bind(n)
     .fetch_all(&pool)
@@ -1145,16 +1145,17 @@ pub async fn harness_activate_version(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let pool = get_pool(&state).await?;
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
     sqlx::query("UPDATE harness_versions SET is_active = 0")
-        .execute(&pool)
+        .execute(&mut *tx)
         .await
         .map_err(|e| e.to_string())?;
     sqlx::query("UPDATE harness_versions SET is_active = 1 WHERE id = ?")
         .bind(&id)
-        .execute(&pool)
+        .execute(&mut *tx)
         .await
         .map_err(|e| e.to_string())?;
-    Ok(())
+    tx.commit().await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -1211,7 +1212,7 @@ pub async fn harness_get_telemetry_graph(
 ) -> Result<Vec<TelemetryEdge>, String> {
     let pool = get_pool(&state).await?;
     let edges = sqlx::query_as::<_, TelemetryEdge>(
-        "SELECT * FROM analysis_telemetry_graph ORDER BY weight DESC LIMIT 200",
+        "SELECT id, from_node, to_node, edge_type, session_id, weight, created_at FROM analysis_telemetry_graph ORDER BY weight DESC LIMIT 200",
     )
     .fetch_all(&pool)
     .await
