@@ -57,43 +57,45 @@ npm run lint         # Type-check (tsc --noEmit)
 | Multi-DB Support (7 engines) | Done | `src-tauri/src/db/` |
 | Credential Vault (keyring) | Done | `src-tauri/src/commands/` (`store_api_key`/`get_api_key`) |
 | Onboarding (WelcomeScreen + Tour) | Done | `src/components/WelcomeScreen.tsx`, `OnboardingTour.tsx` |
-| Harness Engineering (6-layer system) | In Progress | `src/lib/agent/harness/` (not yet created) |
+| Harness Engineering (6-layer system) | Done | `src/lib/agent/harness/` (10 files, 1874 lines added) |
 
 ## Active Work
 
-**Branch:** `feature/harness-engineering`
-**Goal:** 6-layer harness engineering system — context compaction, lifecycle hooks, impact maps, meta-harness optimizer, policy engine, observability.
-**Plan:** `docs/superpowers/plans/2026-05-07-harness-engineering.md`
+**Status:** Harness engineering complete — merged to master 2026-05-07 (commit `800067e`).
 
 ### Harness Tasks Progress
 
 | Task | Description | Status |
 |------|-------------|--------|
-| H-1 | ContextEngine — history compaction + token badge | Pending |
-| H-2 | HarnessLifecycle — hooks + struggle detection | Pending |
-| H-3 | ImpactMapEngine + ImpactMapPanel | Pending |
-| H-4 | FailureTraceStore + HarnessOptimizer + Dashboard | Pending |
-| H-5 | PolicyEngine — 4 built-in policies | Pending |
-| H-6 | HarnessObserver — session telemetry | Pending |
-| Wire | AgentLoop integration (Tasks 6, 8, 10, 13) | Pending |
-| UI | HarnessDashboard + ImpactMapPanel | Pending |
+| H-1 | ContextEngine — history compaction + token badge | Done |
+| H-2 | HarnessLifecycle — hooks + struggle detection | Done |
+| H-3 | ImpactMapEngine + ImpactMapPanel | Done |
+| H-4 | FailureTraceStore + HarnessOptimizer + Dashboard | Done |
+| H-5 | PolicyEngine — 4 built-in policies | Done |
+| H-6 | HarnessObserver — session telemetry | Done |
+| Wire | AgentLoop integration (ContextEngine, Lifecycle, PolicyContext, ImpactMap, HarnessVersion) | Done |
+| UI | HarnessDashboard + ImpactMapPanel | Done |
 
-> Note: `src/lib/agent/harness/` directory does not yet exist — all harness tasks are pending implementation.
+**Key files added:**
+- `src/lib/agent/harness/` — 10 files: ContextEngine, HarnessLifecycle, HarnessObserver, PolicyEngine, FailureTraceStore, HarnessOptimizer, ImpactMapEngine (+ 3 test files)
+- `src/components/admin/HarnessDashboard.tsx` — admin panel (failure traces, version mgmt, optimizer)
+- `src/components/panels/ImpactMapPanel.tsx` — pre-execution impact analysis panel
+- `src-tauri/src/commands/memory.rs` — 7 new Tauri commands + 3 new SQLite tables
 
 ## Recent Changes
 
 | Date | Commit | Description |
 |------|--------|-------------|
-| 2026-05-07 | `330c648` | docs: add harness engineering implementation plan (6 layers, 18 tasks) |
-| 2026-05-06 | `5b1f551` | fix: switch to GNU toolchain — MSVC not installed, MinGW GCC works |
-| 2026-05-02 | `523ac41` | feat: close yc operating intelligence gaps |
-| 2026-05-02 | `93d44e9` | feat: port intelligence, security, command split, and query transform |
-| 2026-05-02 | `9da03c1` | Merge remote-tracking branch 'origin/feature/sprint-8' |
-| 2026-05-01 | `606e05b` | fix: PgBouncer/Supavisor compatibility — disable prepared statements + show real error |
-| 2026-05-01 | `7937945` | fix: auto-add sslmode=require for non-local Postgres connections |
-| 2026-05-01 | `fbea63e` | fix: schema sidebar empty on Supabase/pooler connections |
-| 2026-05-01 | `ffba9c3` | fix(sprint-8): quality review fixes — remove_license command, useCallback, tier mapping, MVP note |
-| 2026-05-01 | `112fa72` | feat(sprint-8): license key system — HMAC-SHA256 offline validation + useLicenseTier hook |
+| 2026-05-07 | `800067e` | feat: harness engineering — 6-layer AI agent control system (18 tasks) |
+| 2026-05-07 | `1f6e635` | feat(harness-17): add HarnessDashboard panel to app navigation |
+| 2026-05-07 | `62273a4` | feat(harness-15): ImpactMapPanel + WorkspaceStore state + AgentLoop wire (H-3) |
+| 2026-05-07 | `0ba7366` | feat(harness-13): inject active harness version into AgentLoop system prompt |
+| 2026-05-07 | `01fb9dd` | feat(harness-16): HarnessDashboard — failure traces, version management, optimizer UI |
+| 2026-05-07 | `77622c8` | feat: auto-update PROJECT_CONTEXT.md after every git commit |
+| 2026-05-07 | `61fb305` | feat(harness-12): HarnessOptimizer — meta-harness self-improvement engine (H-4) |
+| 2026-05-07 | `c98c77e` | feat(harness-11): FailureTraceStore — typed Tauri client for harness DB |
+| 2026-05-07 | `4d2368c` | feat(harness-14): ImpactMapEngine — plan-before-execute impact analysis (H-3) |
+| 2026-05-07 | `8843dc3` | feat(harness-6-8-10): wire ContextEngine + HarnessLifecycle + PolicyContext into AgentLoop |
 
 ## Known Constraints
 
@@ -121,4 +123,4 @@ npm run lint         # Type-check (tsc --noEmit)
 | Harness implementation plan | `docs/superpowers/plans/2026-05-07-harness-engineering.md` |
 
 ---
-*Last updated: 2026-05-07 — Updated automatically by Claude Code hook after each commit.*
+*Last updated: 2026-05-07 — Harness engineering complete. Updated automatically by Claude Code hook after each commit.*
