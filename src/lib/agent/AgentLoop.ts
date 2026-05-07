@@ -21,6 +21,7 @@ import { ContextEngine } from './harness/ContextEngine';
 import { DATAIQ_HOOKS, detectStruggle } from './harness/HarnessLifecycle';
 import type { SessionContext } from './harness/HarnessLifecycle';
 import type { PolicyContext } from './harness/PolicyEngine';
+import { FailureTraceStore } from './harness/FailureTraceStore';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -92,7 +93,8 @@ function buildSystemPrompt(
   currentResults: QueryResults | null,
   agentMode: "plan" | "auto",
   memoryContext?: MemoryContext,
-  queryDepth?: 'fast' | 'deep'
+  queryDepth?: 'fast' | 'deep',
+  harnessAdditions?: string | null
 ): string {
   const parts: string[] = [];
 
@@ -273,6 +275,10 @@ For any question about anomalies, quality issues, process upsets, or unexplained
         .join("\n");
       parts.push(`## Open Learning Loops\n${lines}`);
     }
+  }
+
+  if (harnessAdditions) {
+    parts.push(`## Harness Guidance (Auto-Updated)\n${harnessAdditions}`);
   }
 
   return parts.join("\n\n");
@@ -494,7 +500,16 @@ export async function runAgentLoop(
 
   const { agentMode, addPlanStep } = useWorkspaceStore.getState();
   const queryDepth = classifyQueryDepth(userMessage);
-  const system = buildSystemPrompt(schema, currentSQL, currentResults, agentMode, options.memoryContext, queryDepth);
+
+  let harnessAdditions: string | null = null;
+  try {
+    const activeVersion = await FailureTraceStore.getActiveVersion();
+    harnessAdditions = activeVersion?.system_prompt_additions ?? null;
+  } catch {
+    // non-critical — proceed without harness additions
+  }
+
+  const system = buildSystemPrompt(schema, currentSQL, currentResults, agentMode, options.memoryContext, queryDepth, harnessAdditions);
 
   const sessionId = `session-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
