@@ -80,6 +80,33 @@ function classifyQueryDepth(question: string): 'fast' | 'deep' {
   return 'fast'; // default
 }
 
+// ── Column Type Resolver ──────────────────────────────────────────────────────
+
+async function resolveColumnTypes(
+  _connectionId: string,
+  tableName: string,
+  columns: string[],
+  schemas: Record<string, import("../db/DbClient").FullSchema>
+): Promise<Record<string, string>> {
+  // First: try to get from the cached schema
+  const schemaKeys = Object.keys(schemas);
+  for (const connId of schemaKeys) {
+    const s = schemas[connId];
+    // Try both schema-qualified and unqualified keys
+    for (const colKey of Object.keys(s.columns)) {
+      if (colKey.includes(tableName)) {
+        const cols = s.columns[colKey] ?? [];
+        const relevant = cols.filter((c) => columns.includes(c.name));
+        if (relevant.length > 0) {
+          return Object.fromEntries(relevant.map((c) => [c.name, c.type_name]));
+        }
+      }
+    }
+  }
+  // Fallback: return empty (APEX will guess from column name heuristics)
+  return {};
+}
+
 // ── System Prompt ─────────────────────────────────────────────────────────────
 
 function buildSystemPrompt(
@@ -160,6 +187,22 @@ Always prefer stat tools over manual SQL aggregations for statistical work — t
 
     parts.push(`DATABASE SCHEMA (${schema.driver}):\n${tableLines}`);
   }
+
+  parts.push(
+    `## Column Type Hints for Visualization
+When creating charts, use these column type rules:
+- data_type contains "timestamp" or "date" AND y is numeric → geom: line (time series)
+- both x and y are numeric (float, integer, numeric, real) → geom: scatter
+- x is text/varchar AND y is numeric → geom: box (distribution by category)
+- x is numeric AND no y specified → geom: histogram
+- x is text AND no y → geom: bar (count by category)
+
+WHERE clause extraction rules:
+- "for unit A" or "unit = A" → where_clause: "unit = 'A'"
+- "last 30 days" → where_clause: "timestamp > NOW() - INTERVAL '30 days'"
+- "above 100" on column X → where_clause: "X > 100"
+- "between 20 and 50" → where_clause: "column BETWEEN 20 AND 50"`
+  );
 
   if (currentSQL) {
     parts.push(`CURRENT SQL IN EDITOR:\n\`\`\`sql\n${currentSQL}\n\`\`\``);

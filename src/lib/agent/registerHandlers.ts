@@ -539,7 +539,39 @@ export function registerHandlers() {
           const colKey = `${schema}.${cmd.table}`;
           const col = (schemaData?.columns[colKey] ?? []).find((c) => c.name === cmd.x);
           const xType = col?.type_name ?? "numeric";
-          sql = BinQueryBuilder.line(cmd.table, schema, cmd.x, cmd.y, xType, decision.bins, cmd.where_clause);
+
+          // Phase 1: coarse (100 buckets) — render immediately
+          const coarseSQL = BinQueryBuilder.line(cmd.table, schema, cmd.x, cmd.y, xType, 100, cmd.where_clause);
+          const coarseRows = await DbClient.query(connectionId, coarseSQL);
+          useWorkspaceStore.getState().setGogChartRequest({
+            spec: { ...spec, _runtime: { ...spec._runtime!, generatedSQL: coarseSQL } },
+            binData: coarseRows,
+            strategy: effectiveStrategy,
+            estimatedRows: decision.estimatedRows,
+          });
+
+          // Phase 2: fine (1000 buckets) — refine asynchronously
+          // Use setTimeout(0) to yield to the render loop first
+          setTimeout(async () => {
+            try {
+              const fineSQL = BinQueryBuilder.line(cmd.table, schema, cmd.x, cmd.y!, xType, 1000, cmd.where_clause);
+              const fineRows = await DbClient.query(connectionId, fineSQL);
+              useWorkspaceStore.getState().setGogChartRequest({
+                spec: { ...spec, _runtime: { ...spec._runtime!, generatedSQL: fineSQL } },
+                binData: fineRows,
+                strategy: effectiveStrategy,
+                estimatedRows: decision.estimatedRows,
+              });
+            } catch (e) {
+              console.error("Phase 2 line refinement failed:", e);
+            }
+          }, 0);
+
+          toast.success(`Line chart created: ${decision.reason}`);
+          return {
+            success: true,
+            result: `Created line chart from ${schema}.${cmd.table}. Phase 1 (100 buckets) shown, refining to 1000 buckets in background.`,
+          };
         } else if (cmd.geom === "box" && cmd.y) {
           sql = BinQueryBuilder.boxPlot(cmd.table, schema, cmd.x, cmd.y, decision.bins, cmd.where_clause);
         } else if (cmd.geom === "histogram") {
