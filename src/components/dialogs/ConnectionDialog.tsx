@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { invoke } from "@tauri-apps/api/core";
 import { DbClient, ConnectionConfig, DbDriver } from "../../lib/db/DbClient";
 import { loadSavedConnections, removeConnection } from "../../lib/db/ConnectionStore";
+import { diagnoseConnection, DiagnosisResult } from "../../lib/connection/ConnectionDoctor";
+import { ConnectionDoctorPanel } from "./ConnectionDoctorPanel";
 
 interface ConnectionDialogProps {
   open: boolean;
@@ -134,6 +136,11 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
   const [driverManual, setDriverManual] = useState(false);
   const [nameManual, setNameManual] = useState(false);
 
+  // Connection Doctor state
+  const [doctorRunning, setDoctorRunning] = useState(false);
+  const [doctorSteps, setDoctorSteps] = useState<string[]>([]);
+  const [doctorResult, setDoctorResult] = useState<DiagnosisResult | null>(null);
+
   // PI Historian fields
   const [piUsername, setPiUsername] = useState("");
   const [piPassword, setPiPassword] = useState("");
@@ -230,6 +237,8 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
   const handleConnect = async () => {
     if (!connectionString) return;
     setIsConnecting(true);
+    setDoctorResult(null);
+    setDoctorSteps([]);
     const config = buildConfig();
     try {
       await DbClient.connect(config);
@@ -238,10 +247,35 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
       onOpenChange(false);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
-      toast.error(msg || "Connection failed", { duration: 8000 });
+      // Launch Connection Doctor instead of just toasting
+      setDoctorRunning(true);
+      const nvidiaKey = localStorage.getItem("nvidia_api_key") ?? undefined;
+      try {
+        const result = await diagnoseConnection(
+          config,
+          msg,
+          nvidiaKey,
+          (step) => setDoctorSteps((prev) => [...prev, step])
+        );
+        setDoctorResult(result);
+        if (result.fixed && result.fixedConfig) {
+          // Auto-apply the fix
+          onConnect(result.fixedConfig.id, result.fixedConfig);
+          toast.success(`Connected after auto-fix: ${result.actionSteps[0]}`);
+          onOpenChange(false);
+        }
+      } finally {
+        setDoctorRunning(false);
+      }
     } finally {
       setIsConnecting(false);
     }
+  };
+
+  const handleUseFixedConfig = (fixedConfig: ConnectionConfig) => {
+    onConnect(fixedConfig.id, fixedConfig);
+    toast.success("Connected with auto-fix applied");
+    onOpenChange(false);
   };
 
   return (
@@ -440,6 +474,17 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                   {isConnecting ? "Connecting..." : "Connect"}
                 </button>
               </div>
+
+              {/* Connection Doctor */}
+              {(doctorRunning || doctorResult) && (
+                <ConnectionDoctorPanel
+                  isRunning={doctorRunning}
+                  steps={doctorSteps}
+                  result={doctorResult}
+                  onUseFixedConfig={handleUseFixedConfig}
+                  onDismiss={() => { setDoctorResult(null); setDoctorSteps([]); }}
+                />
+              )}
             </div>
           </motion.div>
         </div>
