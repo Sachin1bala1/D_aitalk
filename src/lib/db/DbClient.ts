@@ -1,5 +1,5 @@
 /**
- * DbClient — thin TypeScript wrapper over Tauri invoke() calls.
+ * DbClient - thin TypeScript wrapper over Tauri invoke() calls.
  * Replaces the old DatabaseService.ts fetch()-based approach.
  */
 import { invoke } from "@tauri-apps/api/core";
@@ -32,8 +32,8 @@ export interface TableMeta {
   row_estimate: number | null;
   size_bytes: number | null;
   object_type: "table" | "view" | "materialized_view" | "foreign_table";
-  is_hypertable: boolean;
-  hypertable_chunks: number | null;
+  is_hypertable?: boolean;
+  hypertable_chunks?: number | null;
 }
 
 export type FunctionKind = "function" | "procedure" | "aggregate" | "trigger";
@@ -53,9 +53,7 @@ export interface FullSchema {
   columns: Record<string, ColumnMeta[]>;
   foreign_keys: ForeignKey[];
   indexes: IndexMeta[];
-  /** "schema.table" keys that are TimescaleDB hypertables */
   hypertable_tables: string[];
-  /** Stored functions and procedures */
   functions: FunctionMeta[];
 }
 
@@ -135,6 +133,19 @@ export interface QueryTransformInput {
   columns: string[];
 }
 
+export interface ParameterObservation {
+  table_name?: string | null;
+  column_name: string;
+}
+
+export interface BenchmarkInput {
+  parameter_name: string;
+  metric_type: string;
+  metric_value: number;
+  context_json: unknown;
+  query_id?: string;
+}
+
 export interface VisualizationViewedEvent {
   query_id: string;
   chart_type: string;
@@ -148,6 +159,47 @@ export interface ParameterHotspotRecord {
   column_name: string;
   hit_count: number;
   last_observed_at: string;
+}
+
+export interface BenchmarkContextRecord {
+  version: number;
+  db_path: string;
+  row_count: number;
+  column_count: number;
+  table_name: string;
+  notes?: string | null;
+}
+
+export interface BenchmarkRecord {
+  query_id: string;
+  context: BenchmarkContextRecord;
+  captured_at: string;
+}
+
+export interface QueryHistoryRecord {
+  query_id: string;
+  sql: string;
+  source_table?: string | null;
+  source_tables: string[];
+  row_count: number;
+  duration_ms: number;
+  success: boolean;
+  error_message?: string | null;
+  executed_at: string;
+}
+
+export interface SecurityAuditInput {
+  event_type: string;
+  outcome: string;
+  details_json?: unknown;
+}
+
+export interface SecurityAuditRecord {
+  id: number;
+  event_type: string;
+  outcome: string;
+  details_json: unknown;
+  created_at: string;
 }
 
 export interface LocalDataStats {
@@ -164,42 +216,60 @@ export interface QueryConcurrencyStatus {
   per_connection: Record<string, number>;
 }
 
-// ── API ───────────────────────────────────────────────────────────────────────
-
 export const DbClient = {
-  async connect(config: ConnectionConfig): Promise<void> {
+  async connect(config: ConnectionConfig): Promise<ConnectionConfig> {
     let resolved = config;
+
     try {
-      // Detect whether the password was stripped: PI missing password, or URL with empty password component
       const needsKeychain =
         config.pi_config !== undefined
           ? !config.pi_config.password
           : (() => {
-              try { return !new URL(config.connection_string ?? '').password; } catch { return false; }
+              try {
+                return !new URL(config.connection_string ?? "").password;
+              } catch {
+                return false;
+              }
             })();
+
       if (needsKeychain) {
-        const pw = await invoke<string | null>('get_credential', { key: `conn_${config.id}_password` });
+        const pw = await invoke<string | null>("get_credential", {
+          key: `conn_${config.id}_password`,
+        });
+
         if (pw) {
           if (config.pi_config !== undefined) {
-            resolved = { ...config, pi_config: { ...config.pi_config, password: pw } };
+            resolved = {
+              ...config,
+              pi_config: { ...config.pi_config, password: pw },
+            };
           } else if (config.connection_string) {
             try {
               const url = new URL(config.connection_string);
               url.password = encodeURIComponent(pw);
               resolved = { ...config, connection_string: url.toString() };
-            } catch { /* non-URL (e.g. SQLite file path) — connect without password */ }
+            } catch {
+              // Non-URL connection strings can continue as-is.
+            }
           }
         }
       }
-    } catch { /* keychain unavailable — connect with config as-is */ }
-    return invoke("db_connect", { config: resolved });
+    } catch {
+      // Keychain unavailable - continue with provided config.
+    }
+
+    await invoke("db_connect", { config: resolved });
+    return resolved;
+  },
+
+  async testConnection(config: ConnectionConfig): Promise<void> {
+    return invoke("db_test_connection", { config });
   },
 
   async disconnect(connectionId: string): Promise<void> {
     return invoke("db_disconnect", { connectionId });
   },
 
-  /** Driver-aware connectivity check — works for SQL and NoSQL. */
   async ping(connectionId: string): Promise<void> {
     return invoke("db_ping", { connectionId });
   },
@@ -219,10 +289,6 @@ export const DbClient = {
     return response.effective_sql;
   },
 
-  /**
-   * Execute a SELECT query — streams results as "query_batch" Tauri events.
-   * Returns the query_id to correlate batches.
-   */
   async executeStreaming(
     connectionId: string,
     sql: string,
@@ -231,11 +297,6 @@ export const DbClient = {
     return invoke("db_execute_streaming", { connectionId, sql, queryId });
   },
 
-  /**
-   * Convenience: execute a SELECT and collect all rows.
-   * Waits for the final batch, then resolves with a flat row array.
-   * Use for small result sets (schema metadata, stats queries).
-   */
   async query(connectionId: string, sql: string): Promise<Record<string, unknown>[]> {
     const { listen } = await import("@tauri-apps/api/event");
     const qid = `overview-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -263,21 +324,19 @@ export const DbClient = {
           unlisten?.();
           resolve(rows);
         }
-      }).then((fn) => {
-        unlisten = fn;
-        // Start streaming after listener is registered
-        invoke("db_execute_streaming", { connectionId, sql, queryId: qid }).catch((e) => {
-          clearTimeout(timeout);
-          unlisten?.();
-          reject(e);
-        });
-      }).catch(reject);
+      })
+        .then((fn) => {
+          unlisten = fn;
+          invoke("db_execute_streaming", { connectionId, sql, queryId: qid }).catch((e) => {
+            clearTimeout(timeout);
+            unlisten?.();
+            reject(e);
+          });
+        })
+        .catch(reject);
     });
   },
 
-  /**
-   * Execute DDL/DML — returns affected row count.
-   */
   async execute(connectionId: string, sql: string): Promise<number> {
     return invoke("db_execute", { connectionId, sql });
   },
@@ -302,16 +361,27 @@ export const DbClient = {
     });
   },
 
-  /**
-   * Signal the streaming query to stop at the next batch boundary.
-   * The Rust side emits a final batch then exits the stream loop.
-   */
   async cancelQuery(queryId: string): Promise<void> {
     return invoke("db_cancel_query", { queryId });
   },
 
+  async updateParameterAffinity(
+    connectionId: string,
+    parameters: ParameterObservation[]
+  ): Promise<void> {
+    return invoke("db_update_parameter_affinity", { connectionId, parameters });
+  },
+
+  async saveBenchmark(benchmark: BenchmarkInput): Promise<void> {
+    return invoke("db_save_benchmark", { benchmark });
+  },
+
   async recordVisualizationViewed(event: VisualizationViewedEvent): Promise<void> {
     return invoke("record_visualization_viewed", { event });
+  },
+
+  async recordSecurityAudit(input: SecurityAuditInput): Promise<void> {
+    return invoke("record_security_audit", { input });
   },
 
   async getParameterHotspots(input: {
@@ -322,8 +392,44 @@ export const DbClient = {
     return invoke("db_get_parameter_hotspots", { input });
   },
 
+  async getRecentBenchmarks(input: {
+    table_name?: string | null;
+    limit?: number;
+  }): Promise<BenchmarkRecord[]> {
+    return invoke("db_get_recent_benchmarks", { input });
+  },
+
+  async getQueryHistory(input: {
+    table_name: string;
+    limit?: number;
+  }): Promise<QueryHistoryRecord[]> {
+    return invoke("db_get_query_history", { input });
+  },
+
+  async getSecurityAudit(input: {
+    event_type?: string | null;
+    outcome?: string | null;
+    limit?: number;
+  }): Promise<SecurityAuditRecord[]> {
+    return invoke("db_get_security_audit", { input });
+  },
+
+  async getSecurityAuditEventTypes(): Promise<string[]> {
+    return invoke("db_get_security_audit_event_types");
+  },
+
+  async getSecurityAuditOutcomes(): Promise<string[]> {
+    return invoke("db_get_security_audit_outcomes");
+  },
+
   async getLocalDataStats(): Promise<LocalDataStats> {
     return invoke("db_get_local_data_stats");
+  },
+
+  async clearLocalData(
+    scope: "query_history" | "telemetry" | "benchmarks" | "security_audit" | "all"
+  ): Promise<void> {
+    return invoke("db_clear_local_data", { input: { scope } });
   },
 
   async getQueryConcurrencyStatus(): Promise<QueryConcurrencyStatus> {
@@ -334,9 +440,6 @@ export const DbClient = {
     return invoke("health_check");
   },
 
-  // ── DuckDB ──────────────────────────────────────────────────────────────────
-
-  /** Stream a DuckDB analytical query; results arrive as query_batch events. */
   async duckdbQuery(sql: string, queryId?: string): Promise<string> {
     return invoke("duckdb_query", { sql, queryId });
   },
@@ -353,40 +456,33 @@ export const DbClient = {
     return invoke("duckdb_list_views");
   },
 
-  /** Reconstruct CREATE TABLE DDL for a given table (PostgreSQL, MySQL, SQLite). */
   async getTableDdl(connectionId: string, schema: string, table: string): Promise<string> {
     return invoke("db_get_table_ddl", { connectionId, schema, table });
   },
 
-  // ── Connection persistence ─────────────────────────────────────────────────
-
-  /** Persist current connection list to disk (app local data dir). */
   async saveConnections(configs: ConnectionConfig[]): Promise<void> {
     return invoke("save_connections", { configs });
   },
 
-  /** Load persisted connection list from disk. Returns [] if file doesn't exist. */
   async loadConnections(): Promise<ConnectionConfig[]> {
     return invoke("load_connections");
   },
 
-  // ── API Key Keychain ─────────────────────────────────────────────────────
-
-  /** Store an API key in the OS keychain. Pass empty string to delete the key. */
   async storeApiKey(service: string, key: string): Promise<void> {
     if (key) {
       return invoke("store_api_key", { service, key });
-    } else {
-      return invoke("delete_api_key", { service });
     }
+    return invoke("delete_api_key", { service });
   },
 
-  /** Retrieve an API key from the OS keychain. Returns "" if not set. */
   async getApiKey(service: string): Promise<string> {
     return invoke("get_api_key", { service });
   },
 
-  /** Delete an API key from the OS keychain. */
+  async hasApiKey(service: string): Promise<boolean> {
+    return invoke("has_api_key", { service });
+  },
+
   async deleteApiKey(service: string): Promise<void> {
     return invoke("delete_api_key", { service });
   },

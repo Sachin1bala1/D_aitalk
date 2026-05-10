@@ -10,7 +10,7 @@
  * ensuring only pertinent context is included in each invocation.
  */
 
-import type { ConversationTurn } from "../ai/types";
+import type { ConversationTurn } from "../../ai/types";
 
 export interface ContextBudget {
   totalTokens: number;        // model's context limit (e.g. 200,000 for Claude)
@@ -138,7 +138,7 @@ export class ContextEngine {
       }
 
       // For tool results older than 4 exchanges: compress or skip
-      if (msg.role === "user" && msg.toolResults && totalTokens + est > budget.historyMax) {
+      if (msg.toolResults && totalTokens + est > budget.historyMax) {
         // Replace with a summary placeholder
         const toolNames = msg.toolResults
           .map(tr => tr.name)

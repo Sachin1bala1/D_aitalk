@@ -16,9 +16,9 @@
  */
 
 import type { SessionContext, StruggleEvidence, SessionResult } from "./types";
-import { WorkingMemory } from "../memory/WorkingMemory";
-import { UsageAnalytics } from "../analytics/UsageAnalytics";
-import { EpisodicMemory } from "../memory/EpisodicMemory";
+import { WorkingMemory } from "../../memory/WorkingMemory";
+import { UsageAnalytics } from "../../analytics/UsageAnalytics";
+import { EpisodicMemory } from "../../memory/EpisodicMemory";
 import { FailureTraceStore } from "./FailureTraceStore";
 import { HarnessObserver } from "./HarnessObserver";
 
@@ -298,7 +298,9 @@ export function registerHook(
   hookName: keyof HarnessHooks,
   handler: any
 ): void {
-  const original = DATAIQ_HOOKS[hookName];
+  const original = DATAIQ_HOOKS[hookName] as
+    | ((...args: any[]) => Promise<unknown>)
+    | undefined;
   DATAIQ_HOOKS[hookName] = async (...args: any[]) => {
     if (original) {
       await original(...args);
