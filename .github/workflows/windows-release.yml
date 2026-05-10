@@ -34,7 +34,22 @@ jobs:
         shell: powershell
         run: |
           choco install strawberryperl -y --no-progress
-          perl -v
+          $perlBin = @(
+            "C:\Strawberry\perl\bin",
+            "$env:ChocolateyInstall\lib\strawberryperl\tools\perl\bin"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+          if (-not $perlBin) {
+            throw "Perl install path not found after installing strawberryperl."
+          }
+
+          $perlExe = Join-Path $perlBin "perl.exe"
+          if (-not (Test-Path $perlExe)) {
+            throw "perl.exe not found at $perlExe"
+          }
+
+          $perlBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & $perlExe -v
 
       - name: Verify toolchain
         shell: powershell
