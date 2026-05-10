@@ -1,5 +1,8 @@
 name: windows-release
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   workflow_dispatch:
   push:
@@ -26,6 +29,12 @@ jobs:
         run: |
           rustup update stable
           rustup default stable-x86_64-pc-windows-msvc
+
+      - name: Install Windows build prerequisites
+        shell: powershell
+        run: |
+          choco install strawberryperl -y --no-progress
+          perl -v
 
       - name: Verify toolchain
         shell: powershell

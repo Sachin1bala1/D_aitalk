@@ -1,5 +1,8 @@
 name: validate
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   pull_request:
     branches:
@@ -61,7 +64,13 @@ jobs:
           rustup update stable
           rustup default stable-x86_64-pc-windows-msvc
 
+      - name: Install Windows build prerequisites
+        shell: powershell
+        run: |
+          choco install strawberryperl -y --no-progress
+          perl -v
+
       - name: Cargo check
         working-directory: src-tauri
         shell: powershell
-        run: cargo check
+        run: cargo check -vv
