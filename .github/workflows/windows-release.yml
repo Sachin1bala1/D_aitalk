@@ -42,8 +42,29 @@ jobs:
         shell: powershell
         run: npm run tauri:build:ci
 
+      - name: Check signing secret availability
+        id: signing_check
+        if: github.ref_type == 'tag'
+        shell: powershell
+        env:
+          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+          WINDOWS_SIGN_CERT_SHA1: ${{ secrets.WINDOWS_SIGN_CERT_SHA1 }}
+        run: |
+          $enabled =
+            -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CERT_BASE64) -and
+            -not [string]::IsNullOrWhiteSpace($env:WINDOWS_CERT_PASSWORD) -and
+            -not [string]::IsNullOrWhiteSpace($env:WINDOWS_SIGN_CERT_SHA1)
+
+          if ($enabled) {
+            "enabled=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          } else {
+            "enabled=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Host "Signing secrets not fully configured; continuing with unsigned artifacts."
+          }
+
       - name: Import signing certificate
-        if: github.ref_type == 'tag' && secrets.WINDOWS_CERT_BASE64 != '' && secrets.WINDOWS_CERT_PASSWORD != '' && secrets.WINDOWS_SIGN_CERT_SHA1 != ''
+        if: github.ref_type == 'tag' && steps.signing_check.outputs.enabled == 'true'
         shell: powershell
         run: |
           $certBytes = [Convert]::FromBase64String("${{ secrets.WINDOWS_CERT_BASE64 }}")
@@ -52,7 +73,7 @@ jobs:
           Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString -String "${{ secrets.WINDOWS_CERT_PASSWORD }}" -AsPlainText -Force) | Out-Null
 
       - name: Sign Windows artifacts
-        if: github.ref_type == 'tag' && secrets.WINDOWS_CERT_BASE64 != '' && secrets.WINDOWS_CERT_PASSWORD != '' && secrets.WINDOWS_SIGN_CERT_SHA1 != ''
+        if: github.ref_type == 'tag' && steps.signing_check.outputs.enabled == 'true'
         shell: powershell
         env:
           WINDOWS_SIGN_CERT_SHA1: ${{ secrets.WINDOWS_SIGN_CERT_SHA1 }}
