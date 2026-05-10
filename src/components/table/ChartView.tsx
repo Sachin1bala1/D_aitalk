@@ -12,7 +12,13 @@ import type { ColumnMeta } from "../../lib/db/DbClient";
 interface ChartViewProps {
   rows: Record<string, unknown>[];
   columns: ColumnMeta[];
-  onChartRendered?: (chartType: string, columnCount: number, selection: { xColumn: string; yColumn: string }) => void;
+  queryId?: string | null;
+  onChartRendered?: (
+    queryId: string | null | undefined,
+    chartType: string,
+    columnCount: number,
+    selection: { xColumn: string; yColumn: string }
+  ) => void;
 }
 
 type ChartType = "bar" | "line";
@@ -57,7 +63,7 @@ interface TooltipState {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export function ChartView({ rows, columns, onChartRendered }: ChartViewProps) {
+export function ChartView({ rows, columns, queryId, onChartRendered }: ChartViewProps) {
   const numericCols = columns.filter((c) => {
     const kind = c.display_type?.kind;
     return kind === "integer" || kind === "float";
@@ -144,9 +150,12 @@ export function ChartView({ rows, columns, onChartRendered }: ChartViewProps) {
     if (!node || !xCol || !yCol || validYValues.length === 0) return;
 
     requestAnimationFrame(() => {
-      onChartRendered?.(chartType, new Set([xCol, yCol]).size, { xColumn: xCol, yColumn: yCol });
+      onChartRendered?.(queryId, chartType, new Set([xCol, yCol]).size, {
+        xColumn: xCol,
+        yColumn: yCol,
+      });
     });
-  }, [chartType, onChartRendered, validYValues.length, xCol, yCol]);
+  }, [chartType, onChartRendered, queryId, validYValues.length, xCol, yCol]);
 
   return (
     <div className="flex flex-col h-full bg-[#0a0a0a]">

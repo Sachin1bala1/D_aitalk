@@ -20,26 +20,48 @@ pub async fn introspect(conn: &ActiveConnection, connection_id: &str) -> Result<
 }
 
 async fn introspect_postgres(pool: &sqlx::PgPool, connection_id: &str) -> Result<FullSchema, DbError> {
-    // Tables with fast row estimates (no COUNT(*))
+    // Core table list — uses only information_schema, works on all PostgreSQL
+    // configurations including Supabase poolers and restricted roles.
     let tables_raw = sqlx::query(
         r#"
         SELECT
             t.table_schema,
             t.table_name,
-            t.table_type,
-            COALESCE(s.n_live_tup, 0) AS row_estimate,
-            COALESCE(pg_total_relation_size(c.oid), 0) AS size_bytes
+            t.table_type
         FROM information_schema.tables t
-        LEFT JOIN pg_stat_user_tables s
-            ON s.relname = t.table_name AND s.schemaname = t.table_schema
-        LEFT JOIN pg_class c ON c.relname = t.table_name
-        WHERE t.table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+        WHERE t.table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast',
+                                     'pg_internal', '_timescaledb_cache', '_timescaledb_config',
+                                     '_timescaledb_internal', '_timescaledb_catalog')
         ORDER BY t.table_schema, t.table_name
         "#,
     )
-    .persistent(false)
     .fetch_all(pool)
     .await?;
+
+    // Optional stats (row count + size) — requires pg_monitor or table ownership.
+    // Falls back to zeros silently so restricted connections still show tables.
+    let stats_map: std::collections::HashMap<String, (i64, i64)> = sqlx::query(
+        r#"
+        SELECT
+            schemaname,
+            relname,
+            COALESCE(n_live_tup, 0) AS row_estimate,
+            COALESCE(pg_total_relation_size(schemaname || '.' || quote_ident(relname)), 0) AS size_bytes
+        FROM pg_stat_user_tables
+        "#,
+    )
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default()
+    .iter()
+    .fold(std::collections::HashMap::new(), |mut m, r| {
+        let schema: String = r.try_get("schemaname").unwrap_or_default();
+        let name: String = r.try_get("relname").unwrap_or_default();
+        let rows: i64 = r.try_get("row_estimate").unwrap_or(0);
+        let size: i64 = r.try_get("size_bytes").unwrap_or(0);
+        m.insert(format!("{}.{}", schema, name), (rows, size));
+        m
+    });
 
     let tables: Vec<TableMeta> = tables_raw
         .iter()
@@ -47,8 +69,10 @@ async fn introspect_postgres(pool: &sqlx::PgPool, connection_id: &str) -> Result
             let schema: String = r.try_get("table_schema").unwrap_or_default();
             let name: String = r.try_get("table_name").unwrap_or_default();
             let table_type: String = r.try_get("table_type").unwrap_or_default();
-            let row_estimate: i64 = r.try_get("row_estimate").unwrap_or(0);
-            let size_bytes: i64 = r.try_get("size_bytes").unwrap_or(0);
+            let (row_estimate, size_bytes) = stats_map
+                .get(&format!("{}.{}", schema, name))
+                .copied()
+                .unwrap_or((0, 0));
 
             TableMeta {
                 schema,
@@ -60,6 +84,8 @@ async fn introspect_postgres(pool: &sqlx::PgPool, connection_id: &str) -> Result
                 } else {
                     TableObjectType::Table
                 },
+                is_hypertable: false,
+                hypertable_chunks: None,
             }
         })
         .collect();
@@ -89,7 +115,6 @@ async fn introspect_postgres(pool: &sqlx::PgPool, connection_id: &str) -> Result
         ORDER BY c.table_schema, c.table_name, c.ordinal_position
         "#,
     )
-    .persistent(false)
     .fetch_all(pool)
     .await?;
 
@@ -145,7 +170,6 @@ async fn introspect_postgres(pool: &sqlx::PgPool, connection_id: &str) -> Result
         LIMIT 500
         "#,
     )
-    .persistent(false)
     .fetch_all(pool)
     .await
     .unwrap_or_default();
@@ -210,6 +234,8 @@ async fn introspect_mysql(pool: &sqlx::MySqlPool, connection_id: &str) -> Result
                 row_estimate: Some(row_estimate),
                 size_bytes: Some(size_bytes),
                 object_type: if table_type == "VIEW" { TableObjectType::View } else { TableObjectType::Table },
+                is_hypertable: false,
+                hypertable_chunks: None,
             }
         })
         .collect();
@@ -275,6 +301,8 @@ async fn introspect_sqlite(pool: &sqlx::SqlitePool, connection_id: &str) -> Resu
             row_estimate: None,
             size_bytes: None,
             object_type: TableObjectType::Table,
+            is_hypertable: false,
+            hypertable_chunks: None,
         });
 
         let pragma_rows = sqlx::query(&format!("PRAGMA table_info(\"{}\")", name))
@@ -367,6 +395,8 @@ async fn introspect_mssql(
                 row_estimate: Some(row_estimate),
                 size_bytes: Some(size_bytes),
                 object_type: if table_type == "VIEW" { TableObjectType::View } else { TableObjectType::Table },
+                is_hypertable: false,
+                hypertable_chunks: None,
             }
         })
         .collect();
@@ -479,6 +509,8 @@ async fn introspect_mongodb(
             row_estimate: Some(count as i64),
             size_bytes: None,
             object_type: TableObjectType::Table,
+            is_hypertable: false,
+            hypertable_chunks: None,
         });
 
         // Sample up to 20 documents to infer field names + types
@@ -621,6 +653,8 @@ async fn introspect_redis(
             row_estimate: Some(prefix_keys.len() as i64),
             size_bytes: None,
             object_type: TableObjectType::Table,
+            is_hypertable: false,
+            hypertable_chunks: None,
         });
         columns.insert(format!("redis.{}", prefix), pseudo_cols.clone());
     }
@@ -677,6 +711,8 @@ async fn introspect_clickhouse(
             row_estimate: Some(r.total_rows as i64),
             size_bytes: Some(r.total_bytes as i64),
             object_type,
+            is_hypertable: false,
+            hypertable_chunks: None,
         }
     }).collect();
 

@@ -24,7 +24,7 @@ export interface ExecuteSqlCmd {
   type: "execute_sql";
   sql: string;
   connectionId: string;
-  risk: RiskLevel;
+  risk: "safe";
 }
 
 export interface CancelQueryCmd {
@@ -44,36 +44,6 @@ export interface OpenTableCmd {
 export interface OpenNewTabCmd {
   type: "open_new_tab";
   title?: string;
-  risk: "safe";
-}
-
-export interface CreateDashboardCmd {
-  type: "create_dashboard";
-  title?: string;
-  useCurrentResults?: boolean;
-  risk: "safe";
-}
-
-export interface UpdateDashboardWidgetCmd {
-  type: "update_dashboard_widget";
-  widgetId?: string;
-  widgetTitle?: string;
-  datasourceId?: string;
-  datasourceName?: string;
-  widgetType?:
-    | "bar_chart"
-    | "line_chart"
-    | "scatter_chart"
-    | "area_chart"
-    | "pie_chart"
-    | "metric"
-    | "table"
-    | "text";
-  title?: string;
-  xField?: string;
-  yField?: string;
-  metricField?: string | null;
-  aggregate?: "row_count" | "sum" | "avg" | "min" | "max";
   risk: "safe";
 }
 
@@ -186,6 +156,27 @@ export interface CloseTabCmd {
   risk: "safe";
 }
 
+// ── Statistical Analysis (Pyodide) ────────────────────────────────────────────
+
+export interface RunStatToolCmd {
+  type: "run_stat_tool";
+  /** Matches a key in STAT_KERNELS: describe | spc_xbar_r | capability | western_electric | regression | fft | anomaly_zscore */
+  method: string;
+  params: Record<string, unknown>;
+  risk: "safe";
+}
+
+// ── User-Defined Tools ────────────────────────────────────────────────────────
+
+export interface RunUserToolCmd {
+  type: "run_user_tool";
+  /** Matches UserTool.id — used to look up the tool from UserToolStore */
+  toolId: string;
+  params: Record<string, unknown>;
+  connectionId: string | null;
+  risk: "safe" | "caution";
+}
+
 // ── Analytics (advanced) ──────────────────────────────────────────────────────
 
 export interface CreateChartCmd {
@@ -194,6 +185,30 @@ export interface CreateChartCmd {
   xColumn: string;
   yColumn: string;
   title?: string;
+  risk: "safe";
+}
+
+export interface CreateGoGChartCmd {
+  type: "create_gog_chart";
+  table: string;
+  schema?: string;
+  geom: "scatter" | "line" | "bar" | "histogram" | "box" | "area";
+  x: string;
+  y?: string;
+  color?: string;
+  facet?: string;
+  title?: string;
+  x_label?: string;
+  y_label?: string;
+  where_clause?: string;
+  overlays?: Array<{
+    type: "ref_line" | "spec_limits" | "mean_line" | "trend_line";
+    axis?: "x" | "y";
+    value?: number;
+    lsl?: number;
+    usl?: number;
+    target?: number;
+  }>;
   risk: "safe";
 }
 
@@ -209,6 +224,62 @@ export interface CreatePipelineCmd {
   risk: "caution";
 }
 
+// ── Confidence Scoring ────────────────────────────────────────────────────────
+
+export interface ConfidenceDeclaration {
+  confidence: number;
+  confidenceLabel: 'high' | 'medium' | 'low' | 'insufficient_data';
+  dataQuality?: 'good' | 'limited' | 'sparse' | 'unreliable';
+  whatWouldChangeConclusion: string;
+  dataGaps?: string;
+}
+
+export type DeclareConfidenceCmd = { type: 'declare_confidence'; risk: 'safe' } & ConfidenceDeclaration;
+
+// ── Hypothesis Engine ─────────────────────────────────────────────────────────
+
+export interface Hypothesis {
+  statement: string;
+  probability: number;
+  evidence_for?: string;
+  evidence_against?: string;
+  discriminating_test?: string;
+}
+
+export interface DeclareHypothesesCmd {
+  type: "declare_hypotheses";
+  hypotheses: Hypothesis[];
+  problemFrame: string;
+  risk: "safe";
+}
+
+// ── OSIsoft PI Historian ──────────────────────────────────────────────────────
+
+export interface PISearchTagsCmd {
+  type: "pi_search_tags";
+  connectionId: string;
+  query: string;
+  maxCount?: number;
+  risk: "safe";
+}
+
+export interface PIGetHistoryCmd {
+  type: "pi_get_history";
+  connectionId: string;
+  webIds: string[];
+  start: string;
+  end: string;
+  interval?: string;
+  risk: "safe";
+}
+
+export interface PIGetCurrentCmd {
+  type: "pi_get_current";
+  connectionId: string;
+  webIds: string[];
+  risk: "safe";
+}
+
 // ── Union ─────────────────────────────────────────────────────────────────────
 
 export type AgentCommand =
@@ -217,8 +288,6 @@ export type AgentCommand =
   | CancelQueryCmd
   | OpenTableCmd
   | OpenNewTabCmd
-  | CreateDashboardCmd
-  | UpdateDashboardWidgetCmd
   | CloseTabCmd
   | AddColumnCmd
   | DropColumnCmd
@@ -230,63 +299,30 @@ export type AgentCommand =
   | InsertRowCmd
   | UpdateCellCmd
   | RunDuckDbAnalysisCmd
+  | RunStatToolCmd
+  | RunUserToolCmd
   | CreateChartCmd
+  | CreateGoGChartCmd
   | CreatePipelineCmd
-  | NotifyUserCmd;
+  | NotifyUserCmd
+  | DeclareHypothesesCmd
+  | DeclareConfidenceCmd
+  | PISearchTagsCmd
+  | PIGetHistoryCmd
+  | PIGetCurrentCmd;
 
 export type CommandType = AgentCommand["type"];
 
 /** Commands that always require user approval, even in Auto Mode. */
-export const APPROVAL_REQUIRED_COMMANDS = new Set<CommandType>([
-  "add_column",
+export const DESTRUCTIVE_COMMANDS = new Set<CommandType>([
   "drop_column",
   "rename_table",
   "delete_rows",
   "bulk_transform",
-  "create_index",
-  "insert_row",
-  "update_cell",
-  "create_pipeline",
 ]);
 
-export function classifyExecuteSqlRisk(sql: string): RiskLevel {
-  const firstToken = sql
-    .trimStart()
-    .split(/\s+/)[0]
-    ?.replace(/^[;(]+|[;)]+$/g, "")
-    .toUpperCase();
-
-  switch (firstToken) {
-    case "SELECT":
-    case "WITH":
-    case "SHOW":
-    case "DESCRIBE":
-    case "DESC":
-    case "EXPLAIN":
-    case "PRAGMA":
-      return "safe";
-    case "INSERT":
-    case "UPDATE":
-    case "DELETE":
-    case "MERGE":
-    case "REPLACE":
-    case "TRUNCATE":
-      return "destructive";
-    case "ALTER":
-    case "DROP":
-    case "CREATE":
-    case "RENAME":
-      return "destructive";
-    default:
-      return "caution";
-  }
-}
-
-export function requiresApproval(cmd: AgentCommand): boolean {
-  if (cmd.type === "execute_sql") {
-    return classifyExecuteSqlRisk(cmd.sql) !== "safe";
-  }
-  return APPROVAL_REQUIRED_COMMANDS.has(cmd.type);
+export function isDestructive(cmd: AgentCommand): boolean {
+  return DESTRUCTIVE_COMMANDS.has(cmd.type);
 }
 
 /** Human-readable summary of a command for Plan Mode display. */
@@ -297,11 +333,6 @@ export function describeCommand(cmd: AgentCommand): string {
     case "cancel_query": return `Cancel running query`;
     case "open_table": return `Open table: ${cmd.schema}.${cmd.table}`;
     case "open_new_tab": return `Open new tab${cmd.title ? `: ${cmd.title}` : ""}`;
-    case "create_dashboard": return `Create dashboard${cmd.title ? `: ${cmd.title}` : ""}`;
-    case "update_dashboard_widget":
-      return `Update dashboard widget${
-        cmd.widgetTitle ? `: ${cmd.widgetTitle}` : cmd.widgetId ? `: ${cmd.widgetId}` : ""
-      }`;
     case "add_column": return `Add column "${cmd.columnName}" (${cmd.dataType}) to ${cmd.schema}.${cmd.table}`;
     case "drop_column": return `DROP column "${cmd.columnName}" from ${cmd.schema}.${cmd.table}`;
     case "rename_table": return `Rename ${cmd.schema}.${cmd.oldName} → ${cmd.newName}`;
@@ -311,10 +342,18 @@ export function describeCommand(cmd: AgentCommand): string {
     case "focus_schema_node": return `Focus ${cmd.schema}.${cmd.table} in sidebar`;
     case "insert_row": return `INSERT INTO ${cmd.schema}.${cmd.table}`;
     case "update_cell": return `UPDATE ${cmd.schema}.${cmd.table} SET ${cmd.column} WHERE ${cmd.pkColumn}=${cmd.pkValue}`;
+    case "run_stat_tool": return `Stat analysis: ${cmd.method}`;
+    case "run_user_tool": return `User tool: ${cmd.toolId}`;
     case "run_duckdb_analysis": return `DuckDB: ${cmd.sql.slice(0, 60)}…`;
     case "create_chart": return `Create ${cmd.chartType} chart: ${cmd.xColumn} vs ${cmd.yColumn}`;
+    case "create_gog_chart": return `Create GoG ${cmd.geom} chart: ${cmd.x}${cmd.y ? ` vs ${cmd.y}` : ""} from ${cmd.schema ?? "public"}.${cmd.table}`;
     case "create_pipeline": return `Create pipeline "${cmd.name}" → ${cmd.targetTable}`;
     case "close_tab": return cmd.tabId ? `Close tab ${cmd.tabId}` : `Close active tab`;
     case "notify_user": return `Notify: ${cmd.message}`;
+    case "declare_hypotheses": return `Declare ${cmd.hypotheses.length} hypothesis${cmd.hypotheses.length !== 1 ? "es" : ""}: ${cmd.problemFrame.slice(0, 60)}`;
+    case "declare_confidence": return `Confidence: ${cmd.confidenceLabel} (${Math.round(cmd.confidence * 100)}%)`;
+    case "pi_search_tags": return `PI search tags: "${cmd.query}"`;
+    case "pi_get_history": return `PI history for ${cmd.webIds.length} tag(s): ${cmd.start} → ${cmd.end}`;
+    case "pi_get_current": return `PI current values for ${cmd.webIds.length} tag(s)`;
   }
 }

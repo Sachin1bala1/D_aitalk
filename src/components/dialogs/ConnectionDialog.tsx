@@ -2,8 +2,12 @@ import React, { useState, useEffect } from "react";
 import { Database, X, Link2, Trash2, History, Wifi } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { invoke } from "@tauri-apps/api/core";
 import { DbClient, ConnectionConfig, DbDriver } from "../../lib/db/DbClient";
-import { loadSavedConnectionsAsync, removeConnection } from "../../lib/db/ConnectionStore";
+import { loadSavedConnections, removeConnection } from "../../lib/db/ConnectionStore";
+import { diagnoseConnection, DiagnosisResult } from "../../lib/connection/ConnectionDoctor";
+import { ConnectionDoctorPanel } from "./ConnectionDoctorPanel";
+import { loadApiKeysFromKeychain } from "../../lib/ai/types";
 
 interface ConnectionDialogProps {
   open: boolean;
@@ -61,6 +65,13 @@ const DRIVER_OPTIONS: { value: DbDriver; label: string; placeholder: string; gro
     label: "ClickHouse",
     placeholder: "http://user:pass@localhost:8123/default",
     group: "NoSQL",
+  },
+  // ── Industrial ────────────────────────────────────────────────────────────
+  {
+    value: "p_i_historian",
+    label: "PI Historian (OSIsoft)",
+    placeholder: "https://pi-server/piwebapi",
+    group: "Industrial",
   },
 ];
 
@@ -122,20 +133,28 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
   const [isConnecting, setIsConnecting] = useState(false);
   const [testStatus, setTestStatus] = useState<"idle" | "testing" | "ok" | "fail">("idle");
   const [savedConns, setSavedConns] = useState<ConnectionConfig[]>([]);
-  const [readOnly, setReadOnly] = useState(false);
   // tracks whether user manually changed driver/name so auto-parse doesn't override
   const [driverManual, setDriverManual] = useState(false);
   const [nameManual, setNameManual] = useState(false);
 
+  // Connection Doctor state
+  const [doctorRunning, setDoctorRunning] = useState(false);
+  const [doctorSteps, setDoctorSteps] = useState<string[]>([]);
+  const [doctorResult, setDoctorResult] = useState<DiagnosisResult | null>(null);
+
+  // PI Historian fields
+  const [piUsername, setPiUsername] = useState("");
+  const [piPassword, setPiPassword] = useState("");
+  const [piVerifySsl, setPiVerifySsl] = useState(true);
+
+  const isPIHistorian = driver === "p_i_historian";
+
   useEffect(() => {
     if (open) {
-      loadSavedConnectionsAsync()
-        .then(setSavedConns)
-        .catch(() => setSavedConns([]));
+      setSavedConns(loadSavedConnections());
       // Reset manual flags when dialog reopens
       setDriverManual(false);
       setNameManual(false);
-      setReadOnly(false);
     }
   }, [open]);
 
@@ -154,9 +173,9 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
   const handleQuickConnect = async (config: ConnectionConfig) => {
     setIsConnecting(true);
     try {
-      const sanitized = await DbClient.connect(config);
-      onConnect(sanitized.id, sanitized);
-      toast.success(`Connected to ${sanitized.display_name}`);
+      await DbClient.connect(config);
+      onConnect(config.id, config);
+      toast.success(`Connected to ${config.display_name}`);
       onOpenChange(false);
     } catch (error: any) {
       toast.error(error.message ?? "Reconnection failed");
@@ -178,37 +197,88 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
     connection_string: connectionString,
     pool_min: 1,
     pool_max: 10,
-    read_only: readOnly,
+    ...(isPIHistorian && {
+      pi_config: {
+        base_url: connectionString,
+        username: piUsername,
+        password: piPassword,
+        verify_ssl: piVerifySsl,
+      },
+    }),
   });
 
   const handleTestConnection = async () => {
     if (!connectionString) return;
     setTestStatus("testing");
-    const config = buildConfig();
     try {
-      await DbClient.testConnection(config);
+      if (isPIHistorian) {
+        await invoke("pi_test_connection", {
+          piConfig: {
+            base_url: connectionString,
+            username: piUsername,
+            password: piPassword,
+            verify_ssl: piVerifySsl,
+          },
+        });
+      } else {
+        const config = buildConfig();
+        await DbClient.connect(config);
+        await DbClient.ping(config.id);
+        await DbClient.disconnect(config.id);
+      }
       setTestStatus("ok");
       toast.success("Connection successful");
-    } catch (error: any) {
+    } catch (error: unknown) {
       setTestStatus("fail");
-      toast.error(error.message ?? "Connection test failed");
+      const msg = error instanceof Error ? error.message : String(error);
+      toast.error(msg || "Connection test failed", { duration: 8000 });
     }
   };
 
   const handleConnect = async () => {
     if (!connectionString) return;
     setIsConnecting(true);
+    setDoctorResult(null);
+    setDoctorSteps([]);
     const config = buildConfig();
     try {
-      const sanitized = await DbClient.connect(config);
-      onConnect(sanitized.id, sanitized);
-      toast.success(`Connected to ${sanitized.display_name}`);
+      await DbClient.connect(config);
+      onConnect(config.id, config);
+      toast.success(`Connected to ${config.display_name}`);
       onOpenChange(false);
-    } catch (error: any) {
-      toast.error(error.message ?? "Connection failed");
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      // Launch Connection Doctor instead of just toasting
+      setDoctorRunning(true);
+      // Prefer OS keychain key (set via Provider Settings), fall back to seeded localStorage key
+      const keychainKeys = await loadApiKeysFromKeychain().catch(() => ({} as Record<string, string>));
+      const nvidiaKey = (keychainKeys as Record<string, string>)["nvidia"] || localStorage.getItem("nvidia_api_key") || undefined;
+      try {
+        const result = await diagnoseConnection(
+          config,
+          msg,
+          nvidiaKey,
+          (step) => setDoctorSteps((prev) => [...prev, step])
+        );
+        setDoctorResult(result);
+        if (result.fixed && result.fixedConfig) {
+          // Auto-apply the fix
+          onConnect(result.fixedConfig.id, result.fixedConfig);
+          toast.success(`Connected after auto-fix: ${result.actionSteps[0]}`);
+          onOpenChange(false);
+        }
+      } finally {
+        setDoctorRunning(false);
+      }
     } finally {
       setIsConnecting(false);
     }
+  };
+
+  const handleUseFixedConfig = (fixedConfig: ConnectionConfig) => {
+    onConnect(fixedConfig.id, fixedConfig);
+    toast.success("Connected with auto-fix applied");
+    onOpenChange(false);
   };
 
   return (
@@ -264,7 +334,7 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                       >
                         <div className="min-w-0">
                           <p className="text-xs font-semibold text-white/80 truncate">{conn.display_name}</p>
-                          <p className="text-[10px] text-white/25 font-mono truncate">{conn.driver} · {conn.connection_string}</p>
+                          <p className="text-[10px] text-white/25 font-mono truncate">{conn.driver} · {conn.connection_string.replace(/:[^:@]+@/, ":***@")}</p>
                         </div>
                         <button
                           onClick={(e) => handleRemoveSaved(conn.id, e)}
@@ -290,7 +360,7 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                   onChange={(e) => { setDriver(e.target.value as DbDriver); setDriverManual(true); }}
                   className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#00d2ff] text-white"
                 >
-                  {(["SQL", "NoSQL"] as const).map((group) => (
+                  {(["SQL", "NoSQL", "Industrial"] as const).map((group) => (
                     <optgroup key={group} label={group}>
                       {DRIVER_OPTIONS.filter((o) => o.group === group).map((opt) => (
                         <option key={opt.value} value={opt.value} className="bg-[#1a1a1a]">
@@ -341,15 +411,41 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 text-xs text-white/60">
-                <input
-                  type="checkbox"
-                  checked={readOnly}
-                  onChange={(e) => setReadOnly(e.target.checked)}
-                  className="rounded border-[#262626] bg-[#1a1a1a]"
-                />
-                Open this connection in read-only mode
-              </label>
+              {/* PI Historian fields */}
+              {isPIHistorian && (
+                <div className="space-y-3 p-3 rounded-lg border border-[#00d2ff]/20 bg-[#00d2ff]/5">
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-[#00d2ff]/60">PI Web API Credentials</p>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase tracking-widest font-bold text-white/50">Username</label>
+                    <input
+                      type="text"
+                      value={piUsername}
+                      onChange={(e) => setPiUsername(e.target.value)}
+                      placeholder="domain\\user or user"
+                      className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#00d2ff]"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase tracking-widest font-bold text-white/50">Password</label>
+                    <input
+                      type="password"
+                      value={piPassword}
+                      onChange={(e) => setPiPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#00d2ff]"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={piVerifySsl}
+                      onChange={(e) => setPiVerifySsl(e.target.checked)}
+                      className="rounded"
+                    />
+                    <span className="text-xs text-white/60">Verify SSL certificate</span>
+                  </label>
+                </div>
+              )}
 
               <div className="flex gap-2 pt-2">
                 <button
@@ -381,6 +477,17 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                   {isConnecting ? "Connecting..." : "Connect"}
                 </button>
               </div>
+
+              {/* Connection Doctor */}
+              {(doctorRunning || doctorResult) && (
+                <ConnectionDoctorPanel
+                  isRunning={doctorRunning}
+                  steps={doctorSteps}
+                  result={doctorResult}
+                  onUseFixedConfig={handleUseFixedConfig}
+                  onDismiss={() => { setDoctorResult(null); setDoctorSteps([]); }}
+                />
+              )}
             </div>
           </motion.div>
         </div>

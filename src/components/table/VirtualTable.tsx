@@ -24,7 +24,7 @@ import { InsertRowDialog } from "../dialogs/InsertRowDialog";
 import { ColumnStatsPopover } from "./ColumnStatsPopover";
 import { ChartView } from "./ChartView";
 import { ExplainView } from "./ExplainView";
-import { useVirtualTableQueryActions } from "./useVirtualTableQueryActions";
+import { GraphBuilderPanel } from "../charts/GraphBuilderPanel";
 
 const COL_WIDTH = 180;
 const ROW_HEIGHT = 36;
@@ -174,7 +174,7 @@ function exportInsert(tableName: string, columns: { name: string }[], rows: Reco
   };
   const stmts = rows.map((row) => {
     const vals = columns.map((c) => valToSql(row[c.name])).join(", ");
-    return `INSERT INTO ${quoteQualifiedName(tableName)} (${cols}) VALUES (${vals});`;
+    return `INSERT INTO "${tableName}" (${cols}) VALUES (${vals});`;
   }).join("\n");
   download(`daitalk_insert_${Date.now()}.sql`, "text/plain", stmts);
 }
@@ -190,6 +190,23 @@ function download(filename: string, mime: string, content: string) {
 }
 
 // ── Inline editing helper ─────────────────────────────────────────────────────
+
+function sqlLiteral(raw: string, col: ColumnMeta | undefined): string {
+  const trimmed = raw.trim();
+  if (trimmed === "" || trimmed.toLowerCase() === "null") return "NULL";
+  if (col?.display_type?.kind === "boolean") {
+    return trimmed.toLowerCase() === "true" ? "TRUE" : "FALSE";
+  }
+  if (col?.display_type?.kind === "integer") {
+    const n = parseInt(trimmed, 10);
+    if (!isNaN(n)) return String(n);
+  }
+  if (col?.display_type?.kind === "float") {
+    const n = parseFloat(trimmed);
+    if (!isNaN(n)) return String(n);
+  }
+  return `'${trimmed.replace(/'/g, "''")}'`;
+}
 
 async function exportXlsx(columns: { name: string }[], rows: Record<string, unknown>[]) {
   // Dynamic import so xlsx doesn't bloat the initial bundle
@@ -236,27 +253,15 @@ function copyText(text: string) {
 
 function parseSingleSourceTable(sourceTables: string[]): { schema: string; table: string } | null {
   if (sourceTables.length !== 1) return null;
-  const raw = sourceTables[0]?.trim();
-  if (!raw) return null;
-  const parts = raw.split(".");
-  if (parts.length === 1) {
-    return { schema: "public", table: parts[0] };
-  }
-  const table = parts.pop();
-  if (!table) return null;
-  return { schema: parts.join("."), table };
+  const [schema, table] = sourceTables[0].split(".");
+  if (!schema || !table) return null;
+  return { schema, table };
 }
 
 function getSingleSourceTableName(sourceTables: string[]): string | null {
-  return sourceTables.length === 1 ? sourceTables[0] ?? null : null;
-}
-
-function quoteQualifiedName(name: string): string {
-  return name
-    .split(".")
-    .filter((part) => part.trim().length > 0)
-    .map((part) => `"${part.replace(/"/g, '""')}"`)
-    .join(".");
+  const table = parseSingleSourceTable(sourceTables);
+  if (!table) return null;
+  return `${table.schema}.${table.table}`;
 }
 
 // ── Cell context menu ─────────────────────────────────────────────────────────
@@ -274,14 +279,12 @@ function CellContextMenu({
   columns,
   rows,
   selectedRows,
-  insertTargetTable,
   onClose,
 }: {
   menu: CellCtxMenu;
   columns: ColumnMeta[];
   rows: Record<string, unknown>[];
   selectedRows: Set<number>;
-  insertTargetTable: string | null;
   onClose: () => void;
 }) {
   const ref = React.useRef<HTMLDivElement>(null);
@@ -335,10 +338,7 @@ function CellContextMenu({
       label: "Copy as INSERT",
       icon: <Copy className="w-3 h-3" />,
       action: () => {
-        if (!insertTargetTable) {
-          toast.error("INSERT export requires a single source table");
-          return;
-        }
+        const tableName = QueryManager.inferTableName();
         const cols = columns.map((c) => `"${c.name}"`).join(", ");
         const vals = columns.map((c) => {
           const v = row[c.name];
@@ -346,7 +346,7 @@ function CellContextMenu({
           if (typeof v === "number" || typeof v === "boolean") return String(v);
           return `'${String(v).replace(/'/g, "''")}'`;
         }).join(", ");
-        copyText(`INSERT INTO ${quoteQualifiedName(insertTargetTable)} (${cols}) VALUES (${vals});`);
+        copyText(`INSERT INTO "${tableName}" (${cols}) VALUES (${vals});`);
         toast.success("INSERT statement copied");
       },
     },
@@ -369,10 +369,7 @@ function CellContextMenu({
             label: `Copy ${selectedRows.size} as INSERT`,
             icon: <Copy className="w-3 h-3" />,
             action: () => {
-              if (!insertTargetTable) {
-                toast.error("INSERT export requires a single source table");
-                return;
-              }
+              const tableName = QueryManager.inferTableName();
               const cols = columns.map((c) => `"${c.name}"`).join(", ");
               const stmts = [...selectedRows]
                 .sort((a, b) => a - b)
@@ -384,7 +381,7 @@ function CellContextMenu({
                     if (typeof v === "number" || typeof v === "boolean") return String(v);
                     return `'${String(v).replace(/'/g, "''")}'`;
                   }).join(", ");
-                  return `INSERT INTO ${quoteQualifiedName(insertTargetTable)} (${cols}) VALUES (${vals});`;
+                  return `INSERT INTO "${tableName}" (${cols}) VALUES (${vals});`;
                 })
                 .join("\n");
               copyText(stmts);
@@ -431,7 +428,6 @@ function RowDetailPanel({
   totalRows,
   columns,
   rows,
-  insertTargetTable,
   onClose,
   onNavigate,
 }: {
@@ -439,7 +435,6 @@ function RowDetailPanel({
   totalRows: number;
   columns: ColumnMeta[];
   rows: Record<string, unknown>[];
-  insertTargetTable: string | null;
   onClose: () => void;
   onNavigate: (idx: number) => void;
 }) {
@@ -453,10 +448,7 @@ function RowDetailPanel({
   };
 
   const handleCopyInsert = () => {
-    if (!insertTargetTable) {
-      toast.error("INSERT export requires a single source table");
-      return;
-    }
+    const tableName = QueryManager.inferTableName();
     const cols = columns.map((c) => `"${c.name}"`).join(", ");
     const vals = columns.map((c) => {
       const v = row?.[c.name];
@@ -464,7 +456,7 @@ function RowDetailPanel({
       if (typeof v === "number" || typeof v === "boolean") return String(v);
       return `'${String(v).replace(/'/g, "''")}'`;
     }).join(", ");
-    copyText(`INSERT INTO ${quoteQualifiedName(insertTargetTable)} (${cols}) VALUES (${vals});`);
+    copyText(`INSERT INTO "${tableName}" (${cols}) VALUES (${vals});`);
     toast.success("INSERT statement copied");
   };
 
@@ -681,23 +673,31 @@ function PivotView({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function VirtualTable() {
+interface VirtualTableProps {
+  isLoading?: boolean;
+}
+
+export function VirtualTable({ isLoading }: VirtualTableProps = {}) {
   const store = useRowStore();
   const { rows, columns, isStreaming, elapsedMs } = store;
   const chartRequest = useWorkspaceStore((s) => s.chartRequest);
   const setChartRequest = useWorkspaceStore((s) => s.setChartRequest);
   const activeConnectionId = useWorkspaceStore((s) => s.activeConnectionId);
+  const activeTabId = useWorkspaceStore((s) => s.activeTabId);
   const currentQueryResult = useWorkspaceStore((s) =>
     s.tabs.find((tab) => tab.id === s.activeTabId)?.queryResults ?? null
   );
+  const queryView = useWorkspaceStore((s) =>
+    s.tabs.find((tab) => tab.id === s.activeTabId)?.queryView ?? null
+  );
   const singleSourceTableName = getSingleSourceTableName(currentQueryResult?.source_tables ?? []);
 
-  const [filterText, setFilterText] = useState("");
+  const [filterText, setFilterText] = useState(queryView?.globalFilter ?? "");
   const [filterVisible, setFilterVisible] = useState(false);
   const [colFilterVisible, setColFilterVisible] = useState(false);
-  const [colFilterValues, setColFilterValues] = useState<Record<string, string>>({});
+  const [colFilterValues, setColFilterValues] = useState<Record<string, string>>(queryView?.columnFilters ?? {});
   const colFilterDebounce = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const [sort, setSort] = useState(QueryManager.getSort());
+  const [sort, setSort] = useState(queryView?.sort ?? QueryManager.getSort());
   const [expandedCell, setExpandedCell] = useState<{ value: unknown; colName: string } | null>(null);
   const [editingCell, setEditingCell] = useState<{
     rowIndex: number;
@@ -716,7 +716,9 @@ export function VirtualTable() {
   const focusedRowRef = useRef<number>(0);
   const [focusedCol, setFocusedCol] = useState<number>(0);
   const [chartVisible, setChartVisible] = useState(false);
+  const [graphBuilderVisible, setGraphBuilderVisible] = useState(false);
   const [pivotMode, setPivotMode] = useState(false);
+  const lastTrackedChartSignatureRef = useRef<string | null>(null);
 
   // Respond to create_chart command from agent
   useEffect(() => {
@@ -726,7 +728,7 @@ export function VirtualTable() {
     }
   }, [chartRequest, rows.length]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    lastTrackedQueryIdRef.current = null;
+    lastTrackedChartSignatureRef.current = null;
   }, [activeConnectionId, currentQueryResult?.queryId]);
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const lastSelectedRef = useRef<number | null>(null);
@@ -737,34 +739,12 @@ export function VirtualTable() {
   const filterDebounce = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const resizing = useRef<{ colName: string; startX: number; startWidth: number } | null>(null);
   const virtualizerRef = useRef<Virtualizer<HTMLDivElement, Element> | null>(null);
-  const lastTrackedQueryIdRef = useRef<string | null>(null);
 
   const getColWidth = (name: string) => colWidths[name] ?? COL_WIDTH;
   // Note: totalWidth computed after visibleColumns is derived (below isExplain check)
   // Placeholder here — actual width computed post-derive
   const _totalWidthFn = (cols: typeof columns) =>
     Math.max(ROW_NUM_WIDTH + cols.reduce((sum, c) => sum + getColWidth(c.name), 0), 400);
-
-  const {
-    handleChartRendered,
-    handleSortClick,
-    handleFilterChange,
-    handleClearFilter,
-    handleCellDoubleClick,
-    handleEditCancel,
-    handleEditCommit,
-  } = useVirtualTableQueryActions({
-    activeConnectionId,
-    currentQueryResult,
-    lastTrackedQueryIdRef,
-    setSort,
-    setFilterText,
-    filterDebounce,
-    isStreaming,
-    setEditingCell,
-    editingCell,
-    rows,
-  });
 
   // Column resize — mousemove/mouseup on window
   useEffect(() => {
@@ -904,16 +884,60 @@ export function VirtualTable() {
   // Keep local sort state in sync with QueryManager; clear selection on new result set
   const prevColumnsKey = useRef<string>("");
   useEffect(() => {
-    setSort(QueryManager.getSort());
+    setSort(queryView?.sort ?? QueryManager.getSort());
+    setFilterText(
+      queryView?.nullFilter ? `${queryView.nullFilter} IS NULL` : (queryView?.globalFilter ?? "")
+    );
+    setColFilterValues(queryView?.columnFilters ?? {});
     const key = columns.map((c) => c.name).join(",");
     if (key !== prevColumnsKey.current) {
       prevColumnsKey.current = key;
       setSelectedRows(new Set());
       setHiddenCols(new Set());
-      setColFilterValues({});
       lastSelectedRef.current = null;
     }
-  }, [rows, columns]);
+  }, [rows, columns, queryView, activeTabId]);
+
+  const handleSortClick = useCallback(async (colName: string) => {
+    await QueryManager.toggleSort(colName);
+    setSort(QueryManager.getSort());
+  }, []);
+
+  const handleChartRendered = useCallback(async (
+    queryId: string | null | undefined,
+    chartType: string,
+    columnCount: number,
+    selection: { xColumn: string; yColumn: string }
+  ) => {
+    if (!queryId) return;
+    const signature = [queryId, chartType, selection.xColumn, selection.yColumn].join("|");
+    if (lastTrackedChartSignatureRef.current === signature) return;
+    lastTrackedChartSignatureRef.current = signature;
+
+    try {
+      await DbClient.recordVisualizationViewed({
+        query_id: queryId,
+        chart_type: chartType,
+        column_count: columnCount,
+        viewed_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Failed to record visualization view", error);
+    }
+  }, []);
+
+  const handleFilterChange = useCallback((value: string) => {
+    setFilterText(value);
+    clearTimeout(filterDebounce.current);
+    filterDebounce.current = setTimeout(() => {
+      QueryManager.setFilter(value);
+    }, 400);
+  }, []);
+
+  const handleClearFilter = useCallback(async () => {
+    setFilterText("");
+    await QueryManager.setFilter("");
+  }, []);
 
   const handleRowClick = useCallback((rowIndex: number, e: React.MouseEvent) => {
     focusedRowRef.current = rowIndex;
@@ -938,6 +962,60 @@ export function VirtualTable() {
       lastSelectedRef.current = rowIndex;
     }
   }, []);
+
+  const handleCellDoubleClick = useCallback((rowIndex: number, colName: string, currentValue: unknown) => {
+    if (isStreaming) return;
+    setEditingCell({
+      rowIndex,
+      colName,
+      draftValue: currentValue === null || currentValue === undefined ? "" : String(currentValue),
+    });
+  }, [isStreaming]);
+
+  const handleEditCancel = useCallback(() => setEditingCell(null), []);
+
+  const handleEditCommit = useCallback(async () => {
+    if (!editingCell) return;
+    const { rowIndex, colName, draftValue } = editingCell;
+    setEditingCell(null);
+
+    const tableInfo = QueryManager.getBaseTable();
+    const connectionId = QueryManager.getConnectionId();
+
+    if (!tableInfo || !connectionId) {
+      toast.error("Cannot update: run a simple SELECT from a single table first");
+      return;
+    }
+
+    const cols = rowStore.columns;
+    const pkCol =
+      cols.find((c) => c.is_primary_key) ??
+      cols.find((c) => c.name.toLowerCase() === "id") ??
+      cols[0];
+
+    if (!pkCol) {
+      toast.error("Cannot update: no identifiable primary key");
+      return;
+    }
+
+    const row = rows[rowIndex];
+    const pkValue = row[pkCol.name];
+    const colMeta = cols.find((c) => c.name === colName);
+    const pkMeta = cols.find((c) => c.name === pkCol.name);
+
+    const newValSql = sqlLiteral(draftValue, colMeta);
+    const pkValSql = sqlLiteral(pkValue === null ? "" : String(pkValue), pkMeta);
+
+    const sql = `UPDATE "${tableInfo.schema}"."${tableInfo.table}" SET "${colName}" = ${newValSql} WHERE "${pkCol.name}" = ${pkValSql}`;
+
+    try {
+      await DbClient.execute(connectionId, sql);
+      toast.success("Cell updated");
+      await QueryManager.refresh();
+    } catch (e: any) {
+      toast.error(`Update failed: ${e.message ?? "unknown error"}`);
+    }
+  }, [editingCell, rows]);
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -1061,11 +1139,18 @@ export function VirtualTable() {
               <PanelRight className="w-3 h-3" />
             </button>
             <button
-              onClick={() => setChartVisible((v) => !v)}
+              onClick={() => { setChartVisible((v) => !v); setGraphBuilderVisible(false); }}
               className={`p-1 rounded transition-colors ${chartVisible ? "text-[#00d2ff]" : "text-white/20 hover:text-white/50"}`}
               title="Toggle chart view"
             >
               {chartVisible ? <Table2 className="w-3 h-3" /> : <BarChart2 className="w-3 h-3" />}
+            </button>
+            <button
+              onClick={() => { setGraphBuilderVisible((v) => !v); setChartVisible(false); }}
+              className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded transition-colors text-[9px] font-mono font-bold ${graphBuilderVisible ? "bg-[#00d2ff]/20 text-[#00d2ff]" : "text-white/20 hover:text-white/50"}`}
+              title="Toggle JMP-style Graph Builder"
+            >
+              GB
             </button>
             <button
               onClick={() => setPivotMode((v) => !v)}
@@ -1215,18 +1300,26 @@ export function VirtualTable() {
           <ChartView
             rows={rows}
             columns={columns}
+            queryId={currentQueryResult?.queryId}
             onChartRendered={handleChartRendered}
           />
         </div>
       )}
 
+      {/* ── Graph Builder view ──────────────────────────────────────── */}
+      {graphBuilderVisible && (
+        <div className="flex-1 overflow-hidden">
+          <GraphBuilderPanel columns={columns} data={rows} />
+        </div>
+      )}
+
       {/* ── Pivot / transpose view ────────────────────────────────────── */}
-      {!chartVisible && pivotMode && (
+      {!chartVisible && !graphBuilderVisible && pivotMode && (
         <PivotView columns={visibleColumns} rows={rows} />
       )}
 
       {/* ── Column headers + virtual data (hidden when chart is active) ── */}
-      {!chartVisible && !pivotMode && (<>
+      {!chartVisible && !graphBuilderVisible && !pivotMode && (<>
       <div
         ref={headerScrollRef}
         className="shrink-0 overflow-hidden border-b border-[#1a1a1a] bg-[#111]"
@@ -1399,6 +1492,11 @@ export function VirtualTable() {
         }}
       >
         <div style={{ height: virtualizer.getTotalSize(), width: totalWidth, position: "relative" }}>
+          {isLoading && rows.length === 0 && !isStreaming && (
+            <div className="flex items-center justify-center h-20 text-white/30 text-sm">
+              Executing…
+            </div>
+          )}
           {isStreaming && rows.length === 0 && (
             <div className="flex items-center justify-center h-16 text-white/20 text-xs font-mono">
               Waiting for first batch…
@@ -1530,7 +1628,6 @@ export function VirtualTable() {
           totalRows={rows.length}
           columns={columns}
           rows={rows}
-          insertTargetTable={singleSourceTableName}
           onClose={() => setRowDetailIdx(null)}
           onNavigate={(idx) => setRowDetailIdx(idx)}
         />
@@ -1565,7 +1662,6 @@ export function VirtualTable() {
           columns={columns}
           rows={rows}
           selectedRows={selectedRows}
-          insertTargetTable={singleSourceTableName}
           onClose={() => setCellCtxMenu(null)}
         />
       )}

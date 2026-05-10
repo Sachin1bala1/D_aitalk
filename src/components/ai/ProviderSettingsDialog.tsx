@@ -11,7 +11,7 @@ import {
   PROVIDER_CATALOG,
   loadSettings,
   saveSettings,
-  loadApiKeyPresenceFromKeychain,
+  loadApiKeysFromKeychain,
   saveApiKeyToKeychain,
   type ProviderID,
   type ProviderSettings,
@@ -38,15 +38,14 @@ const PROVIDER_LINK_LABEL: Partial<Record<ProviderID, string>> = {
 export function ProviderSettingsDialog({ open, onClose, onSave }: Props) {
   const [settings, setSettings] = useState<ProviderSettings>(loadSettings);
   const [showKeys, setShowKeys] = useState<Partial<Record<ProviderID, boolean>>>({});
-  const [storedKeyPresence, setStoredKeyPresence] = useState<Partial<Record<ProviderID, boolean>>>({});
   const [customModel, setCustomModel] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Load API-key presence from OS keychain when dialog opens.
+  // Load API keys from OS keychain when dialog opens
   useEffect(() => {
     if (!open) return;
-    loadApiKeyPresenceFromKeychain().then((presence) => {
-      setStoredKeyPresence(presence);
+    loadApiKeysFromKeychain().then((keys) => {
+      setSettings((s) => ({ ...s, keys }));
     }).catch(() => {});
   }, [open]);
 
@@ -102,7 +101,7 @@ export function ProviderSettingsDialog({ open, onClose, onSave }: Props) {
           <div>
             <h2 className="text-sm font-bold text-white">AI Provider Settings</h2>
             <p className="text-xs text-white/30 mt-0.5">
-              Keys stay in the OS keychain. External providers still receive prompts and query context; use Ollama for local-only inference.
+              Keys are stored in the OS keychain — never sent to Daitalk servers.
             </p>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded text-white/40 hover:text-white transition-colors">
@@ -114,7 +113,6 @@ export function ProviderSettingsDialog({ open, onClose, onSave }: Props) {
         <div className="flex gap-1 px-6 pt-4 shrink-0">
           {PROVIDER_CATALOG.map((p) => {
             const hasKey = !!(settings.keys[p.id] ?? "");
-            const hasStoredKey = !!storedKeyPresence[p.id];
             const isActive = settings.activeProvider === p.id;
             return (
               <button
@@ -128,7 +126,7 @@ export function ProviderSettingsDialog({ open, onClose, onSave }: Props) {
               >
                 <span className="block text-base leading-none mb-1">{p.icon}</span>
                 <span className="truncate block">{p.id === "nvidia" ? "NVIDIA" : p.id.charAt(0).toUpperCase() + p.id.slice(1)}</span>
-                {(hasKey || hasStoredKey) && (
+                {hasKey && (
                   <span className="block mt-0.5 text-emerald-400/80 text-[9px]">✓ key set</span>
                 )}
               </button>
@@ -263,7 +261,7 @@ export function ProviderSettingsDialog({ open, onClose, onSave }: Props) {
 
           {/* Active provider summary */}
           <div className="bg-[#1a1a1a] rounded-lg px-4 py-3 flex items-center gap-3">
-            <CheckCircle2 className={`w-4 h-4 shrink-0 ${isOllama || activeKey || storedKeyPresence[settings.activeProvider] ? "text-emerald-400" : "text-white/20"}`} />
+            <CheckCircle2 className={`w-4 h-4 shrink-0 ${isOllama || activeKey ? "text-emerald-400" : "text-white/20"}`} />
             <div className="min-w-0">
               <p className="text-xs text-white/60">
                 Active provider:{" "}
@@ -286,7 +284,7 @@ export function ProviderSettingsDialog({ open, onClose, onSave }: Props) {
           </button>
           <button
             onClick={handleSave}
-            disabled={saving || (!isOllama && !activeKey && !storedKeyPresence[settings.activeProvider])}
+            disabled={saving || (!isOllama && !activeKey)}
             className="flex-1 py-2 rounded-lg bg-[#00d2ff] text-black font-bold text-sm hover:opacity-90 disabled:opacity-40 transition-opacity"
           >
             {saving ? "Saving…" : "Save & Use"}

@@ -20,6 +20,9 @@ export default defineConfig(async () => ({
       ignored: ["**/src-tauri/**"],
     },
   },
+  optimizeDeps: {
+    exclude: ["pyodide"],
+  },
   // Env variables starting with VITE_ are exposed to the client
   envPrefix: ["VITE_", "TAURI_ENV_*"],
   build: {
@@ -29,43 +32,5 @@ export default defineConfig(async () => ({
     minify: !process.env.TAURI_ENV_DEBUG ? "esbuild" : false,
     // produce sourcemaps for debug builds
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (!id.includes("node_modules")) return;
-
-          if (
-            id.includes("\\react\\") ||
-            id.includes("/react/") ||
-            id.includes("\\react-dom\\") ||
-            id.includes("/react-dom/")
-          ) {
-            return "vendor_react";
-          }
-          if (id.includes("@tauri-apps")) return "vendor_tauri";
-          if (id.includes("@monaco-editor")) return "vendor_monaco";
-          if (id.includes("@xyflow")) return "vendor_graph";
-          if (id.includes("lucide-react")) return "vendor_icons";
-          if (
-            id.includes("@tanstack") ||
-            id.includes("zustand") ||
-            id.includes("sonner") ||
-            id.includes("sql-formatter")
-          ) {
-            return "vendor_ui";
-          }
-          if (
-            id.includes("@anthropic-ai") ||
-            id.includes("@google/genai") ||
-            id.includes("\\openai\\") ||
-            id.includes("/openai/")
-          ) {
-            return "vendor_ai";
-          }
-          if (id.includes("framer-motion")) return "vendor_motion";
-          if (id.includes("xlsx")) return "vendor_xlsx";
-        },
-      },
-    },
   },
 }));

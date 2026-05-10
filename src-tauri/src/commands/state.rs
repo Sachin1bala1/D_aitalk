@@ -12,4 +12,5 @@ pub struct AppState {
     pub duckdb: Arc<DuckDbEngine>,
     pub cancelled_queries: CancelSet,
     pub query_guards: SharedQueryGuardState,
+    pub memory_db: Arc<tokio::sync::Mutex<Option<sqlx::SqlitePool>>>,
 }

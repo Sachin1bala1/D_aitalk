@@ -1,40 +1,28 @@
 /**
- * TabBar - editor tab strip.
+ * TabBar — editor tab strip.
  * - Click to switch tab
  * - Double-click title to rename inline
- * - X button to close (also Ctrl+W)
- * - + button / Ctrl+T for new SQL tab
- * - Dashboard button / Ctrl+Shift+T for new dashboard tab
+ * - × button to close (also Ctrl+W)
+ * - + button / Ctrl+T for new tab
  */
-import React, { useEffect, useRef, useState } from "react";
-import { LayoutDashboard, Plus, X } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { X, Plus } from "lucide-react";
 import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
 
 export function TabBar() {
-  const {
-    tabs,
-    activeTabId,
-    setActiveTab,
-    closeTab,
-    addTab,
-    createDashboardTab,
-    updateTab,
-    activeConnectionId,
-  } = useWorkspaceStore();
+  const { tabs, activeTabId, setActiveTab, closeTab, addTab, updateTab, activeConnectionId } =
+    useWorkspaceStore();
 
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
 
-  const queryTabCount = tabs.filter((tab) => tab.type !== "dashboard").length;
-  const dashboardTabCount = tabs.filter((tab) => tab.type === "dashboard").length;
-
-  const handleNewSqlTab = () => {
+  const handleNewTab = () => {
     const id = `tab-${Date.now()}`;
     addTab({
       id,
       type: "sql_editor",
-      title: `Query ${queryTabCount + 1}`,
+      title: `Query ${tabs.length + 1}`,
       sql: "",
       connectionId: activeConnectionId,
       queryResults: null,
@@ -42,15 +30,7 @@ export function TabBar() {
     });
   };
 
-  const handleNewDashboardTab = () => {
-    const id = `dashboard-${Date.now()}`;
-    createDashboardTab({
-      id,
-      title: `Dashboard ${dashboardTabCount + 1}`,
-      connectionId: activeConnectionId,
-    });
-  };
-
+  // Tab keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const ctrl = e.ctrlKey || e.metaKey;
@@ -59,35 +39,23 @@ export function TabBar() {
       if (e.key === "w" && tabs.length > 1) {
         e.preventDefault();
         closeTab(activeTabId);
-        return;
-      }
-
-      if (e.key === "t") {
+      } else if (e.key === "t") {
         e.preventDefault();
-        if (e.shiftKey) {
-          handleNewDashboardTab();
-        } else {
-          handleNewSqlTab();
-        }
-        return;
-      }
-
-      if (e.key === "Tab") {
+        handleNewTab();
+      } else if (e.key === "Tab") {
+        // Ctrl+Tab → next tab; Ctrl+Shift+Tab → previous tab
         e.preventDefault();
-        const currentIdx = tabs.findIndex((tab) => tab.id === activeTabId);
+        const currentIdx = tabs.findIndex((t) => t.id === activeTabId);
         if (currentIdx === -1) return;
-
-        const nextIdx = e.shiftKey
+        const next = e.shiftKey
           ? (currentIdx - 1 + tabs.length) % tabs.length
           : (currentIdx + 1) % tabs.length;
-
-        setActiveTab(tabs[nextIdx].id);
+        setActiveTab(tabs[next].id);
       }
     };
-
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [activeTabId, tabs, closeTab, setActiveTab]);
+  }, [activeTabId, tabs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startRename = (tab: { id: string; title: string }) => {
     setRenamingId(tab.id);
@@ -109,36 +77,28 @@ export function TabBar() {
       {tabs.map((tab) => {
         const isActive = tab.id === activeTabId;
         const isRenaming = renamingId === tab.id;
-        const isDashboardTab = tab.type === "dashboard";
 
         return (
           <div
             key={tab.id}
-            onClick={() => {
-              if (!isRenaming) setActiveTab(tab.id);
-            }}
-            className={`group relative flex items-center gap-2 px-4 h-full min-w-0 max-w-[200px] cursor-pointer select-none border-r border-[#1a1a1a] shrink-0 transition-colors ${
+            onClick={() => { if (!isRenaming) setActiveTab(tab.id); }}
+            className={`group relative flex items-center gap-2 px-4 h-full min-w-0 max-w-[180px] cursor-pointer select-none border-r border-[#1a1a1a] shrink-0 transition-colors ${
               isActive
                 ? "bg-[#0d0d0d] text-white/80"
                 : "bg-[#0a0a0a] text-white/30 hover:text-white/50 hover:bg-[#0c0c0c]"
             }`}
           >
+            {/* Active tab top accent */}
             {isActive && (
               <span className="absolute top-0 left-0 right-0 h-[2px] bg-[#00d2ff]" />
             )}
 
+            {/* Executing indicator */}
             {tab.isExecuting && (
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
             )}
 
-            {isDashboardTab && (
-              <LayoutDashboard
-                className={`w-3 h-3 shrink-0 ${
-                  isActive ? "text-cyan-300" : "text-cyan-400/60"
-                }`}
-              />
-            )}
-
+            {/* Title — inline rename on double-click */}
             {isRenaming ? (
               <input
                 ref={renameInputRef}
@@ -150,21 +110,19 @@ export function TabBar() {
                   if (e.key === "Escape") setRenamingId(null);
                 }}
                 className="text-[11px] font-medium bg-transparent border-b border-[#00d2ff]/60 focus:outline-none text-white w-full min-w-0"
-                style={{ maxWidth: 132 }}
+                style={{ maxWidth: 120 }}
               />
             ) : (
               <span
                 className="text-[11px] font-medium truncate"
-                onDoubleClick={(e) => {
-                  e.stopPropagation();
-                  startRename(tab);
-                }}
-                title={isDashboardTab ? "Dashboard tab" : "Double-click to rename"}
+                onDoubleClick={(e) => { e.stopPropagation(); startRename(tab); }}
+                title="Double-click to rename"
               >
                 {tab.title}
               </span>
             )}
 
+            {/* Close button */}
             {tabs.length > 1 && !isRenaming && (
               <button
                 onClick={(e) => {
@@ -185,19 +143,13 @@ export function TabBar() {
         );
       })}
 
+      {/* New tab button */}
       <button
-        onClick={handleNewSqlTab}
+        onClick={handleNewTab}
         className="flex items-center justify-center w-8 h-full text-white/20 hover:text-white/50 hover:bg-white/5 transition-colors shrink-0"
-        title="New SQL tab (Ctrl+T)"
+        title="New tab (Ctrl+T)"
       >
         <Plus className="w-3.5 h-3.5" />
-      </button>
-      <button
-        onClick={handleNewDashboardTab}
-        className="flex items-center justify-center w-8 h-full text-cyan-400/30 hover:text-cyan-300 hover:bg-cyan-400/5 transition-colors shrink-0 border-l border-[#1a1a1a]"
-        title="New dashboard tab (Ctrl+Shift+T)"
-      >
-        <LayoutDashboard className="w-3.5 h-3.5" />
       </button>
     </div>
   );

@@ -1,14 +1,12 @@
 /**
- * SessionMonitor — shows live pg_stat_activity for the active PostgreSQL connection.
+ * SessionMonitor — shows live pg_stat_activity plus backend concurrency limits.
  * Auto-refreshes every 5s. Allows killing a backend pid.
- * Non-Postgres connections show a friendly "not supported" message.
  */
 import React, { useState, useEffect, useCallback } from "react";
 import { Activity, RefreshCw, XCircle, Loader2 } from "lucide-react";
-import { DbClient } from "../../lib/db/DbClient";
+import { DbClient, type QueryConcurrencyStatus } from "../../lib/db/DbClient";
 import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
 import { toast } from "sonner";
-import { collectStreamingQuery } from "../../lib/query/runtime";
 
 interface Session {
   pid: number;
@@ -44,6 +42,7 @@ const KILL_SQL = (pid: number) => `SELECT pg_terminate_backend(${pid})`;
 export function SessionMonitor() {
   const { activeConnectionId, connections } = useWorkspaceStore();
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [concurrency, setConcurrency] = useState<QueryConcurrencyStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
@@ -51,14 +50,19 @@ export function SessionMonitor() {
   const activeConn = connections.find((c) => c.id === activeConnectionId);
   const isPostgres = activeConn?.driver === "postgres" || activeConn?.driver === "timescaledb";
 
-  const fetchSessions = useCallback(async () => {
-    if (!activeConnectionId || !isPostgres) return;
+  const fetchState = useCallback(async () => {
+    if (!activeConnectionId) return;
     setLoading(true);
     setError(null);
 
     try {
-      const result = await collectStreamingQuery(activeConnectionId, SESSION_SQL);
-      setSessions(result.rows.map((row) => ({
+      const [concurrencyStatus, sessionRows] = await Promise.all([
+        DbClient.getQueryConcurrencyStatus(),
+        isPostgres ? DbClient.query(activeConnectionId, SESSION_SQL) : Promise.resolve([]),
+      ]);
+
+      setConcurrency(concurrencyStatus);
+      setSessions(sessionRows.map((row) => ({
         pid: Number(row["pid"]),
         usename: String(row["usename"] ?? ""),
         application_name: String(row["application_name"] ?? ""),
@@ -69,27 +73,26 @@ export function SessionMonitor() {
         query: String(row["query"] ?? ""),
         duration_ms: row["duration_ms"] != null ? Number(row["duration_ms"]) : null,
       })));
-      setLoading(false);
       setLastRefresh(new Date());
+      setLoading(false);
     } catch (e: any) {
       setError(e?.message ?? String(e));
       setLoading(false);
     }
   }, [activeConnectionId, isPostgres]);
 
-  // Initial load + auto-refresh every 5s
   useEffect(() => {
-    fetchSessions();
-    const id = setInterval(fetchSessions, 5000);
+    fetchState();
+    const id = setInterval(fetchState, 5000);
     return () => clearInterval(id);
-  }, [fetchSessions]);
+  }, [fetchState]);
 
   const handleKill = async (pid: number) => {
     if (!activeConnectionId) return;
     try {
       await DbClient.executeStreaming(activeConnectionId, KILL_SQL(pid));
       toast.success(`Terminated backend PID ${pid}`);
-      setTimeout(fetchSessions, 500);
+      setTimeout(fetchState, 500);
     } catch (e: any) {
       toast.error(`Failed to terminate PID ${pid}: ${e?.message}`);
     }
@@ -103,27 +106,26 @@ export function SessionMonitor() {
   };
 
   const formatDuration = (ms: number | null) => {
-    if (ms === null) return "—";
+    if (ms === null) return "-";
     if (ms < 1000) return `${Math.round(ms)}ms`;
     if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
     return `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
   };
 
-  if (!isPostgres) {
+  const activeConnectionConcurrency =
+    activeConnectionId && concurrency ? concurrency.per_connection[activeConnectionId] ?? 0 : 0;
+
+  if (!activeConnectionId) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-white/20">
         <Activity className="w-8 h-8" />
-        <p className="text-xs font-mono">Session monitor requires PostgreSQL</p>
-        {activeConn && (
-          <p className="text-[10px] font-mono text-white/15">Current: {activeConn.driver}</p>
-        )}
+        <p className="text-xs font-mono">No active connection</p>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col h-full text-xs">
-      {/* Toolbar */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-[#1a1a1a] shrink-0">
         <div className="flex items-center gap-2 text-white/40">
           <Activity className="w-3.5 h-3.5" />
@@ -141,7 +143,7 @@ export function SessionMonitor() {
             </span>
           )}
           <button
-            onClick={fetchSessions}
+            onClick={fetchState}
             disabled={loading}
             className="p-1 text-white/20 hover:text-white/60 transition-colors disabled:opacity-40"
             title="Refresh now"
@@ -151,66 +153,82 @@ export function SessionMonitor() {
         </div>
       </div>
 
-      {/* Error */}
+      <div className="grid grid-cols-2 gap-px bg-[#1a1a1a] shrink-0">
+        <div className="bg-[#0d0d0d] px-3 py-2">
+          <p className="text-[9px] uppercase tracking-widest text-white/25 font-bold">Global In Flight</p>
+          <p className="text-sm font-mono text-[#00d2ff]">
+            {concurrency ? `${concurrency.total_in_flight} / ${concurrency.max_global}` : "-"}
+          </p>
+        </div>
+        <div className="bg-[#0d0d0d] px-3 py-2">
+          <p className="text-[9px] uppercase tracking-widest text-white/25 font-bold">This Connection</p>
+          <p className="text-sm font-mono text-white/70">{activeConnectionConcurrency}</p>
+        </div>
+      </div>
+
       {error && (
         <div className="mx-3 mt-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 font-mono text-[10px]">
           {error}
         </div>
       )}
 
-      {/* Sessions table */}
-      <div className="flex-1 overflow-auto">
-        {sessions.length === 0 && !loading && !error && (
-          <div className="flex items-center justify-center h-24 text-white/20 font-mono text-[10px]">
-            No active sessions
-          </div>
-        )}
-        {sessions.length > 0 && (
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-b border-[#1a1a1a] sticky top-0 bg-[#0d0d0d]">
-                <th className="text-left px-3 py-1.5 text-[10px] font-mono text-white/30 font-normal">PID</th>
-                <th className="text-left px-3 py-1.5 text-[10px] font-mono text-white/30 font-normal">User</th>
-                <th className="text-left px-3 py-1.5 text-[10px] font-mono text-white/30 font-normal">App</th>
-                <th className="text-left px-3 py-1.5 text-[10px] font-mono text-white/30 font-normal">State</th>
-                <th className="text-left px-3 py-1.5 text-[10px] font-mono text-white/30 font-normal">Duration</th>
-                <th className="text-left px-3 py-1.5 text-[10px] font-mono text-white/30 font-normal">Wait</th>
-                <th className="text-left px-3 py-1.5 text-[10px] font-mono text-white/30 font-normal">Query</th>
-                <th className="px-2 py-1.5"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {sessions.map((s) => (
-                <tr
-                  key={s.pid}
-                  className="border-b border-[#111] hover:bg-white/[0.02] group"
-                >
-                  <td className="px-3 py-1.5 font-mono text-white/40 text-[10px]">{s.pid}</td>
-                  <td className="px-3 py-1.5 font-mono text-white/60 text-[10px]">{s.usename || "—"}</td>
-                  <td className="px-3 py-1.5 font-mono text-white/40 text-[10px] max-w-[80px] truncate">{s.application_name || "—"}</td>
-                  <td className={`px-3 py-1.5 font-mono text-[10px] ${stateColor(s.state)}`}>{s.state || "—"}</td>
-                  <td className="px-3 py-1.5 font-mono text-white/50 text-[10px]">{formatDuration(s.duration_ms)}</td>
-                  <td className="px-3 py-1.5 font-mono text-amber-400/60 text-[10px]">
-                    {s.wait_event ? `${s.wait_event_type}/${s.wait_event}` : "—"}
-                  </td>
-                  <td className="px-3 py-1.5 font-mono text-white/30 text-[10px] max-w-[200px] truncate" title={s.query}>
-                    {s.query || "—"}
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <button
-                      onClick={() => handleKill(s.pid)}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 text-red-500/50 hover:text-red-400 transition-all"
-                      title={`Terminate PID ${s.pid}`}
-                    >
-                      <XCircle className="w-3.5 h-3.5" />
-                    </button>
-                  </td>
+      {!isPostgres ? (
+        <div className="flex flex-col items-center justify-center h-full gap-3 text-white/20">
+          <Activity className="w-8 h-8" />
+          <p className="text-xs font-mono">Session list requires PostgreSQL</p>
+          <p className="text-[10px] font-mono text-white/15">Current: {activeConn?.driver}</p>
+        </div>
+      ) : (
+        <div className="flex-1 overflow-auto">
+          {sessions.length === 0 && !loading && !error && (
+            <div className="flex items-center justify-center h-24 text-white/20 font-mono text-[10px]">
+              No active sessions
+            </div>
+          )}
+          {sessions.length > 0 && (
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b border-[#1a1a1a] sticky top-0 bg-[#0d0d0d]">
+                  <th className="text-left px-3 py-1.5 text-[10px] font-mono text-white/30 font-normal">PID</th>
+                  <th className="text-left px-3 py-1.5 text-[10px] font-mono text-white/30 font-normal">User</th>
+                  <th className="text-left px-3 py-1.5 text-[10px] font-mono text-white/30 font-normal">App</th>
+                  <th className="text-left px-3 py-1.5 text-[10px] font-mono text-white/30 font-normal">State</th>
+                  <th className="text-left px-3 py-1.5 text-[10px] font-mono text-white/30 font-normal">Duration</th>
+                  <th className="text-left px-3 py-1.5 text-[10px] font-mono text-white/30 font-normal">Wait</th>
+                  <th className="text-left px-3 py-1.5 text-[10px] font-mono text-white/30 font-normal">Query</th>
+                  <th className="px-2 py-1.5"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+              </thead>
+              <tbody>
+                {sessions.map((s) => (
+                  <tr key={s.pid} className="border-b border-[#111] hover:bg-white/[0.02] group">
+                    <td className="px-3 py-1.5 font-mono text-white/40 text-[10px]">{s.pid}</td>
+                    <td className="px-3 py-1.5 font-mono text-white/60 text-[10px]">{s.usename || "-"}</td>
+                    <td className="px-3 py-1.5 font-mono text-white/40 text-[10px] max-w-[80px] truncate">{s.application_name || "-"}</td>
+                    <td className={`px-3 py-1.5 font-mono text-[10px] ${stateColor(s.state)}`}>{s.state || "-"}</td>
+                    <td className="px-3 py-1.5 font-mono text-white/50 text-[10px]">{formatDuration(s.duration_ms)}</td>
+                    <td className="px-3 py-1.5 font-mono text-amber-400/60 text-[10px]">
+                      {s.wait_event ? `${s.wait_event_type}/${s.wait_event}` : "-"}
+                    </td>
+                    <td className="px-3 py-1.5 font-mono text-white/30 text-[10px] max-w-[200px] truncate" title={s.query}>
+                      {s.query || "-"}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <button
+                        onClick={() => handleKill(s.pid)}
+                        className="opacity-0 group-hover:opacity-100 p-0.5 text-red-500/50 hover:text-red-400 transition-all"
+                        title={`Terminate PID ${s.pid}`}
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
     </div>
   );
 }

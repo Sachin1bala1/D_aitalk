@@ -13,7 +13,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { RefreshCw, Database, Table2, Zap, Wifi, AlertTriangle } from "lucide-react";
 import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
-import { queryRows } from "../../lib/query/runtime";
+import { DbClient, type LocalDataStats } from "../../lib/db/DbClient";
 
 interface OverviewData {
   dbSize: string | null;
@@ -23,6 +23,7 @@ interface OverviewData {
   activeConnections: number | null;
   idleConnections: number | null;
   longestQuery: { pid: number; duration: string; query: string } | null;
+  localStats: LocalDataStats | null;
 }
 
 function Stat({
@@ -87,15 +88,16 @@ export function DatabaseOverview() {
     abortRef.current = false;
 
     try {
+      const localStats = await DbClient.getLocalDataStats().catch(() => null);
       if (isPostgres) {
         // DB size
-        const sizeRes = await queryRows(activeConnectionId, "SELECT pg_size_pretty(pg_database_size(current_database())) AS size");
+        const sizeRes = await DbClient.query(activeConnectionId, "SELECT pg_size_pretty(pg_database_size(current_database())) AS size");
         const dbSize = (sizeRes[0]?.["size"] as string) ?? null;
 
         // Cache hit ratio
         let cacheHitRatio: number | null = null;
         try {
-          const cacheRes = await queryRows(
+          const cacheRes = await DbClient.query(
             activeConnectionId,
             `SELECT round(
                sum(blks_hit)::numeric / NULLIF(sum(blks_hit) + sum(blks_read), 0) * 100, 2
@@ -111,7 +113,7 @@ export function DatabaseOverview() {
         let activeConnections: number | null = null;
         let idleConnections: number | null = null;
         try {
-          const connRes = await queryRows(
+          const connRes = await DbClient.query(
             activeConnectionId,
             `SELECT state, count(*)::int AS cnt FROM pg_stat_activity WHERE datname = current_database() GROUP BY state`
           );
@@ -125,7 +127,7 @@ export function DatabaseOverview() {
         // Longest running query
         let longestQuery: OverviewData["longestQuery"] = null;
         try {
-          const lqRes = await queryRows(
+          const lqRes = await DbClient.query(
             activeConnectionId,
             `SELECT pid, query_start, now() - query_start AS duration, left(query, 120) AS query
              FROM pg_stat_activity
@@ -144,7 +146,7 @@ export function DatabaseOverview() {
         // Top tables by row estimate + size
         const topTables: OverviewData["topTables"] = [];
         try {
-          const tabRes = await queryRows(
+          const tabRes = await DbClient.query(
             activeConnectionId,
             `SELECT schemaname || '.' || relname AS name,
                     n_live_tup::bigint AS rows,
@@ -170,6 +172,7 @@ export function DatabaseOverview() {
             activeConnections,
             idleConnections,
             longestQuery,
+            localStats,
           });
         }
       } else {
@@ -189,6 +192,7 @@ export function DatabaseOverview() {
             activeConnections: null,
             idleConnections: null,
             longestQuery: null,
+            localStats,
           });
         }
       }
@@ -284,6 +288,16 @@ export function DatabaseOverview() {
                 label="Connections"
                 value={`${data.activeConnections ?? 0} active · ${data.idleConnections ?? 0} idle`}
                 color="text-white/60"
+              />
+            )}
+
+            {data.localStats && (
+              <Stat
+                icon={Database}
+                label="Local Intelligence"
+                value={`${data.localStats.query_history_count} queries / ${data.localStats.visualization_count} charts`}
+                color="text-white/60"
+                sublabel={`${data.localStats.hotspot_count} hotspots / ${data.localStats.benchmark_count} benchmarks`}
               />
             )}
 

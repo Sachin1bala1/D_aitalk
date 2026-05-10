@@ -9,6 +9,10 @@ const API_KEY_PREFIX: &str = "daitalk_";
 const MAX_GLOBAL_IN_FLIGHT_QUERIES: usize = 6;
 const MAX_PER_CONNECTION_IN_FLIGHT_QUERIES: usize = 2;
 
+pub fn max_global_in_flight_queries() -> usize {
+    MAX_GLOBAL_IN_FLIGHT_QUERIES
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OperationKind {
     ReadQuery,
@@ -22,6 +26,16 @@ pub enum OperationKind {
 pub struct QueryGuardState {
     total_in_flight: usize,
     per_connection: HashMap<String, usize>,
+}
+
+impl QueryGuardState {
+    pub fn total_in_flight(&self) -> usize {
+        self.total_in_flight
+    }
+
+    pub fn per_connection_counts(&self) -> HashMap<String, usize> {
+        self.per_connection.clone()
+    }
 }
 
 pub type SharedQueryGuardState = Arc<Mutex<QueryGuardState>>;
@@ -174,6 +188,7 @@ mod tests {
             pool_max: Some(4),
             ssh: None,
             read_only,
+            pi_config: None,
         }
     }
 

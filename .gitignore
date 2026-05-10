@@ -5,4 +5,4 @@ src-tauri/gen/
 .env
 .env.local
 *.log
-cargo_*.txt
+.worktrees/

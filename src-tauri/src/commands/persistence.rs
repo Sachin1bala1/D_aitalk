@@ -278,6 +278,30 @@ pub async fn has_api_key(service: String, app: AppHandle) -> Result<bool, String
 }
 
 #[tauri::command]
+pub async fn get_api_key(service: String, app: AppHandle) -> Result<String, String> {
+    if let Err(error) = validate_secret_service(&service) {
+        audit_secret_event(
+            &app,
+            "secret_access",
+            "blocked",
+            serde_json::json!({
+                "service": service,
+                "action": "read",
+                "reason": error,
+            }),
+        )
+        .await;
+        return Err(error);
+    }
+    let entry = keyring_entry(&service)?;
+    match entry.get_password() {
+        Ok(password) => Ok(password),
+        Err(keyring::Error::NoEntry) => Ok(String::new()),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+#[tauri::command]
 pub async fn delete_api_key(service: String, app: AppHandle) -> Result<(), String> {
     if let Err(error) = validate_secret_service(&service) {
         audit_secret_event(
@@ -298,5 +322,30 @@ pub async fn delete_api_key(service: String, app: AppHandle) -> Result<(), Strin
         Ok(()) => Ok(()),
         Err(keyring::Error::NoEntry) => Ok(()),
         Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+pub fn save_credential(key: String, value: String) -> Result<(), String> {
+    let entry = keyring::Entry::new(KEYRING_SERVICE, &key).map_err(|e| e.to_string())?;
+    entry.set_password(&value).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_credential(key: String) -> Result<Option<String>, String> {
+    let entry = keyring::Entry::new(KEYRING_SERVICE, &key).map_err(|e| e.to_string())?;
+    match entry.get_password() {
+        Ok(password) => Ok(Some(password)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+#[tauri::command]
+pub fn delete_credential(key: String) -> Result<(), String> {
+    let entry = keyring::Entry::new(KEYRING_SERVICE, &key).map_err(|e| e.to_string())?;
+    match entry.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(error) => Err(error.to_string()),
     }
 }

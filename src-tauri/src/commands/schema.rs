@@ -34,7 +34,6 @@ pub async fn db_get_schema(
             if let Ok(rows) = sqlx::query(
                 "SELECT hypertable_schema, hypertable_name FROM timescaledb_information.hypertables",
             )
-            .persistent(false)
             .fetch_all(pool)
             .await
             {
@@ -129,7 +128,6 @@ pub async fn db_get_table_ddl(
                  ) AS pk \
                  GROUP BY pk_clause",
             )
-            .persistent(false)
             .bind(&schema)
             .bind(&table)
             .fetch_optional(pool)

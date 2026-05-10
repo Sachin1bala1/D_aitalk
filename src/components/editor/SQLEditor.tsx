@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useEffect } from "react";
 import Editor, { type Monaco } from "@monaco-editor/react";
 import type { editor as MonacoEditor } from "monaco-editor";
 import { format } from "sql-formatter";
@@ -10,13 +10,16 @@ interface SQLEditorProps {
   onExecute: () => void;
   onExecuteSelected?: (sql: string) => void;
   schema?: FullSchema | null;
+  /** Column names from the most recent result set — offered as completions everywhere. */
   resultColumns?: string[];
 }
 
+// Keywords that indicate a table name follows
 const TABLE_KEYWORDS = /\b(FROM|JOIN|INTO|UPDATE|TABLE)\s+$/i;
+// Keywords that indicate column access (table. prefix)
 const COLUMN_DOT = /(\w+)\.\s*$/;
 
-let completionDisposable: { dispose: () => void } | null = null;
+let _completionDisposable: { dispose: () => void } | null = null;
 
 interface TableEntry {
   label: string;
@@ -26,8 +29,8 @@ interface TableEntry {
 }
 
 function registerCompletions(monaco: Monaco, schema: FullSchema | null | undefined, resultColumns?: string[]) {
-  completionDisposable?.dispose();
-  completionDisposable = null;
+  _completionDisposable?.dispose();
+  _completionDisposable = null;
 
   if (!schema) return;
 
@@ -57,7 +60,7 @@ function registerCompletions(monaco: Monaco, schema: FullSchema | null | undefin
     colMap[qualified] = cols.map((c) => c.name);
   }
 
-  completionDisposable = monaco.languages.registerCompletionItemProvider("sql", {
+  _completionDisposable = monaco.languages.registerCompletionItemProvider("sql", {
     triggerCharacters: [" ", "."],
     provideCompletionItems(
       model: MonacoEditor.ITextModel,
@@ -78,6 +81,7 @@ function registerCompletions(monaco: Monaco, schema: FullSchema | null | undefin
         endColumn: position.column,
       };
 
+      // Dot access: <tableName>.<cursor> → suggest columns
       const dotMatch = lineUpto.match(COLUMN_DOT);
       if (dotMatch) {
         const tableName = dotMatch[1];
@@ -95,12 +99,14 @@ function registerCompletions(monaco: Monaco, schema: FullSchema | null | undefin
         }
       }
 
+      // After FROM / JOIN / etc → suggest tables
       if (TABLE_KEYWORDS.test(lineUpto)) {
         return {
           suggestions: tableEntries.map((entry) => ({ ...entry, range })),
         };
       }
 
+      // Always offer result-set column names (from last query)
       if (resultColumns && resultColumns.length > 0 && word.word.length >= 1) {
         return {
           suggestions: resultColumns.map((col) => ({
@@ -109,7 +115,7 @@ function registerCompletions(monaco: Monaco, schema: FullSchema | null | undefin
             detail: "result column",
             insertText: `"${col}"`,
             range,
-            sortText: `z_${col}`,
+            sortText: `z_${col}`, // sort after schema suggestions
           })),
         };
       }
@@ -119,69 +125,20 @@ function registerCompletions(monaco: Monaco, schema: FullSchema | null | undefin
   });
 }
 
-function PlainSqlEditor({
-  value,
-  onChange,
-  onExecute,
-  onExecuteSelected,
-}: Pick<SQLEditorProps, "value" | "onChange" | "onExecute" | "onExecuteSelected">) {
-  return (
-    <textarea
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      onKeyDown={(e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !e.shiftKey) {
-          e.preventDefault();
-          onExecute();
-          return;
-        }
-
-        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "Enter") {
-          const target = e.currentTarget;
-          const selectedSql = target.value.slice(target.selectionStart, target.selectionEnd).trim();
-          e.preventDefault();
-          if (selectedSql && onExecuteSelected) {
-            onExecuteSelected(selectedSql);
-          } else {
-            onExecute();
-          }
-        }
-      }}
-      spellCheck={false}
-      className="h-full w-full resize-none border-0 bg-[#0b0b0b] p-4 font-mono text-sm leading-6 text-white outline-none"
-    />
-  );
-}
-
 export function SQLEditor({ value, onChange, onExecute, onExecuteSelected, schema, resultColumns }: SQLEditorProps) {
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
-  const [editorReady, setEditorReady] = useState(false);
-  const [forceFallback, setForceFallback] = useState(false);
 
+  // Re-register completions whenever schema or result columns change
   useEffect(() => {
     if (monacoRef.current) {
       registerCompletions(monacoRef.current, schema, resultColumns);
     }
   }, [schema, resultColumns]);
 
+  // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      completionDisposable?.dispose();
-    };
-  }, []);
-
-  useEffect(() => {
-    setEditorReady(false);
-    setForceFallback(false);
-
-    const timer = window.setTimeout(() => {
-      if (!editorRef.current) {
-        setForceFallback(true);
-      }
-    }, 4000);
-
-    return () => window.clearTimeout(timer);
+    return () => { _completionDisposable?.dispose(); };
   }, []);
 
   const handleEditorChange = (val: string | undefined) => {
@@ -189,15 +146,6 @@ export function SQLEditor({ value, onChange, onExecute, onExecuteSelected, schem
   };
 
   const handleFormat = () => {
-    if (forceFallback) {
-      try {
-        onChange(format(value, { language: "sql", tabWidth: 2, keywordCase: "upper" }));
-      } catch {
-        // leave as-is
-      }
-      return;
-    }
-
     const editor = editorRef.current;
     if (!editor) return;
     const sql = editor.getValue();
@@ -206,22 +154,23 @@ export function SQLEditor({ value, onChange, onExecute, onExecuteSelected, schem
       editor.setValue(formatted);
       onChange(formatted);
     } catch {
-      // leave as-is
+      // If formatting fails (e.g., incomplete SQL), leave as-is
     }
   };
 
   const handleMount = (editor: MonacoEditor.IStandaloneCodeEditor, monaco: Monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
-    setEditorReady(true);
-    setForceFallback(false);
 
+    // Register completions with the schema available at mount time
     registerCompletions(monaco, schema, resultColumns);
 
+    // Ctrl/Cmd+Enter → execute full SQL
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
       onExecute();
     });
 
+    // Ctrl+Shift+Enter → execute selected SQL (or full if no selection)
     editor.addCommand(
       monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.Enter,
       () => {
@@ -238,6 +187,7 @@ export function SQLEditor({ value, onChange, onExecute, onExecuteSelected, schem
       }
     );
 
+    // Shift+Alt+F → format SQL
     editor.addCommand(
       monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF,
       handleFormat
@@ -246,56 +196,28 @@ export function SQLEditor({ value, onChange, onExecute, onExecuteSelected, schem
 
   return (
     <div className="h-full w-full relative group">
-      {forceFallback ? (
-        <PlainSqlEditor
-          value={value}
-          onChange={onChange}
-          onExecute={onExecute}
-          onExecuteSelected={onExecuteSelected}
-        />
-      ) : (
-        <Editor
-          height="100%"
-          defaultLanguage="sql"
-          theme="vs-dark"
-          value={value}
-          onChange={handleEditorChange}
-          loading={
-            <div className="h-full w-full flex flex-col items-center justify-center gap-3 text-white/70">
-              <span>Loading editor...</span>
-              <button
-                onClick={() => setForceFallback(true)}
-                className="rounded border border-white/15 px-2 py-1 text-[11px] font-mono text-white/70 transition-colors hover:border-white/40 hover:text-white"
-              >
-                Use safe editor fallback
-              </button>
-            </div>
-          }
-          options={{
-            minimap: { enabled: false },
-            fontSize: 14,
-            fontFamily: "'JetBrains Mono', monospace",
-            lineNumbers: "on",
-            roundedSelection: false,
-            scrollBeyondLastLine: false,
-            readOnly: false,
-            automaticLayout: true,
-            padding: { top: 16, bottom: 16 },
-            suggestOnTriggerCharacters: true,
-            quickSuggestions: { other: true, strings: true, comments: false },
-          }}
-          onMount={handleMount}
-        />
-      )}
-
-      {!editorReady && !forceFallback && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center">
-          <span className="rounded border border-white/10 bg-black/50 px-2 py-1 text-[10px] font-mono text-white/35">
-            Initializing SQL editor
-          </span>
-        </div>
-      )}
-
+      <Editor
+        height="100%"
+        defaultLanguage="sql"
+        theme="vs-dark"
+        value={value}
+        onChange={handleEditorChange}
+        options={{
+          minimap: { enabled: false },
+          fontSize: 14,
+          fontFamily: "'JetBrains Mono', monospace",
+          lineNumbers: "on",
+          roundedSelection: false,
+          scrollBeyondLastLine: false,
+          readOnly: false,
+          automaticLayout: true,
+          padding: { top: 16, bottom: 16 },
+          suggestOnTriggerCharacters: true,
+          quickSuggestions: { other: true, strings: true, comments: false },
+        }}
+        onMount={handleMount}
+      />
+      {/* Format button — appears on hover in top-right of editor */}
       <button
         onClick={handleFormat}
         className="absolute top-2 right-4 opacity-0 group-hover:opacity-100 transition-opacity text-[9px] text-white/25 hover:text-white/60 bg-[#1e1e1e] border border-[#333] rounded px-2 py-0.5 font-mono"

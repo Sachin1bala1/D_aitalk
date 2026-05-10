@@ -1,18 +1,13 @@
 /**
  * QueryManager — tab-scoped server-side sort and filter orchestration.
  *
- * Query view state lives in WorkspaceStore per tab. This module is now a
- * thin façade so existing callers can keep using the same API without relying
- * on module-global mutable query state.
+ * Query transform state lives in WorkspaceStore per tab. This module stays as
+ * a thin facade so existing UI callers can keep using the same API.
  */
-import { DbClient } from "../db/DbClient";
-import {
-  cancelStreamingQuery,
-  runStreamingQuery,
-  type QueryRuntimeHandle,
-  type QuerySessionState,
-} from "../query/runtime";
+import { listen } from "@tauri-apps/api/event";
+import { DbClient, QueryBatch } from "../db/DbClient";
 import { useWorkspaceStore, type QueryViewState, type SortState } from "../stores/WorkspaceStore";
+import { buildEffectiveSqlForQueryView } from "../query/QueryTransformClient";
 import { rowStore } from "./RowStore";
 
 function activeTab() {
@@ -26,15 +21,6 @@ function currentQueryView(): QueryViewState | null {
 
 function updateQueryView(updates: Partial<QueryViewState>, tabId?: string) {
   useWorkspaceStore.getState().updateTabQueryView(updates, tabId);
-}
-
-function buildRunningSession(queryId: string): QuerySessionState {
-  return {
-    status: "running",
-    queryId,
-    elapsedMs: 0,
-    rowsSoFar: 0,
-  };
 }
 
 export const QueryManager = {
@@ -58,8 +44,18 @@ export const QueryManager = {
     return { ...(currentQueryView()?.columnFilters ?? {}) };
   },
 
+  getNullFilter(): string | null {
+    return currentQueryView()?.nullFilter ?? null;
+  },
+
   getBaseQuery(): string {
     return currentQueryView()?.baseSql ?? "";
+  },
+
+  inferTableName(): string {
+    const baseSql = currentQueryView()?.baseSql ?? "";
+    const match = baseSql.match(/\bFROM\s+["'`]?(\w+)["'`]?/i);
+    return match?.[1] ?? "table_name";
   },
 
   async toggleSort(column: string) {
@@ -89,6 +85,7 @@ export const QueryManager = {
   async setColumnFilter(column: string, value: string) {
     const view = currentQueryView();
     if (!view) return;
+
     const columnFilters = { ...view.columnFilters };
     if (value.trim() === "") {
       delete columnFilters[column];
@@ -140,6 +137,16 @@ export const QueryManager = {
   getConnectionId(): string | null {
     return currentQueryView()?.connectionId ?? null;
   },
+
+  getBaseTable(): { schema: string; table: string } | null {
+    const baseSql = currentQueryView()?.baseSql ?? "";
+    if (!baseSql) return null;
+    const qualified = baseSql.match(/\bFROM\s+"?(\w+)"?\."?(\w+)"?/i);
+    if (qualified) return { schema: qualified[1], table: qualified[2] };
+    const bare = baseSql.match(/\bFROM\s+"?(\w+)"?/i);
+    if (bare) return { schema: "public", table: bare[1] };
+    return null;
+  },
 };
 
 async function reexecute() {
@@ -147,82 +154,32 @@ async function reexecute() {
   const view = tab?.queryView;
   if (!tab || !view?.connectionId || !view.baseSql) return;
 
-  const effectiveSql = await DbClient.buildEffectiveSql({
-    base_sql: view.baseSql,
-    sort: view.sort,
-    global_filter: view.globalFilter,
-    null_filter: view.nullFilter,
-    column_filters: view.columnFilters,
-    columns: view.columns,
-  });
-
+  const effectiveSql = await buildEffectiveSqlForQueryView(view);
   updateQueryView({ effectiveSql }, tab.id);
 
   try {
-    await cancelStreamingQuery(view.runtimeHandle);
+    const response = await DbClient.executeStreaming(view.connectionId, effectiveSql);
+    const queryId = response.query_id;
+    updateQueryView({ currentQueryId: queryId }, tab.id);
+    rowStore.reset(queryId);
 
-    const runtimeHandle: QueryRuntimeHandle = await runStreamingQuery(
-      view.connectionId,
-      effectiveSql,
-      {
-        onColumns(fields) {
-          const current = useWorkspaceStore
-            .getState()
-            .tabs.find((candidate) => candidate.id === tab.id)?.queryView;
-          if ((current?.columns.length ?? 0) === 0) {
-            updateQueryView(
-              { columns: fields.map((column) => column.name) },
-              tab.id
-            );
-          }
-        },
-        onSuccess(results) {
-          updateQueryView(
-            {
-              currentQueryId: results.queryId,
-              sessionState: {
-                status: "completed",
-                queryId: results.queryId,
-                elapsedMs: results.elapsedMs,
-                rowsSoFar: results.rows.length,
-              },
-            },
-            tab.id
-          );
-        },
-        onStateChange(state) {
-          updateQueryView({ sessionState: state }, tab.id);
-        },
-        onSettled() {
-          rowStore.finalize();
-        },
+    const unlisten = await listen<QueryBatch>("query_batch", (event) => {
+      const batch = event.payload;
+      if (batch.query_id !== queryId) return;
+
+      rowStore.appendBatch(batch);
+
+      if (batch.columns && (view.columns.length === 0 || currentQueryView()?.columns.length === 0)) {
+        updateQueryView({ columns: batch.columns.map((column) => column.name) }, tab.id);
       }
-    );
 
-    updateQueryView(
-      {
-        runtimeHandle,
-        currentQueryId: runtimeHandle.queryId,
-        sessionState: buildRunningSession(runtimeHandle.queryId),
-      },
-      tab.id
-    );
+      if (batch.is_final || batch.error) {
+        rowStore.finalize();
+        unlisten();
+      }
+    });
   } catch (error) {
     console.error("QueryManager re-execute failed:", error);
     rowStore.finalize();
-    updateQueryView(
-      {
-        runtimeHandle: null,
-        sessionState: {
-          status: "failed",
-          queryId: view.currentQueryId ?? "unknown",
-          elapsedMs: 0,
-          rowsSoFar: 0,
-          errorMessage:
-            error instanceof Error ? error.message : "Query re-execute failed",
-        },
-      },
-      tab.id
-    );
   }
 }

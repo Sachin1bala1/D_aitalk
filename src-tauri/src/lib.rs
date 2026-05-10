@@ -25,21 +25,23 @@ pub fn run() {
     let duckdb = DuckDbEngine::new().expect("DuckDB init failed");
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
         .manage(AppState {
             connections: Arc::new(ConnectionManager::new()),
             duckdb: Arc::new(duckdb),
             cancelled_queries: Arc::new(Mutex::new(HashSet::new())),
             query_guards: Arc::new(Mutex::new(security::QueryGuardState::default())),
+            memory_db: Arc::new(tokio::sync::Mutex::new(None)),
         })
         .setup(|app| {
-            let store = tauri::async_runtime::block_on(IntelligenceStore::initialize(&app.handle()))?;
+            let store =
+                tauri::async_runtime::block_on(IntelligenceStore::initialize(&app.handle()))?;
             app.manage(store);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::health_check,
             commands::db_connect,
-            commands::db_test_connection,
             commands::db_disconnect,
             commands::db_list_connections,
             commands::db_ping,
@@ -48,6 +50,7 @@ pub fn run() {
             commands::db_execute_streaming,
             commands::db_execute,
             commands::db_cancel_query,
+            commands::get_query_concurrency_status,
             commands::db_add_column,
             commands::duckdb_query,
             commands::duckdb_load_parquet,
@@ -69,8 +72,40 @@ pub fn run() {
             commands::save_connections,
             commands::load_connections,
             commands::store_api_key,
-            commands::has_api_key,
+            commands::get_api_key,
             commands::delete_api_key,
+            commands::save_credential,
+            commands::get_credential,
+            commands::delete_credential,
+            commands::init_memory_db,
+            commands::memory_insert_episode,
+            commands::memory_get_episodes,
+            commands::memory_get_calibration,
+            commands::memory_update_calibration,
+            commands::memory_clear_episodes,
+            commands::memory_upsert_outcome,
+            commands::memory_get_pending_outcomes,
+            commands::memory_track_usage_event,
+            commands::memory_get_usage_summary,
+            commands::memory_upsert_customer,
+            commands::memory_list_customers,
+            commands::memory_add_customer_interaction,
+            commands::memory_get_customer_interactions,
+            commands::memory_get_customer_pipeline_summary,
+            commands::memory_upsert_monitoring_rule,
+            commands::memory_list_monitoring_rules,
+            commands::memory_record_monitoring_run,
+            commands::memory_get_recent_monitoring_runs,
+            commands::memory_generate_daily_brief,
+            commands::memory_get_proactive_suggestions,
+            commands::memory_get_customer_brief,
+            commands::pi_search_tags,
+            commands::pi_get_history,
+            commands::pi_get_current,
+            commands::pi_test_connection,
+            commands::activate_license,
+            commands::check_license,
+            commands::remove_license,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

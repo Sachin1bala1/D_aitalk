@@ -65,21 +65,7 @@ export function FileImportDialog({ open, onOpenChange, onImported }: FileImportD
 
     try {
       const ext = file.name.split(".").pop()?.toLowerCase();
-      const path = nativePath;
-
-      if (!path) {
-        await DbClient.recordSecurityAudit({
-          event_type: "local_file_access",
-          outcome: "blocked",
-          details_json: {
-            reason: "missing_native_path",
-            file_name: file.name,
-          },
-        }).catch(() => {});
-        toast.error("This import requires a native file path. Re-select the file from a local disk location.");
-        setIsImporting(false);
-        return;
-      }
+      const path = nativePath ?? file.name;
 
       if (ext === "parquet") {
         await DbClient.duckdbLoadParquet(path, tableName.trim());

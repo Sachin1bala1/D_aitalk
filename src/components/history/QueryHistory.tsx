@@ -1,16 +1,16 @@
 /**
- * QueryHistory keeps executed SQL only in memory for the current app session.
- * High-security mode avoids writing query text to browser localStorage.
+ * QueryHistory — persisted list of executed queries.
+ * Shown in the "History" panel tab. Click any entry to restore it to the editor.
+ * Supports search filter and starring (bookmarking) entries.
  */
 import React, { useState, useMemo } from "react";
 import { Clock, Play, Copy, Trash2, Star, Search, X } from "lucide-react";
 import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
 import { toast } from "sonner";
 
+const HISTORY_KEY = "daitalk_query_history";
+const STARRED_KEY = "daitalk_starred_queries";
 const MAX_HISTORY = 200;
-
-let historyEntries: HistoryEntry[] = [];
-let starredEntries = new Set<string>();
 
 export interface HistoryEntry {
   id: string;
@@ -21,30 +21,42 @@ export interface HistoryEntry {
   error?: string;
 }
 
+// ── History store (localStorage) ─────────────────────────────────────────────
+
 export function loadHistory(): HistoryEntry[] {
-  return [...historyEntries];
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (raw) return JSON.parse(raw) as HistoryEntry[];
+  } catch {}
+  return [];
 }
 
 export function pushHistory(entry: Omit<HistoryEntry, "id">): void {
-  if (historyEntries.length > 0 && historyEntries[0].sql === entry.sql && !entry.error) return;
-  const newEntry: HistoryEntry = {
-    ...entry,
-    id: `h-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-  };
-  historyEntries = [newEntry, ...historyEntries].slice(0, MAX_HISTORY);
+  const entries = loadHistory();
+  // Deduplicate: don't add if same SQL as most recent entry
+  if (entries.length > 0 && entries[0].sql === entry.sql && !entry.error) return;
+  const newEntry: HistoryEntry = { ...entry, id: `h-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` };
+  const updated = [newEntry, ...entries].slice(0, MAX_HISTORY);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
 }
 
 function clearHistory(): void {
-  historyEntries = [];
+  localStorage.removeItem(HISTORY_KEY);
 }
 
 function loadStarred(): Set<string> {
-  return new Set(starredEntries);
+  try {
+    const raw = localStorage.getItem(STARRED_KEY);
+    if (raw) return new Set(JSON.parse(raw) as string[]);
+  } catch {}
+  return new Set();
 }
 
 function saveStarred(starred: Set<string>): void {
-  starredEntries = new Set(starred);
+  localStorage.setItem(STARRED_KEY, JSON.stringify([...starred]));
 }
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export function QueryHistory() {
   const { setEditorSql } = useWorkspaceStore();
@@ -52,6 +64,8 @@ export function QueryHistory() {
   const [starred, setStarred] = useState<Set<string>>(loadStarred);
   const [search, setSearch] = useState("");
   const [starredOnly, setStarredOnly] = useState(false);
+
+  const reload = () => setEntries(loadHistory());
 
   const handleClear = () => {
     clearHistory();
@@ -90,6 +104,7 @@ export function QueryHistory() {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Toolbar */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-[#1a1a1a] shrink-0">
         <div className="flex-1 flex items-center gap-1.5 bg-[#111] border border-[#2a2a2a] rounded-lg px-2 py-1">
           <Search className="w-3 h-3 text-white/20 shrink-0" />
@@ -97,7 +112,7 @@ export function QueryHistory() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search SQL..."
+            placeholder="Search SQL…"
             className="flex-1 bg-transparent text-[10px] text-white/60 placeholder:text-white/20 focus:outline-none font-mono"
           />
           {search && (
@@ -122,9 +137,10 @@ export function QueryHistory() {
         </button>
       </div>
 
+      {/* Count line */}
       <div className="px-3 py-1 border-b border-[#111] shrink-0">
         <span className="text-[9px] font-mono text-white/20">
-          {filteredEntries.length} of {entries.length} | {starred.size} starred
+          {filteredEntries.length} of {entries.length} · {starred.size} starred
         </span>
       </div>
 
@@ -171,10 +187,12 @@ function HistoryRow({
 
   return (
     <div className={`px-3 py-2.5 hover:bg-white/[0.02] group transition-colors ${isStarred ? "border-l-2 border-amber-500/40" : ""}`}>
+      {/* SQL preview */}
       <pre className="text-[10px] font-mono text-white/60 whitespace-pre-wrap break-all leading-relaxed line-clamp-3">
         {entry.sql.trim()}
       </pre>
 
+      {/* Meta + actions */}
       <div className="flex items-center justify-between mt-1.5">
         <div className="flex items-center gap-2 text-[9px] font-mono text-white/20">
           <span>{dateStr} {timeStr}</span>
@@ -182,9 +200,9 @@ function HistoryRow({
             <span className="text-red-400/60">error</span>
           ) : (
             <>
-              <span className="text-white/10">|</span>
+              <span className="text-white/10">·</span>
               <span>{entry.rowCount.toLocaleString()} rows</span>
-              <span className="text-white/10">|</span>
+              <span className="text-white/10">·</span>
               <span>{entry.elapsedMs}ms</span>
             </>
           )}

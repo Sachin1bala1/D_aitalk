@@ -10,7 +10,6 @@ import { useWorkspaceStore, PlanStep } from "../../lib/stores/WorkspaceStore";
 import { commandBus } from "../../lib/agent/CommandBus";
 import { describeCommand } from "../../lib/agent/commands";
 import { toast } from "sonner";
-import { DbClient } from "../../lib/db/DbClient";
 
 export function PlanQueue() {
   const { planQueue, clearPlanQueue, updatePlanStep, removePlanStep } = useWorkspaceStore();
@@ -67,32 +66,12 @@ async function executeStep(
     return;
   }
 
-  updatePlanStep(step.id, { status: "approved" });
-  await DbClient.recordSecurityAudit({
-    event_type: "destructive_action_approval",
-    outcome: "approved",
-    details_json: {
-      step_id: step.id,
-      command_type: step.command.type,
-      human_readable: step.humanReadable,
-    },
-  }).catch(() => {});
-
   updatePlanStep(step.id, { status: "executing" });
 
   try {
     const result = await commandBus.dispatch(step.command);
     if (result.success) {
       updatePlanStep(step.id, { status: "done" });
-      await DbClient.recordSecurityAudit({
-        event_type: "destructive_action_execution",
-        outcome: "executed",
-        details_json: {
-          step_id: step.id,
-          command_type: step.command.type,
-          human_readable: step.humanReadable,
-        },
-      }).catch(() => {});
       toast.success(`Done: ${step.humanReadable}`);
 
       // Push to undo stack
@@ -104,30 +83,10 @@ async function executeStep(
       });
     } else {
       updatePlanStep(step.id, { status: "failed", errorMessage: result.error });
-      await DbClient.recordSecurityAudit({
-        event_type: "destructive_action_execution",
-        outcome: "failed",
-        details_json: {
-          step_id: step.id,
-          command_type: step.command.type,
-          human_readable: step.humanReadable,
-          error: result.error,
-        },
-      }).catch(() => {});
       toast.error(`Failed: ${result.error}`);
     }
   } catch (e: any) {
     updatePlanStep(step.id, { status: "failed", errorMessage: e?.message ?? String(e) });
-    await DbClient.recordSecurityAudit({
-      event_type: "destructive_action_execution",
-      outcome: "failed",
-      details_json: {
-        step_id: step.id,
-        command_type: step.command.type,
-        human_readable: step.humanReadable,
-        error: e?.message ?? String(e),
-      },
-    }).catch(() => {});
     toast.error(`Error: ${e?.message}`);
   }
 }
@@ -189,19 +148,7 @@ function StepCard({ step }: { step: PlanStep }) {
                 <CheckCircle2 className="w-4 h-4" />
               </button>
               <button
-                onClick={() => {
-                  updatePlanStep(step.id, { status: "rejected" });
-                  DbClient.recordSecurityAudit({
-                    event_type: "destructive_action_approval",
-                    outcome: "rejected",
-                    details_json: {
-                      step_id: step.id,
-                      command_type: step.commandType,
-                      human_readable: step.humanReadable,
-                    },
-                  }).catch(() => {});
-                  removePlanStep(step.id);
-                }}
+                onClick={() => removePlanStep(step.id)}
                 className="p-1 text-red-400 hover:bg-red-500/10 rounded transition-colors"
                 title="Reject"
               >

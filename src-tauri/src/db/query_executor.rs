@@ -6,24 +6,15 @@ use futures::StreamExt;
 use futures::TryStreamExt;
 use serde_json::{Map, Value};
 use sqlx::Column;
+use tauri::{AppHandle, Emitter};
 
 use super::connection_manager::ActiveConnection;
-use super::query_transport::QueryBatchSink;
 use super::types::{ColumnMeta, DisplayType, QueryBatch};
 use crate::error::DbError;
 
 const BATCH_SIZE: usize = 500;
 
 pub type CancelSet = Arc<Mutex<HashSet<String>>>;
-
-pub type Row = Value;
-
-pub struct ExecutionResult {
-    pub rows: Vec<Row>,
-    pub columns: Vec<String>,
-    pub row_count: u64,
-    pub duration_ms: u64,
-}
 
 /// Check if a query has been cancelled; remove it from the set if so.
 fn is_cancelled(cancelled: &CancelSet, query_id: &str) -> bool {
@@ -40,17 +31,17 @@ pub async fn execute_streaming(
     conn: Arc<ActiveConnection>,
     sql: String,
     query_id: String,
-    sink: Arc<dyn QueryBatchSink>,
+    app: AppHandle,
     cancelled: CancelSet,
-) -> Result<ExecutionResult, DbError> {
+) -> Result<(), DbError> {
     match conn.as_ref() {
-        ActiveConnection::Postgres(pool)           => stream_postgres(pool, &sql, query_id, sink.clone(), cancelled).await,
-        ActiveConnection::Mysql(pool)              => stream_mysql(pool, &sql, query_id, sink.clone(), cancelled).await,
-        ActiveConnection::Sqlite(pool)             => stream_sqlite(pool, &sql, query_id, sink.clone(), cancelled).await,
-        ActiveConnection::Mssql(client)            => stream_mssql(client, &sql, query_id, sink.clone(), cancelled).await,
-        ActiveConnection::Mongodb(client, db_name) => stream_mongodb(client, db_name, &sql, query_id, sink.clone(), cancelled).await,
-        ActiveConnection::Redis(mgr)               => stream_redis(mgr, &sql, query_id, sink.clone(), cancelled).await,
-        ActiveConnection::ClickHouse(client)       => stream_clickhouse(client, &sql, query_id, sink, cancelled).await,
+        ActiveConnection::Postgres(pool)           => stream_postgres(pool, &sql, query_id, app, cancelled).await,
+        ActiveConnection::Mysql(pool)              => stream_mysql(pool, &sql, query_id, app, cancelled).await,
+        ActiveConnection::Sqlite(pool)             => stream_sqlite(pool, &sql, query_id, app, cancelled).await,
+        ActiveConnection::Mssql(client)            => stream_mssql(client, &sql, query_id, app, cancelled).await,
+        ActiveConnection::Mongodb(client, db_name) => stream_mongodb(client, db_name, &sql, query_id, app, cancelled).await,
+        ActiveConnection::Redis(mgr)               => stream_redis(mgr, &sql, query_id, app, cancelled).await,
+        ActiveConnection::ClickHouse(client)       => stream_clickhouse(client, &sql, query_id, app, cancelled).await,
     }
 }
 
@@ -58,11 +49,11 @@ async fn stream_postgres(
     pool: &sqlx::PgPool,
     sql: &str,
     query_id: String,
-    app: Arc<dyn QueryBatchSink>,
+    app: AppHandle,
     cancelled: CancelSet,
-) -> Result<ExecutionResult, DbError> {
+) -> Result<(), DbError> {
     let start = Instant::now();
-    let mut stream = sqlx::query(sql).persistent(false).fetch(pool);
+    let mut stream = sqlx::query(sql).fetch(pool);
     let mut batch: Vec<Value> = Vec::with_capacity(BATCH_SIZE);
     let mut batch_index = 0u32;
     let mut total_rows = 0u64;
@@ -75,7 +66,7 @@ async fn stream_postgres(
         if !columns_sent {
             columns = extract_pg_columns(&row);
             emit_batch(
-                app.as_ref(), &query_id, 0, vec![], Some(columns.clone()), false,
+                &app, &query_id, 0, vec![], Some(columns.clone()), false,
                 start.elapsed().as_millis() as u64, 0,
             )?;
             columns_sent = true;
@@ -86,13 +77,13 @@ async fn stream_postgres(
 
         if batch.len() >= BATCH_SIZE {
             if is_cancelled(&cancelled, &query_id) {
-                emit_batch(app.as_ref(), &query_id, batch_index + 1, batch, None, true,
+                emit_batch(&app, &query_id, batch_index + 1, batch, None, true,
                     start.elapsed().as_millis() as u64, total_rows)?;
-                return Err(DbError::Other("Query cancelled".to_string()));
+                return Ok(());
             }
             batch_index += 1;
             emit_batch(
-                app.as_ref(), &query_id, batch_index,
+                &app, &query_id, batch_index,
                 std::mem::take(&mut batch), None, false,
                 start.elapsed().as_millis() as u64, total_rows,
             )?;
@@ -100,24 +91,19 @@ async fn stream_postgres(
     }
 
     emit_batch(
-        app.as_ref(), &query_id, batch_index + 1, batch, None, true,
+        &app, &query_id, batch_index + 1, batch, None, true,
         start.elapsed().as_millis() as u64, total_rows,
     )?;
-    Ok(ExecutionResult {
-        rows: vec![],
-        columns: columns.iter().map(|c| c.name.clone()).collect(),
-        row_count: total_rows,
-        duration_ms: start.elapsed().as_millis() as u64,
-    })
+    Ok(())
 }
 
 async fn stream_mysql(
     pool: &sqlx::MySqlPool,
     sql: &str,
     query_id: String,
-    app: Arc<dyn QueryBatchSink>,
+    app: AppHandle,
     cancelled: CancelSet,
-) -> Result<ExecutionResult, DbError> {
+) -> Result<(), DbError> {
     use sqlx::Row;
     let start = Instant::now();
     let mut stream = sqlx::query(sql).fetch(pool);
@@ -125,7 +111,6 @@ async fn stream_mysql(
     let mut batch_index = 0u32;
     let mut total_rows = 0u64;
     let mut columns_sent = false;
-    let mut column_names: Vec<String> = Vec::new();
 
     while let Some(row_result) = stream.next().await {
         let row = row_result?;
@@ -140,8 +125,7 @@ async fn stream_mysql(
                     ColumnMeta { name, type_name: type_info, display_type, nullable: true, is_primary_key: false }
                 })
                 .collect::<Vec<_>>();
-            column_names = cols.iter().map(|c| c.name.clone()).collect();
-            emit_batch(app.as_ref(), &query_id, 0, vec![], Some(cols), false, 0, 0)?;
+            emit_batch(&app, &query_id, 0, vec![], Some(cols), false, 0, 0)?;
             columns_sent = true;
         }
 
@@ -156,36 +140,31 @@ async fn stream_mysql(
 
         if batch.len() >= BATCH_SIZE {
             if is_cancelled(&cancelled, &query_id) {
-                emit_batch(app.as_ref(), &query_id, batch_index + 1, batch, None, true,
+                emit_batch(&app, &query_id, batch_index + 1, batch, None, true,
                     start.elapsed().as_millis() as u64, total_rows)?;
-                return Err(DbError::Other("Query cancelled".to_string()));
+                return Ok(());
             }
             batch_index += 1;
             emit_batch(
-                app.as_ref(), &query_id, batch_index,
+                &app, &query_id, batch_index,
                 std::mem::take(&mut batch), None, false,
                 start.elapsed().as_millis() as u64, total_rows,
             )?;
         }
     }
 
-    emit_batch(app.as_ref(), &query_id, batch_index + 1, batch, None, true,
+    emit_batch(&app, &query_id, batch_index + 1, batch, None, true,
         start.elapsed().as_millis() as u64, total_rows)?;
-    Ok(ExecutionResult {
-        rows: vec![],
-        columns: column_names,
-        row_count: total_rows,
-        duration_ms: start.elapsed().as_millis() as u64,
-    })
+    Ok(())
 }
 
 async fn stream_sqlite(
     pool: &sqlx::SqlitePool,
     sql: &str,
     query_id: String,
-    app: Arc<dyn QueryBatchSink>,
+    app: AppHandle,
     cancelled: CancelSet,
-) -> Result<ExecutionResult, DbError> {
+) -> Result<(), DbError> {
     use sqlx::Row;
     let start = Instant::now();
     let mut stream = sqlx::query(sql).fetch(pool);
@@ -193,7 +172,6 @@ async fn stream_sqlite(
     let mut batch_index = 0u32;
     let mut total_rows = 0u64;
     let mut columns_sent = false;
-    let mut column_names: Vec<String> = Vec::new();
 
     while let Some(row_result) = stream.next().await {
         let row = row_result?;
@@ -208,9 +186,8 @@ async fn stream_sqlite(
                     nullable: true,
                     is_primary_key: false,
                 })
-                .collect::<Vec<ColumnMeta>>();
-            column_names = cols.iter().map(|c| c.name.clone()).collect();
-            emit_batch(app.as_ref(), &query_id, 0, vec![], Some(cols), false, 0, 0)?;
+                .collect();
+            emit_batch(&app, &query_id, 0, vec![], Some(cols), false, 0, 0)?;
             columns_sent = true;
         }
 
@@ -225,36 +202,31 @@ async fn stream_sqlite(
 
         if batch.len() >= BATCH_SIZE {
             if is_cancelled(&cancelled, &query_id) {
-                emit_batch(app.as_ref(), &query_id, batch_index + 1, batch, None, true,
+                emit_batch(&app, &query_id, batch_index + 1, batch, None, true,
                     start.elapsed().as_millis() as u64, total_rows)?;
-                return Err(DbError::Other("Query cancelled".to_string()));
+                return Ok(());
             }
             batch_index += 1;
             emit_batch(
-                app.as_ref(), &query_id, batch_index,
+                &app, &query_id, batch_index,
                 std::mem::take(&mut batch), None, false,
                 start.elapsed().as_millis() as u64, total_rows,
             )?;
         }
     }
 
-    emit_batch(app.as_ref(), &query_id, batch_index + 1, batch, None, true,
+    emit_batch(&app, &query_id, batch_index + 1, batch, None, true,
         start.elapsed().as_millis() as u64, total_rows)?;
-    Ok(ExecutionResult {
-        rows: vec![],
-        columns: column_names,
-        row_count: total_rows,
-        duration_ms: start.elapsed().as_millis() as u64,
-    })
+    Ok(())
 }
 
 async fn stream_mssql(
     client_arc: &Arc<tokio::sync::Mutex<super::connection_manager::MssqlClient>>,
     sql: &str,
     query_id: String,
-    app: Arc<dyn QueryBatchSink>,
+    app: AppHandle,
     cancelled: CancelSet,
-) -> Result<ExecutionResult, DbError> {
+) -> Result<(), DbError> {
     let start = Instant::now();
     let mut guard = client_arc.lock().await;
 
@@ -292,9 +264,8 @@ async fn stream_mssql(
     };
 
     if !col_metas.is_empty() {
-        emit_batch(app.as_ref(), &query_id, 0, vec![], Some(col_metas.clone()), false, 0, 0)?;
+        emit_batch(&app, &query_id, 0, vec![], Some(col_metas.clone()), false, 0, 0)?;
     }
-    let column_names = col_metas.iter().map(|c| c.name.clone()).collect::<Vec<_>>();
 
     let mut batch: Vec<Value> = Vec::with_capacity(BATCH_SIZE);
     let mut batch_index = 0u32;
@@ -314,27 +285,22 @@ async fn stream_mssql(
 
         if batch.len() >= BATCH_SIZE {
             if is_cancelled(&cancelled, &query_id) {
-                emit_batch(app.as_ref(), &query_id, batch_index + 1, batch, None, true,
+                emit_batch(&app, &query_id, batch_index + 1, batch, None, true,
                     start.elapsed().as_millis() as u64, total_rows)?;
-                return Err(DbError::Other("Query cancelled".to_string()));
+                return Ok(());
             }
             batch_index += 1;
             emit_batch(
-                app.as_ref(), &query_id, batch_index,
+                &app, &query_id, batch_index,
                 std::mem::take(&mut batch), None, false,
                 start.elapsed().as_millis() as u64, total_rows,
             )?;
         }
     }
 
-    emit_batch(app.as_ref(), &query_id, batch_index + 1, batch, None, true,
+    emit_batch(&app, &query_id, batch_index + 1, batch, None, true,
         start.elapsed().as_millis() as u64, total_rows)?;
-    Ok(ExecutionResult {
-        rows: vec![],
-        columns: column_names,
-        row_count: total_rows,
-        duration_ms: start.elapsed().as_millis() as u64,
-    })
+    Ok(())
 }
 
 /// ClickHouse streaming — appends FORMAT JSONEachRow and streams NDJSON lines.
@@ -342,9 +308,9 @@ async fn stream_clickhouse(
     client: &clickhouse::Client,
     sql: &str,
     query_id: String,
-    app: Arc<dyn QueryBatchSink>,
+    app: AppHandle,
     cancelled: CancelSet,
-) -> Result<ExecutionResult, DbError> {
+) -> Result<(), DbError> {
     let start = Instant::now();
 
     // Append FORMAT JSONEachRow unless the query already specifies a format
@@ -363,14 +329,13 @@ async fn stream_clickhouse(
     let mut batch_index = 0u32;
     let mut total_rows = 0u64;
     let mut columns_sent = false;
-    let mut column_names: Vec<String> = Vec::new();
     let mut leftover = String::new();
 
     loop {
         if is_cancelled(&cancelled, &query_id) {
-            emit_batch(app.as_ref(), &query_id, batch_index + 1, batch, None, true,
+            emit_batch(&app, &query_id, batch_index + 1, batch, None, true,
                 start.elapsed().as_millis() as u64, total_rows)?;
-            return Err(DbError::Other("Query cancelled".to_string()));
+            return Ok(());
         }
 
         let chunk = cursor.next().await
@@ -400,29 +365,23 @@ async fn stream_clickhouse(
                         nullable: true,
                         is_primary_key: false,
                     }).collect();
-                    column_names = cols.iter().map(|c| c.name.clone()).collect();
-                    emit_batch(app.as_ref(), &query_id, 0, vec![], Some(cols), false, 0, 0)?;
+                    emit_batch(&app, &query_id, 0, vec![], Some(cols), false, 0, 0)?;
                 }
                 batch.push(Value::Object(row_val));
                 total_rows += 1;
 
                 if batch.len() >= BATCH_SIZE {
                     batch_index += 1;
-                    emit_batch(app.as_ref(), &query_id, batch_index, std::mem::take(&mut batch), None, false,
+                    emit_batch(&app, &query_id, batch_index, std::mem::take(&mut batch), None, false,
                         start.elapsed().as_millis() as u64, total_rows)?;
                 }
             }
         }
     }
 
-    emit_batch(app.as_ref(), &query_id, batch_index + 1, batch, None, true,
+    emit_batch(&app, &query_id, batch_index + 1, batch, None, true,
         start.elapsed().as_millis() as u64, total_rows)?;
-    Ok(ExecutionResult {
-        rows: vec![],
-        columns: column_names,
-        row_count: total_rows,
-        duration_ms: start.elapsed().as_millis() as u64,
-    })
+    Ok(())
 }
 
 /// Redis "query" — `sql` is interpreted as a key prefix (e.g. "session" scans "session:*").
@@ -431,9 +390,9 @@ async fn stream_redis(
     mgr: &redis::aio::ConnectionManager,
     prefix: &str,
     query_id: String,
-    app: Arc<dyn QueryBatchSink>,
+    app: AppHandle,
     cancelled: CancelSet,
-) -> Result<ExecutionResult, DbError> {
+) -> Result<(), DbError> {
     use redis::AsyncCommands;
 
     let start = Instant::now();
@@ -448,13 +407,7 @@ async fn stream_redis(
         ColumnMeta { name: "value".to_string(), type_name: "string".to_string(),  display_type: DisplayType::Text,    nullable: true,  is_primary_key: false },
     ];
 
-    emit_batch(app.as_ref(), &query_id, 0, vec![], Some(columns), false, 0, 0)?;
-    let column_names = vec![
-        "key".to_string(),
-        "type".to_string(),
-        "ttl".to_string(),
-        "value".to_string(),
-    ];
+    emit_batch(&app, &query_id, 0, vec![], Some(columns), false, 0, 0)?;
 
     let mut batch: Vec<Value> = Vec::with_capacity(BATCH_SIZE);
     let mut batch_index = 0u32;
@@ -463,9 +416,9 @@ async fn stream_redis(
 
     loop {
         if is_cancelled(&cancelled, &query_id) {
-            emit_batch(app.as_ref(), &query_id, batch_index + 1, batch, None, true,
+            emit_batch(&app, &query_id, batch_index + 1, batch, None, true,
                 start.elapsed().as_millis() as u64, total_rows)?;
-            return Err(DbError::Other("Query cancelled".to_string()));
+            return Ok(());
         }
 
         let (next_cursor, keys): (i64, Vec<String>) = redis::cmd("SCAN")
@@ -508,7 +461,7 @@ async fn stream_redis(
 
             if batch.len() >= BATCH_SIZE {
                 batch_index += 1;
-                emit_batch(app.as_ref(), &query_id, batch_index, std::mem::take(&mut batch), None, false,
+                emit_batch(&app, &query_id, batch_index, std::mem::take(&mut batch), None, false,
                     start.elapsed().as_millis() as u64, total_rows)?;
             }
         }
@@ -517,14 +470,9 @@ async fn stream_redis(
         if cursor == 0 { break; }
     }
 
-    emit_batch(app.as_ref(), &query_id, batch_index + 1, batch, None, true,
+    emit_batch(&app, &query_id, batch_index + 1, batch, None, true,
         start.elapsed().as_millis() as u64, total_rows)?;
-    Ok(ExecutionResult {
-        rows: vec![],
-        columns: column_names,
-        row_count: total_rows,
-        duration_ms: start.elapsed().as_millis() as u64,
-    })
+    Ok(())
 }
 
 /// MongoDB "query" — the `sql` parameter is interpreted as a collection name.
@@ -536,9 +484,9 @@ async fn stream_mongodb(
     db_name: &str,
     collection: &str,
     query_id: String,
-    app: Arc<dyn QueryBatchSink>,
+    app: AppHandle,
     cancelled: CancelSet,
-) -> Result<ExecutionResult, DbError> {
+) -> Result<(), DbError> {
     use futures::TryStreamExt;
     use mongodb::bson::Document;
 
@@ -554,7 +502,6 @@ async fn stream_mongodb(
     let mut batch_index = 0u32;
     let mut total_rows = 0u64;
     let mut first_batch = true;
-    let mut column_names: Vec<String> = Vec::new();
 
     while let Some(doc) = cursor
         .try_next()
@@ -562,9 +509,9 @@ async fn stream_mongodb(
         .map_err(|e| DbError::Other(e.to_string()))?
     {
         if is_cancelled(&cancelled, &query_id) {
-            emit_batch(app.as_ref(), &query_id, batch_index + 1, batch, None, true,
+            emit_batch(&app, &query_id, batch_index + 1, batch, None, true,
                 start.elapsed().as_millis() as u64, total_rows)?;
-            return Err(DbError::Other("Query cancelled".to_string()));
+            return Ok(());
         }
 
         let row = bson_doc_to_json(&doc);
@@ -576,25 +523,18 @@ async fn stream_mongodb(
             // Emit column metadata derived from first document on first batch
             let cols = if first_batch {
                 first_batch = false;
-                let cols = bson_doc_columns(&doc);
-                column_names = cols.iter().map(|c| c.name.clone()).collect();
-                Some(cols)
+                Some(bson_doc_columns(&doc))
             } else {
                 None
             };
-            emit_batch(app.as_ref(), &query_id, batch_index, std::mem::take(&mut batch), cols, false,
+            emit_batch(&app, &query_id, batch_index, std::mem::take(&mut batch), cols, false,
                 start.elapsed().as_millis() as u64, total_rows)?;
         }
     }
 
-    emit_batch(app.as_ref(), &query_id, batch_index + 1, batch, None, true,
+    emit_batch(&app, &query_id, batch_index + 1, batch, None, true,
         start.elapsed().as_millis() as u64, total_rows)?;
-    Ok(ExecutionResult {
-        rows: vec![],
-        columns: column_names,
-        row_count: total_rows,
-        duration_ms: start.elapsed().as_millis() as u64,
-    })
+    Ok(())
 }
 
 fn bson_doc_to_json(doc: &mongodb::bson::Document) -> Value {
@@ -666,7 +606,7 @@ fn bson_doc_columns(doc: &mongodb::bson::Document) -> Vec<ColumnMeta> {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 fn emit_batch(
-    app: &dyn QueryBatchSink,
+    app: &AppHandle,
     query_id: &str,
     batch_index: u32,
     rows: Vec<Value>,
@@ -675,7 +615,9 @@ fn emit_batch(
     elapsed_ms: u64,
     rows_so_far: u64,
 ) -> Result<(), DbError> {
-    app.emit_batch(QueryBatch {
+    app.emit(
+        "query_batch",
+        QueryBatch {
             query_id: query_id.to_string(),
             batch_index,
             rows,
@@ -684,7 +626,9 @@ fn emit_batch(
             total_elapsed_ms: elapsed_ms,
             rows_so_far,
             error: None,
-        })
+        },
+    )
+    .map_err(|e| DbError::Other(e.to_string()))
 }
 
 fn extract_pg_columns(row: &sqlx::postgres::PgRow) -> Vec<ColumnMeta> {
@@ -841,7 +785,7 @@ pub async fn execute_ddl(
 ) -> Result<u64, DbError> {
     match conn.as_ref() {
         ActiveConnection::Postgres(pool) => {
-            Ok(sqlx::query(sql).persistent(false).execute(pool).await?.rows_affected())
+            Ok(sqlx::query(sql).execute(pool).await?.rows_affected())
         }
         ActiveConnection::Mysql(pool) => {
             Ok(sqlx::query(sql).execute(pool).await?.rows_affected())

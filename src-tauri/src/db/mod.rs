@@ -1,9 +1,10 @@
 pub mod connection_manager;
 pub mod duckdb_engine;
 pub mod introspection;
+pub mod memory;
+pub mod pi_client;
 pub mod query_executor;
 pub mod query_transform;
-pub mod query_transport;
 pub mod ssh_tunnel;
 pub mod types;
 

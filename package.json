@@ -9,18 +9,10 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:dev:secure": "powershell -ExecutionPolicy Bypass -File .\\scripts\\windows-secure-dev.ps1",
     "tauri:build": "tauri build",
-    "tauri:build:store": "tauri build --config src-tauri/tauri.store.conf.json",
-    "tauri:build:secure": "powershell -ExecutionPolicy Bypass -File .\\scripts\\windows-secure-build.ps1",
-    "tauri:build:ci": "powershell -ExecutionPolicy Bypass -File .\\scripts\\windows-secure-build.ps1 -SkipNpmInstall",
-    "release:stage": "powershell -ExecutionPolicy Bypass -File .\\scripts\\stage-release-workspace.ps1",
-    "release:handoff": "powershell -ExecutionPolicy Bypass -File .\\scripts\\release-handoff.ps1",
-    "release:manifest": "powershell -ExecutionPolicy Bypass -File .\\scripts\\collect-packaging-machine-manifest.ps1",
-    "release:metadata:init": "powershell -ExecutionPolicy Bypass -File .\\scripts\\init-store-metadata.ps1",
-    "release:validate": "powershell -ExecutionPolicy Bypass -File .\\scripts\\validate-release-config.ps1 -WriteReport",
-    "release:validate:store": "powershell -ExecutionPolicy Bypass -File .\\scripts\\validate-release-config.ps1 -ReleaseProfile store -WriteReport",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.27.0",
@@ -30,14 +22,18 @@
     "@tanstack/react-table": "^8.21.0",
     "@tanstack/react-virtual": "^3.13.0",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-shell": "^2",
     "@xyflow/react": "^12.10.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.0.0",
+    "html2canvas": "^1.4.1",
     "immer": "^10.0.0",
     "lucide-react": "^0.546.0",
     "next-themes": "^0.4.6",
     "openai": "^6.0.0",
+    "pptxgenjs": "^3.12.0",
+    "pyodide": "^0.29.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",
@@ -56,8 +52,10 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.0.0",
     "autoprefixer": "^10.4.0",
+    "jsdom": "^29.0.2",
     "tailwindcss": "^4.0.0",
     "typescript": "~5.8.2",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "vitest": "^4.1.5"
   }
 }

@@ -3,7 +3,16 @@
  * Each provider (Claude, Gemini, OpenAI, NVIDIA) implements AIProvider.
  * AgentLoop only talks to this interface.
  */
-import { DbClient } from "../db/DbClient";
+
+// ── APEX reasoning types ──────────────────────────────────────────────────────
+
+/** One competing explanation the agent considered. Probabilities across all hypotheses sum to 1.0. */
+export interface Hypothesis {
+  text: string;
+  probability: number;
+  evidence_for: string[];
+  evidence_against: string[];
+}
 
 // ── Conversation history (provider-agnostic) ──────────────────────────────────
 
@@ -202,7 +211,7 @@ export function loadSettings(): ProviderSettings {
       return { ...parsed, keys: {} }; // keys come from keychain, not localStorage
     }
   } catch {}
-  return { activeProvider: "ollama", keys: {}, models: {} };
+  return { activeProvider: "claude", keys: {}, models: {} };
 }
 
 /** Persist provider selection + model prefs to localStorage. Keys are NOT saved here. */
@@ -212,22 +221,23 @@ export function saveSettings(settings: ProviderSettings): void {
 }
 
 /**
- * Load key presence from the OS keychain without exposing plaintext keys
- * to the renderer. Returns providerId → hasKey.
+ * Load all API keys from the OS keychain.
+ * Returns a partial map of providerId → key (only entries that are non-empty).
  */
-export async function loadApiKeyPresenceFromKeychain(): Promise<Partial<Record<ProviderID, boolean>>> {
+export async function loadApiKeysFromKeychain(): Promise<Partial<Record<ProviderID, string>>> {
+  const { DbClient } = await import("../db/DbClient");
   const ids: ProviderID[] = ["claude", "gemini", "openai", "nvidia", "ollama"];
   const results = await Promise.all(
     ids.map(async (id) => {
       try {
-        const hasKey = await DbClient.hasApiKey(KEYCHAIN_PREFIX + id);
-        return [id, hasKey] as const;
+        const key = await DbClient.getApiKey(KEYCHAIN_PREFIX + id);
+        return [id, key] as const;
       } catch {
-        return [id, false] as const;
+        return [id, ""] as const;
       }
     })
   );
-  return Object.fromEntries(results.filter(([, hasKey]) => hasKey));
+  return Object.fromEntries(results.filter(([, k]) => k !== ""));
 }
 
 /**
@@ -235,6 +245,7 @@ export async function loadApiKeyPresenceFromKeychain(): Promise<Partial<Record<P
  * Pass empty string to delete the key.
  */
 export async function saveApiKeyToKeychain(providerId: ProviderID, key: string): Promise<void> {
+  const { DbClient } = await import("../db/DbClient");
   await DbClient.storeApiKey(KEYCHAIN_PREFIX + providerId, key);
 }
 

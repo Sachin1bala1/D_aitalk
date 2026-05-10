@@ -6,17 +6,37 @@
  */
 import { commandBus } from "./CommandBus";
 import { AGENT_TOOLS } from "./toolDefinitions";
-import { classifyExecuteSqlRisk, describeCommand, requiresApproval } from "./commands";
-import type { AgentCommand } from "./commands";
+import { isDestructive, describeCommand } from "./commands";
+import type { AgentCommand, RunUserToolCmd, DeclareHypothesesCmd, DeclareConfidenceCmd, CreateGoGChartCmd } from "./commands";
+import { useUserToolStore } from "../stores/UserToolStore";
+import { userToolToUnifiedTool } from "../tools/user.tools";
+import { statToolToKernelKey } from "../tools/stat.tools";
 import type { CommandResult } from "./CommandBus";
 import { useWorkspaceStore } from "../stores/WorkspaceStore";
 import type { FullSchema } from "../db/DbClient";
 import type { QueryResults } from "../stores/WorkspaceStore";
 import type { AIProvider, ConversationTurn, ToolCall } from "../ai/types";
 import { withRetry } from "../ai/resilience";
-import { DbClient } from "../db/DbClient";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+export interface MemoryContext {
+  recentEpisodes: import("../memory/EpisodicMemory").Episode[];
+  priorityParams: string[];
+  expertiseLevel: string;
+  customerBrief?: Array<{
+    name: string;
+    company?: string | null;
+    stage: string;
+    priority: string;
+    notes?: string | null;
+  }>;
+  pendingOutcomes?: Array<{
+    title: string;
+    status: string;
+    due_at?: number | null;
+  }>;
+}
 
 export interface AgentLoopOptions {
   provider: AIProvider;
@@ -29,6 +49,62 @@ export interface AgentLoopOptions {
   onToolStart: (toolName: string, input: unknown) => void;
   onToolEnd: (toolName: string, result: CommandResult) => void;
   onPlanQueued: (stepId: string, description: string) => void;
+  memoryContext?: MemoryContext;
+}
+
+// ── Query Depth Classifier ────────────────────────────────────────────────────
+
+function classifyQueryDepth(question: string): 'fast' | 'deep' {
+  const q = question.toLowerCase();
+
+  // Deep path indicators
+  const deepKeywords = ['why', 'root cause', 'anomaly', 'unusual', 'problem',
+    'investigate', 'analyze', 'analyse', 'diagnose', 'correlate', 'cause'];
+  if (deepKeywords.some(k => q.includes(k))) return 'deep';
+
+  // Multiple variables indicator
+  const commaCount = (q.match(/,/g) || []).length;
+  const andCount = (q.match(/\band\b/g) || []).length;
+  if (commaCount > 2 || andCount > 2) return 'deep';
+
+  // Fast path indicators
+  if (q.includes('how many') || q.includes('count') || q.includes('list') ||
+      q.includes('show me') || q.includes('what columns')) return 'fast';
+
+  // SQL request
+  if (q.startsWith('select') || q.includes('run query') || q.includes('execute')) return 'fast';
+
+  // Very short questions default to fast
+  if (question.trim().split(/\s+/).length < 8) return 'fast';
+
+  return 'fast'; // default
+}
+
+// ── Column Type Resolver ──────────────────────────────────────────────────────
+
+async function resolveColumnTypes(
+  _connectionId: string,
+  tableName: string,
+  columns: string[],
+  schemas: Record<string, import("../db/DbClient").FullSchema>
+): Promise<Record<string, string>> {
+  // First: try to get from the cached schema
+  const schemaKeys = Object.keys(schemas);
+  for (const connId of schemaKeys) {
+    const s = schemas[connId];
+    // Try both schema-qualified and unqualified keys
+    for (const colKey of Object.keys(s.columns)) {
+      if (colKey.includes(tableName)) {
+        const cols = s.columns[colKey] ?? [];
+        const relevant = cols.filter((c) => columns.includes(c.name));
+        if (relevant.length > 0) {
+          return Object.fromEntries(relevant.map((c) => [c.name, c.type_name]));
+        }
+      }
+    }
+  }
+  // Fallback: return empty (APEX will guess from column name heuristics)
+  return {};
 }
 
 // ── System Prompt ─────────────────────────────────────────────────────────────
@@ -37,20 +113,60 @@ function buildSystemPrompt(
   schema: FullSchema | null,
   currentSQL: string | null,
   currentResults: QueryResults | null,
-  agentMode: "plan" | "auto"
+  agentMode: "plan" | "auto",
+  memoryContext?: MemoryContext,
+  queryDepth?: 'fast' | 'deep'
 ): string {
   const parts: string[] = [];
 
+  if (queryDepth === 'deep') {
+    parts.push(
+      `DEEP ANALYSIS MODE: This question requires careful multi-step reasoning. You MUST: (1) call declare_hypotheses first, (2) run at least 2 independent tools before concluding, (3) call declare_confidence last.`
+    );
+  } else if (queryDepth === 'fast') {
+    parts.push(
+      `FAST MODE: Respond concisely. Use at most 1 tool. Skip hypothesis declaration unless the user is clearly asking about a process problem.`
+    );
+  }
+
   parts.push(
-    `You are Daitalk AI — an expert database assistant embedded in a desktop SQL IDE.
-You have full agentic control: write and execute SQL, inspect schemas, modify tables, manage data.
+    `You are APEX — Autonomous Process Engineering eXpert, embedded in Daitalk: a desktop SQL IDE.
+You reason and communicate like a 30-year senior process engineer: precise, evidence-driven, and always honest about uncertainty.
+You have full agentic control: write and execute SQL, run statistical analyses, inspect schemas, modify tables, manage data.
 You operate in ${agentMode.toUpperCase()} MODE.
 
 ${
   agentMode === "plan"
-    ? "PLAN MODE: Any mutating or destructive command is queued for user approval before executing. Read-only commands can run immediately."
-    : "AUTO MODE: Read-only commands can run immediately. Any mutating or destructive command is still queued for explicit user approval before execution."
+    ? "PLAN MODE: Destructive commands (delete_rows, drop_column, rename_table, bulk_transform) are queued for user approval before executing. Safe commands run immediately."
+    : "AUTO MODE: All commands execute immediately. Always explain destructive operations in your text response before calling those tools."
 }`
+  );
+
+  parts.push(
+    `## Process Engineering First Principles
+When analyzing process or quality data, always reason in this sequence — never skip steps:
+1. **Control**: Is the process in statistical control? Check for SPC rule violations (use stat__western_electric) before anything else. An out-of-control process cannot be meaningfully characterized.
+2. **Capability**: What is Cp/Cpk/Ppk? Is it meeting spec? (use stat__capability). Cp > 1.33 is the minimum acceptable threshold for most manufacturing processes.
+3. **Drivers**: Which input variables explain output variation? (use stat__regression, stat__fft for cyclic patterns, stat__anomaly_zscore for outliers). Quantify relationships — never be vague.
+4. **Experiments**: What structured test would confirm causation? Suggest a DOE (Design of Experiment) when the data is observational and causation is unclear.
+
+## Reasoning Protocol (apply every turn)
+1. **Frame the problem** — What exactly is being asked? What is the risk if you answer incorrectly?
+2. **Generate competing hypotheses** — List 1–5 explanations with rough probabilities. State what evidence supports or contradicts each.
+3. **Choose reasoning depth** — Use fast heuristics when confidence is high and the pattern is familiar. Use explicit chain-of-thought when the problem is novel, ambiguous, or high-stakes.
+4. **Select tools** — Which tool confirms or rejects your top hypothesis? Call multiple independent tools in parallel when possible.
+5. **Quantify uncertainty** — State your confidence. State explicitly what single piece of evidence would change your conclusion.
+
+## Statistical Tools Available (use proactively for process data)
+- **stat__describe** — First step for any numeric column: n, mean, std, min/max, quartiles, skewness, kurtosis
+- **stat__spc_xbar_r** — X-bar/R control chart: subgroup means, ranges, UCL/LCL
+- **stat__capability** — Cp, Cpk, Cpu, Cpl, Pp, Ppk, sigma level (requires USL + LSL)
+- **stat__western_electric** — Detects 4 Nelson/Western Electric rule violations
+- **stat__regression** — Linear or polynomial regression: slope, R², p-value, residuals
+- **stat__fft** — Fast Fourier Transform: dominant frequencies and amplitudes for vibration/cyclical analysis
+- **stat__anomaly_zscore** — Z-score outlier detection with configurable threshold
+
+Always prefer stat tools over manual SQL aggregations for statistical work — they run in WASM and return richer results.`
   );
 
   if (schema) {
@@ -71,6 +187,22 @@ ${
 
     parts.push(`DATABASE SCHEMA (${schema.driver}):\n${tableLines}`);
   }
+
+  parts.push(
+    `## Column Type Hints for Visualization
+When creating charts, use these column type rules:
+- data_type contains "timestamp" or "date" AND y is numeric → geom: line (time series)
+- both x and y are numeric (float, integer, numeric, real) → geom: scatter
+- x is text/varchar AND y is numeric → geom: box (distribution by category)
+- x is numeric AND no y specified → geom: histogram
+- x is text AND no y → geom: bar (count by category)
+
+WHERE clause extraction rules:
+- "for unit A" or "unit = A" → where_clause: "unit = 'A'"
+- "last 30 days" → where_clause: "timestamp > NOW() - INTERVAL '30 days'"
+- "above 100" on column X → where_clause: "X > 100"
+- "between 20 and 50" → where_clause: "column BETWEEN 20 AND 50"`
+  );
 
   if (currentSQL) {
     parts.push(`CURRENT SQL IN EDITOR:\n\`\`\`sql\n${currentSQL}\n\`\`\``);
@@ -111,21 +243,100 @@ ${
 - Hypertables are standard PostgreSQL tables partitioned by time
 - Use time_bucket() for time-series aggregation: SELECT time_bucket('1 hour', ts) AS bucket, avg(val) FROM sensor_data GROUP BY bucket ORDER BY bucket
 - Use first() / last() aggregate functions for time-series selects
-- Schema is otherwise identical to PostgreSQL`);
+- Schema is otherwise identical to PostgreSQL
+
+For TimescaleDB hypertables: prefer time_bucket() aggregation before running stat tools.
+Use stat__time_series_decompose for trend analysis on hypertable data.
+Avoid SELECT * on large hypertables — always add a time range WHERE clause.`);
     }
   }
+
+  const userToolList = useUserToolStore.getState().tools;
+  if (userToolList.length > 0) {
+    const lines = userToolList
+      .map((t) => {
+        const paramHint =
+          t.parameters.length > 0
+            ? `\n  Parameters: ${t.parameters.map((p) => p.name).join(", ")}`
+            : "";
+        return `- **user__${t.id}** (${t.category}) — ${t.description}${paramHint}`;
+      })
+      .join("\n");
+    parts.push(`## Your Custom Tools (call these proactively when user intent matches)\n${lines}`);
+  }
+
+  parts.push(
+    `## Billion-Scale Visualization Protocol
+ALWAYS use create_gog_chart for visualization requests. This tool automatically handles any dataset size.
+
+AUTO GEOMETRY SELECTION:
+- timestamp/date column + numeric column → geom: line
+- numeric + numeric → geom: scatter
+- categorical (text/varchar) + numeric → geom: box
+- single numeric column, no y → geom: histogram
+- categorical + numeric with many categories → geom: bar
+
+WHERE CLAUSE: if the user says "for unit A" or "where pressure > 100", include as where_clause (without the WHERE keyword).
+
+OVERLAYS: if user mentions spec limits, control limits, or reference lines:
+- "USL=95 LSL=20" → overlays: [{type:"spec_limits", lsl:20, usl:95}]
+- "trend line" → overlays: [{type:"trend_line", method:"ols"}]
+- "mean line" → overlays: [{type:"mean_line"}]
+- "reference at 100" → overlays: [{type:"ref_line", axis:"y", value:100}]
+
+When you create a chart using binned strategy, ALWAYS mention it briefly:
+Example: "I've created a scatter plot of temperature vs pressure. Your table has 10M rows — I've aggregated them into a 200×200 bin grid so the chart renders instantly. Each dot represents multiple data points (dot size = number of points)."
+Keep this to 2-3 sentences. Do not over-explain.`
+  );
+
+  parts.push(`## Mandatory Hypothesis Protocol
+For any question about anomalies, quality issues, process upsets, or unexplained changes: you MUST call declare_hypotheses BEFORE calling any analysis tool. List 2-5 competing explanations with rough probabilities. After each tool result, update your hypotheses (call declare_hypotheses again with revised probabilities). State which hypothesis was confirmed or eliminated.`);
 
   parts.push(`GUIDELINES:
 - Explain what you are doing before calling tools
 - Use execute_sql to fetch data for answering questions
-- Use create_dashboard when the user wants a reusable graph-builder workspace
-- Use create_chart to place a chart into dashboard workflow from current results
-- Use update_dashboard_widget to refine an existing dashboard widget after it exists
-- When updating a dashboard widget, prefer targeting the currently selected widget unless the user names a different one
 - Use set_editor_content when the user wants to review SQL before running
 - Quote all SQL identifiers: "schema"."table"."column"
-- Never attempt to auto-execute mutating SQL or schema changes without explicit user confirmation
-- If a command changes data, schema, or local files, expect it to be queued for approval`);
+- Never call delete_rows or drop_column without explicit user confirmation`);
+
+  if (memoryContext) {
+    if (memoryContext.recentEpisodes.length > 0) {
+      const episodeLines = memoryContext.recentEpisodes
+        .slice(0, 5)
+        .map((ep) => {
+          const date = new Date(ep.createdAt).toLocaleDateString();
+          const rawSummary = ep.findings?.["summary"];
+          const summary = ep.outcome ?? (typeof rawSummary === "string" ? rawSummary : "");
+          return `- [${date}] User asked: "${ep.problem.slice(0, 80)}". Finding: ${summary}`;
+        })
+        .join("\n");
+      parts.push(`## Your Memory of Past Analyses\n${episodeLines}`);
+    }
+    if (memoryContext.priorityParams.length > 0) {
+      parts.push(
+        `## User Priority Parameters\nBased on past sessions, this user frequently analyzes: ${memoryContext.priorityParams.join(", ")}\nCalibrated expertise level: ${memoryContext.expertiseLevel}`
+      );
+    }
+    if (memoryContext.customerBrief && memoryContext.customerBrief.length > 0) {
+      const lines = memoryContext.customerBrief
+        .slice(0, 6)
+        .map((customer) =>
+          `- ${customer.name}${customer.company ? ` @ ${customer.company}` : ""} · stage=${customer.stage} · priority=${customer.priority}${customer.notes ? ` · ${customer.notes.slice(0, 80)}` : ""}`
+        )
+        .join("\n");
+      parts.push(`## Founder / Customer Context\n${lines}`);
+    }
+    if (memoryContext.pendingOutcomes && memoryContext.pendingOutcomes.length > 0) {
+      const lines = memoryContext.pendingOutcomes
+        .slice(0, 5)
+        .map((outcome) => {
+          const due = outcome.due_at ? new Date(outcome.due_at).toLocaleDateString() : "unscheduled";
+          return `- ${outcome.title.slice(0, 80)} · ${outcome.status} · due ${due}`;
+        })
+        .join("\n");
+      parts.push(`## Open Learning Loops\n${lines}`);
+    }
+  }
 
   return parts.join("\n\n");
 }
@@ -137,52 +348,39 @@ function toolCallToCommand(
   connectionId: string | null
 ): AgentCommand | null {
   const i = tc.input;
+  // Route all stat__* tool calls through run_stat_tool
+  if (tc.name.startsWith("stat__")) {
+    return {
+      type: "run_stat_tool",
+      method: statToolToKernelKey(tc.name),
+      params: i as Record<string, unknown>,
+      risk: "safe",
+    };
+  }
+  // Route all user__* tool calls through run_user_tool
+  if (tc.name.startsWith("user__")) {
+    const toolId = tc.name.slice("user__".length);
+    const userTool = useUserToolStore.getState().tools.find((t) => t.id === toolId);
+    if (!userTool) return null;
+    const risk = userTool.body.type === "notify" ? "safe" : "caution";
+    return {
+      type: "run_user_tool",
+      toolId,
+      params: i as Record<string, unknown>,
+      connectionId,
+      risk,
+    } satisfies RunUserToolCmd;
+  }
   switch (tc.name) {
     case "set_editor_content":
       return { type: "set_editor_content", sql: i.sql as string, risk: "safe" };
     case "execute_sql":
       if (!connectionId) return null;
-      return {
-        type: "execute_sql",
-        sql: i.sql as string,
-        connectionId,
-        risk: classifyExecuteSqlRisk(i.sql as string),
-      };
+      return { type: "execute_sql", sql: i.sql as string, connectionId, risk: "safe" };
     case "open_table":
       return { type: "open_table", schema: i.schema as string, table: i.table as string, risk: "safe" };
     case "open_new_tab":
       return { type: "open_new_tab", title: i.title as string | undefined, risk: "safe" };
-    case "create_dashboard":
-      return {
-        type: "create_dashboard",
-        title: i.title as string | undefined,
-        useCurrentResults: i.useCurrentResults as boolean | undefined,
-        risk: "safe",
-      };
-    case "update_dashboard_widget":
-      return {
-        type: "update_dashboard_widget",
-        widgetId: i.widgetId as string | undefined,
-        widgetTitle: i.widgetTitle as string | undefined,
-        datasourceId: i.datasourceId as string | undefined,
-        datasourceName: i.datasourceName as string | undefined,
-        widgetType: i.widgetType as
-          | "bar_chart"
-          | "line_chart"
-          | "scatter_chart"
-          | "area_chart"
-          | "pie_chart"
-          | "metric"
-          | "table"
-          | "text"
-          | undefined,
-        title: i.title as string | undefined,
-        xField: i.xField as string | undefined,
-        yField: i.yField as string | undefined,
-        metricField: i.metricField as string | null | undefined,
-        aggregate: i.aggregate as "row_count" | "sum" | "avg" | "min" | "max" | undefined,
-        risk: "safe",
-      };
     case "add_column":
       return {
         type: "add_column",
@@ -270,6 +468,23 @@ function toolCallToCommand(
         title: i.title as string | undefined,
         risk: "safe",
       };
+    case "create_gog_chart":
+      return {
+        type: "create_gog_chart",
+        table: i.table as string,
+        schema: i.schema as string | undefined,
+        geom: i.geom as CreateGoGChartCmd["geom"],
+        x: i.x as string,
+        y: i.y as string | undefined,
+        color: i.color as string | undefined,
+        facet: i.facet as string | undefined,
+        title: i.title as string | undefined,
+        x_label: i.x_label as string | undefined,
+        y_label: i.y_label as string | undefined,
+        where_clause: i.where_clause as string | undefined,
+        overlays: i.overlays as CreateGoGChartCmd["overlays"],
+        risk: "safe",
+      };
     case "create_pipeline":
       return {
         type: "create_pipeline",
@@ -287,6 +502,51 @@ function toolCallToCommand(
         level: i.level as "info" | "success" | "warning" | "error",
         risk: "safe",
       };
+    case "declare_hypotheses":
+      return {
+        type: "declare_hypotheses",
+        hypotheses: i.hypotheses as DeclareHypothesesCmd["hypotheses"],
+        problemFrame: i.problem_frame as string,
+        risk: "safe" as const,
+      };
+    case "declare_confidence":
+      return {
+        type: "declare_confidence",
+        confidence: i.confidence as number,
+        confidenceLabel: i.confidence_label as DeclareConfidenceCmd["confidenceLabel"],
+        dataQuality: i.data_quality as DeclareConfidenceCmd["dataQuality"] | undefined,
+        whatWouldChangeConclusion: i.what_would_change_conclusion as string,
+        dataGaps: i.data_gaps as string | undefined,
+        risk: "safe" as const,
+      };
+    case "pi_search_tags":
+      if (!connectionId) return null;
+      return {
+        type: "pi_search_tags",
+        connectionId,
+        query: i.query as string,
+        maxCount: i.max_count as number | undefined,
+        risk: "safe",
+      };
+    case "pi_get_history":
+      if (!connectionId) return null;
+      return {
+        type: "pi_get_history",
+        connectionId,
+        webIds: i.web_ids as string[],
+        start: i.start as string,
+        end: i.end as string,
+        interval: i.interval as string | undefined,
+        risk: "safe",
+      };
+    case "pi_get_current":
+      if (!connectionId) return null;
+      return {
+        type: "pi_get_current",
+        connectionId,
+        webIds: i.web_ids as string[],
+        risk: "safe",
+      };
     default:
       return null;
   }
@@ -298,7 +558,7 @@ export async function runAgentLoop(
   userMessage: string,
   history: ConversationTurn[],
   options: AgentLoopOptions
-): Promise<{ finalText: string; updatedHistory: ConversationTurn[] }> {
+): Promise<{ finalText: string; updatedHistory: ConversationTurn[]; queryDepth: 'fast' | 'deep' }> {
   const {
     provider,
     model,
@@ -313,13 +573,17 @@ export async function runAgentLoop(
   } = options;
 
   const { agentMode, addPlanStep } = useWorkspaceStore.getState();
-  const system = buildSystemPrompt(schema, currentSQL, currentResults, agentMode);
+  const queryDepth = classifyQueryDepth(userMessage);
+  const system = buildSystemPrompt(schema, currentSQL, currentResults, agentMode, options.memoryContext, queryDepth);
 
   // Append the user message to working history
   const working: ConversationTurn[] = [
     ...history,
     { role: "user", text: userMessage },
   ];
+
+  const userToolDefs = useUserToolStore.getState().tools.map(userToolToUnifiedTool);
+  const allTools = [...AGENT_TOOLS, ...userToolDefs];
 
   let finalText = "";
   const MAX_ROUNDS = 10;
@@ -330,7 +594,7 @@ export async function runAgentLoop(
         system,
         history: working,
         model,
-        tools: AGENT_TOOLS,
+        tools: allTools,
         onToken,
       }),
       {
@@ -371,7 +635,7 @@ export async function runAgentLoop(
 
       let result: CommandResult;
 
-      if (requiresApproval(cmd)) {
+      if (agentMode === "plan" && isDestructive(cmd)) {
         const stepId = `plan-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         const description = describeCommand(cmd);
 
@@ -383,17 +647,6 @@ export async function runAgentLoop(
           status: "pending",
           command: cmd, // stored so PlanQueue can dispatch on approval
         });
-        DbClient.recordSecurityAudit({
-          event_type: "destructive_action_approval",
-          outcome: "queued",
-          details_json: {
-            step_id: stepId,
-            command_type: cmd.type,
-            human_readable: description,
-            agent_mode: agentMode,
-            risk_level: cmd.risk,
-          },
-        }).catch(() => {});
 
         onPlanQueued(stepId, description);
 
@@ -432,5 +685,5 @@ export async function runAgentLoop(
   }
 
   // Trim to last 40 turns to keep context manageable
-  return { finalText, updatedHistory: working.slice(-40) };
+  return { finalText, updatedHistory: working.slice(-40), queryDepth };
 }

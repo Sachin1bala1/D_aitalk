@@ -9,7 +9,6 @@ import { X, Code2, Copy, Play, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { DbClient } from "../../lib/db/DbClient";
-import { collectStreamingQuery } from "../../lib/query/runtime";
 
 interface DDLModalProps {
   open: boolean;
@@ -38,16 +37,40 @@ export function DDLModal({ open, onClose, connectionId, schema, table, onSendToE
     setLoading(true);
 
     if (customQuery) {
-      collectStreamingQuery(connectionId, customQuery)
-        .then((result) => {
-          const firstVal = result.rows.length > 0 ? Object.values(result.rows[0])[0] : null;
-          setDdl(firstVal != null ? String(firstVal) : "(empty)");
-          setLoading(false);
+      // Run a custom SQL and take first cell of first row as the DDL text
+      DbClient.execute(connectionId, customQuery)
+        .then(() => {
+          // execute() returns affected rows — for SELECT we need streaming
+          // Instead use a workaround: execute the query via streaming
+          setError("Use executeStreaming path");
         })
-        .catch((e) => {
+        .catch(() => {})
+        .finally(() => {});
+
+      // Proper path: use executeStreaming + listen for batch
+      import("@tauri-apps/api/event").then(({ listen }) => {
+        DbClient.executeStreaming(connectionId, customQuery).then((response) => {
+          const queryId = response.query_id;
+          listen<import("../../lib/db/DbClient").QueryBatch>("query_batch", (event) => {
+            const batch = event.payload;
+            if (batch.query_id !== queryId) return;
+            if (batch.error) {
+              setError(batch.error);
+              setLoading(false);
+            } else if (batch.rows.length > 0) {
+              const firstVal = Object.values(batch.rows[0])[0];
+              setDdl(firstVal != null ? String(firstVal) : "(empty)");
+              setLoading(false);
+            }
+            if (batch.is_final && !ddl) {
+              setLoading(false);
+            }
+          });
+        }).catch((e) => {
           setError(e?.message ?? String(e));
           setLoading(false);
         });
+      });
     } else {
       DbClient.getTableDdl(connectionId, schema, table)
         .then((result) => setDdl(result))

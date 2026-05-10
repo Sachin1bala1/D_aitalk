@@ -2,7 +2,6 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use uuid::Uuid;
 
 use crate::db::query_executor::{execute_ddl, execute_streaming};
-use crate::db::query_transport::TauriQueryBatchSink;
 use crate::db::types::ExecuteStreamingResponse;
 use crate::intelligence::events::{QueryExecutedEvent, SecurityAuditEvent};
 use crate::intelligence::sql_analyzer::analyze_query;
@@ -52,6 +51,7 @@ pub async fn db_execute_streaming(
         .await
         .ok_or_else(|| format!("Connection not found: {}", connection_id))?;
     let operation = classify_sql_operation(&sql);
+
     if let Err(error) = enforce_connection_policy(&config, operation) {
         audit_policy_event(
             &app,
@@ -68,6 +68,7 @@ pub async fn db_execute_streaming(
         .await;
         return Err(error);
     }
+
     let permit = match acquire_query_permit(&state.query_guards, &connection_id) {
         Ok(permit) => permit,
         Err(error) => {
@@ -86,6 +87,7 @@ pub async fn db_execute_streaming(
             return Err(error);
         }
     };
+
     let conn = state
         .connections
         .get(&connection_id)
@@ -98,33 +100,32 @@ pub async fn db_execute_streaming(
     let connection_id_clone = connection_id.clone();
     let analysis_clone = analysis.clone();
     let sql_clone = sql.clone();
-    let sink = std::sync::Arc::new(TauriQueryBatchSink::new(app_clone.clone()));
 
     tokio::spawn(async move {
         let _permit = permit;
-        match execute_streaming(conn, sql, qid_clone.clone(), sink, cancelled).await {
-            Ok(result) => {
+        match execute_streaming(conn, sql, qid_clone.clone(), app_clone.clone(), cancelled).await {
+            Ok(()) => {
                 let store = app_clone.state::<IntelligenceStore>();
                 let event = QueryExecutedEvent {
                     query_id: qid_clone.clone(),
                     sql: sql_clone.clone(),
                     source_table: first_source_table(&analysis_clone),
                     source_tables: analysis_clone.source_tables.clone(),
-                    row_count: result.row_count,
-                    duration_ms: result.duration_ms,
+                    row_count: 0,
+                    duration_ms: 0,
                     success: true,
                     error_message: None,
                     executed_at: chrono::Utc::now().to_rfc3339(),
                 };
 
-                if let Err(e) = record_query_event(event, store.inner()).await {
-                    tracing::warn!("failed to record query event: {}", e);
+                if let Err(error) = record_query_event(event, store.inner()).await {
+                    tracing::warn!("failed to record query event: {}", error);
                 }
 
                 if let Some((source_table, columns)) =
                     affinity_candidates_from_analysis(&analysis_clone)
                 {
-                    if let Err(e) = record_parameter_affinity(
+                    if let Err(error) = record_parameter_affinity(
                         &connection_id_clone,
                         &source_table,
                         &columns,
@@ -132,12 +133,12 @@ pub async fn db_execute_streaming(
                     )
                     .await
                     {
-                        tracing::warn!("failed to update parameter hotspots: {}", e);
+                        tracing::warn!("failed to update parameter hotspots: {}", error);
                     }
                 }
             }
-            Err(e) => {
-                let message = e.to_string();
+            Err(error) => {
+                let message = error.to_string();
                 let store = app_clone.state::<IntelligenceStore>();
                 let event = QueryExecutedEvent {
                     query_id: qid_clone.clone(),
@@ -194,6 +195,7 @@ pub async fn db_execute(
         .await
         .ok_or_else(|| format!("Connection not found: {}", connection_id))?;
     let operation = classify_sql_operation(&sql);
+
     if let Err(error) = enforce_connection_policy(&config, operation) {
         audit_policy_event(
             &app,
@@ -209,6 +211,7 @@ pub async fn db_execute(
         .await;
         return Err(error);
     }
+
     let _permit = match acquire_query_permit(&state.query_guards, &connection_id) {
         Ok(permit) => permit,
         Err(error) => {
@@ -226,6 +229,7 @@ pub async fn db_execute(
             return Err(error);
         }
     };
+
     let conn = state
         .connections
         .get(&connection_id)
@@ -234,7 +238,11 @@ pub async fn db_execute(
 
     match execute_ddl(conn, &sql).await {
         Ok(affected_rows) => {
-            if matches!(operation, crate::security::OperationKind::DataMutation | crate::security::OperationKind::SchemaMutation) {
+            if matches!(
+                operation,
+                crate::security::OperationKind::DataMutation
+                    | crate::security::OperationKind::SchemaMutation
+            ) {
                 audit_policy_event(
                     &app,
                     "db_mutation",
@@ -251,7 +259,11 @@ pub async fn db_execute(
             Ok(affected_rows)
         }
         Err(error) => {
-            if matches!(operation, crate::security::OperationKind::DataMutation | crate::security::OperationKind::SchemaMutation) {
+            if matches!(
+                operation,
+                crate::security::OperationKind::DataMutation
+                    | crate::security::OperationKind::SchemaMutation
+            ) {
                 audit_policy_event(
                     &app,
                     "db_mutation",
@@ -277,4 +289,20 @@ pub async fn db_cancel_query(
 ) -> Result<(), String> {
     state.cancelled_queries.lock().unwrap().insert(query_id);
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_query_concurrency_status(
+    state: State<'_, AppState>,
+) -> Result<serde_json::Value, String> {
+    let guard = state
+        .query_guards
+        .lock()
+        .map_err(|_| "query guard lock poisoned".to_string())?;
+
+    Ok(serde_json::json!({
+        "total_in_flight": guard.total_in_flight(),
+        "max_global": crate::security::max_global_in_flight_queries(),
+        "per_connection": guard.per_connection_counts(),
+    }))
 }

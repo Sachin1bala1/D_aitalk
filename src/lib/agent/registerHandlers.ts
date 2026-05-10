@@ -4,25 +4,24 @@
  * Call once at app startup (App.tsx). After this, `commandBus.dispatch(cmd)`
  * will route to the correct Tauri invoke / WorkspaceStore mutation / UI action.
  */
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { toast } from "sonner";
 
 import { commandBus } from "./CommandBus";
 import { DbClient } from "../db/DbClient";
-import {
-  buildDashboardSnapshot,
-  buildDashboardWidgetFromChartIntent,
-  buildInitialDashboardWidget,
-} from "../dashboard/dashboardState";
 import { rowStore } from "../table/RowStore";
-import { isDashboardTab, useWorkspaceStore } from "../stores/WorkspaceStore";
-import { collectStreamingQuery, runDuckDbQuery } from "../query/runtime";
+import { useWorkspaceStore } from "../stores/WorkspaceStore";
+import { ScaleRouter } from "../dashboard/ScaleRouter";
+import { BinQueryBuilder } from "../dashboard/BinQueryBuilder";
+import type { GoGSpec } from "../dashboard/GoGSpec";
+import type { QueryBatch } from "../db/DbClient";
 import type {
   SetEditorContentCmd,
   ExecuteSqlCmd,
   CancelQueryCmd,
   OpenTableCmd,
   OpenNewTabCmd,
-  CreateDashboardCmd,
   CloseTabCmd,
   AddColumnCmd,
   DropColumnCmd,
@@ -34,155 +33,25 @@ import type {
   InsertRowCmd,
   UpdateCellCmd,
   RunDuckDbAnalysisCmd,
+  RunStatToolCmd,
+  RunUserToolCmd,
   CreateChartCmd,
+  CreateGoGChartCmd,
   CreatePipelineCmd,
   NotifyUserCmd,
-  UpdateDashboardWidgetCmd,
+  DeclareHypothesesCmd,
+  DeclareConfidenceCmd,
+  ConfidenceDeclaration,
+  PISearchTagsCmd,
+  PIGetHistoryCmd,
+  PIGetCurrentCmd,
 } from "./commands";
+import { useUserToolStore } from "../stores/UserToolStore";
+import { fillTemplate } from "../tools/user.tools";
+import { PyodideRuntime } from "../pyodide/PyodideRuntime";
+import { STAT_KERNELS } from "../pyodide/stat_kernels";
 
 export function registerHandlers() {
-  const createDashboardFromCurrentResults = (input?: {
-    title?: string;
-    useCurrentResults?: boolean;
-  }) => {
-    const store = useWorkspaceStore.getState();
-    const activeTab = store.tabs.find((tab) => tab.id === store.activeTabId) ?? null;
-    const activeQueryTab = activeTab && !isDashboardTab(activeTab) ? activeTab : null;
-    const activeDashboardTab = activeTab && isDashboardTab(activeTab) ? activeTab : null;
-    const sourceResults =
-      input?.useCurrentResults === false ? null : activeQueryTab?.queryResults ?? null;
-    const sourceConnectionId = activeQueryTab?.connectionId ?? store.activeConnectionId;
-    const dashboardId = activeDashboardTab?.id ?? `dashboard-${Date.now()}`;
-    const title =
-      input?.title
-      ?? activeDashboardTab?.title
-      ?? (activeQueryTab?.title
-        ? `${activeQueryTab.title} Dashboard`
-        : `Dashboard ${store.tabs.filter((tab) => isDashboardTab(tab)).length + 1}`);
-
-    if (!activeDashboardTab) {
-      store.createDashboardTab({
-        id: dashboardId,
-        title,
-        connectionId: sourceConnectionId,
-      });
-    }
-
-    let snapshotId: string | null = null;
-    if (sourceResults && activeQueryTab) {
-      const snapshot = buildDashboardSnapshot(
-        sourceResults,
-        activeQueryTab.sql,
-        sourceConnectionId,
-        title,
-      );
-      store.upsertDashboardDatasourceSnapshot(dashboardId, snapshot);
-      snapshotId = snapshot.id;
-    } else if (activeDashboardTab) {
-      const latestSnapshot = Object.values(activeDashboardTab.dashboard.datasources).sort(
-        (left, right) => right.capturedAt - left.capturedAt,
-      )[0];
-      snapshotId = latestSnapshot?.id ?? null;
-    }
-
-    return { dashboardId, snapshotId, created: !activeDashboardTab };
-  };
-
-  const findLatestDashboardSnapshot = (dashboardId: string) => {
-    const dashboardTab = useWorkspaceStore
-      .getState()
-      .tabs.find((tab) => tab.id === dashboardId);
-    if (!dashboardTab || !isDashboardTab(dashboardTab)) {
-      return null;
-    }
-
-    return (
-      Object.values(dashboardTab.dashboard.datasources).sort(
-        (left, right) => right.capturedAt - left.capturedAt,
-      )[0] ?? null
-    );
-  };
-
-  const makeDashboardWidgetId = () =>
-    `dashboard-widget-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-  const resolveDashboardWidgetTarget = (
-    dashboardTab: Extract<ReturnType<typeof useWorkspaceStore.getState>["tabs"][number], { type: "dashboard" }>,
-    cmd: UpdateDashboardWidgetCmd,
-  ) => {
-    if (cmd.widgetId) {
-      return dashboardTab.dashboard.widgets.find((widget) => widget.id === cmd.widgetId) ?? null;
-    }
-
-    if (cmd.widgetTitle) {
-      const normalizedTitle = cmd.widgetTitle.trim().toLowerCase();
-      return (
-        dashboardTab.dashboard.widgets.find(
-          (widget) => widget.title.trim().toLowerCase() === normalizedTitle,
-        ) ?? null
-      );
-    }
-
-    if (dashboardTab.dashboard.selectedWidget.widgetId) {
-      return (
-        dashboardTab.dashboard.widgets.find(
-          (widget) => widget.id === dashboardTab.dashboard.selectedWidget.widgetId,
-        ) ?? null
-      );
-    }
-
-    return dashboardTab.dashboard.widgets[0] ?? null;
-  };
-
-  const resolveDashboardDatasourceId = (
-    dashboardTab: Extract<ReturnType<typeof useWorkspaceStore.getState>["tabs"][number], { type: "dashboard" }>,
-    cmd: UpdateDashboardWidgetCmd,
-    fallbackDatasourceId: string | null,
-  ) => {
-    if (cmd.datasourceId && dashboardTab.dashboard.datasources[cmd.datasourceId]) {
-      return cmd.datasourceId;
-    }
-
-    if (cmd.datasourceName) {
-      const normalizedName = cmd.datasourceName.trim().toLowerCase();
-      const datasource = Object.values(dashboardTab.dashboard.datasources).find(
-        (candidate) => candidate.name.trim().toLowerCase() === normalizedName,
-      );
-      if (datasource) return datasource.id;
-    }
-
-    return fallbackDatasourceId;
-  };
-
-  const addChartWidgetToDashboard = (
-    dashboardId: string,
-    snapshotId: string,
-    cmd: CreateChartCmd,
-  ) => {
-    const store = useWorkspaceStore.getState();
-    const dashboardTab = store.tabs.find((tab) => tab.id === dashboardId);
-    if (!dashboardTab || !isDashboardTab(dashboardTab)) {
-      return false;
-    }
-
-    const snapshot = dashboardTab.dashboard.datasources[snapshotId];
-    if (!snapshot) {
-      return false;
-    }
-
-    const widget = buildDashboardWidgetFromChartIntent({
-      snapshot,
-      chartType: cmd.chartType,
-      xColumn: cmd.xColumn,
-      yColumn: cmd.yColumn,
-      title: cmd.title,
-    });
-    store.addDashboardWidget(dashboardId, {
-      id: makeDashboardWidgetId(),
-      ...widget,
-    });
-    return true;
-  };
   // ── SQL ───────────────────────────────────────────────────────────────────
 
   commandBus.register<SetEditorContentCmd>("set_editor_content", async (cmd) => {
@@ -198,25 +67,56 @@ export function registerHandlers() {
     setTabExecuting(true);
 
     try {
-      const result = await collectStreamingQuery(cmd.connectionId, cmd.sql);
-      rowStore.finalize();
-      setTabExecuting(false);
-      setQueryResults({
-        rows: result.rows,
-        fields: result.fields,
-        rowCount: result.rows.length,
-        elapsedMs: result.elapsedMs,
-        queryId: result.queryId,
-        source_tables: result.source_tables,
+      const response = await DbClient.executeStreaming(cmd.connectionId, cmd.sql);
+      const queryId = response.query_id;
+      rowStore.reset(queryId);
+
+      return new Promise((resolve) => {
+        const allRows: Record<string, unknown>[] = [];
+        let fields: { name: string }[] = [];
+        let unlistenFn: (() => void) | null = null;
+
+        listen<QueryBatch>("query_batch", (event) => {
+          const batch = event.payload;
+          if (batch.query_id !== queryId) return;
+
+          rowStore.appendBatch(batch);
+
+          if (batch.columns && fields.length === 0) {
+            fields = batch.columns.map((c) => ({ name: c.name }));
+          }
+          allRows.push(...batch.rows);
+
+          if (batch.error) {
+            unlistenFn?.();
+            rowStore.finalize();
+            setTabExecuting(false);
+            resolve({ success: false, error: batch.error });
+          } else if (batch.is_final) {
+            unlistenFn?.();
+            setTabExecuting(false);
+            // Update WorkspaceStore for AIPanel context
+            setQueryResults({
+              rows: allRows,
+              fields,
+              rowCount: allRows.length,
+              elapsedMs: batch.total_elapsed_ms,
+              queryId,
+              source_tables: response.source_tables,
+            });
+            resolve({
+              success: true,
+              result: {
+                rowCount: allRows.length,
+                elapsedMs: batch.total_elapsed_ms,
+                preview: allRows.slice(0, 5), // first 5 rows for AI context
+              },
+            });
+          }
+        }).then((fn) => {
+          unlistenFn = fn;
+        });
       });
-      return {
-        success: true,
-        result: {
-          rowCount: result.rows.length,
-          elapsedMs: result.elapsedMs,
-          preview: result.rows.slice(0, 5),
-        },
-      };
     } catch (e: any) {
       setTabExecuting(false);
       rowStore.finalize();
@@ -265,36 +165,6 @@ export function registerHandlers() {
       isExecuting: false,
     });
     return { success: true, result: `Opened new tab: ${cmd.title ?? "New Query"}` };
-  });
-
-  commandBus.register<CreateDashboardCmd>("create_dashboard", async (cmd) => {
-    const { dashboardId, snapshotId, created } = createDashboardFromCurrentResults({
-      title: cmd.title,
-      useCurrentResults: cmd.useCurrentResults,
-    });
-    const dashboardTab = useWorkspaceStore.getState().tabs.find((tab) => tab.id === dashboardId);
-
-    if (
-      snapshotId &&
-      dashboardTab &&
-      isDashboardTab(dashboardTab) &&
-      dashboardTab.dashboard.widgets.length === 0
-    ) {
-      const snapshot = dashboardTab.dashboard.datasources[snapshotId];
-      if (snapshot) {
-        useWorkspaceStore.getState().addDashboardWidget(dashboardId, {
-          id: makeDashboardWidgetId(),
-          ...buildInitialDashboardWidget(snapshot),
-        });
-      }
-    }
-
-    return {
-      success: true,
-      result: created
-        ? `Opened dashboard ${dashboardId}${snapshotId ? " with current results" : ""}`
-        : `Updated dashboard ${dashboardId}${snapshotId ? " with a new datasource snapshot" : ""}`,
-    };
   });
 
   // ── Schema mutation ───────────────────────────────────────────────────────
@@ -372,43 +242,34 @@ export function registerHandlers() {
   // ── Data mutation ─────────────────────────────────────────────────────────
 
   commandBus.register<DeleteRowsCmd>("delete_rows", async (cmd) => {
-    const { activeConnectionId, setEditorSql } = useWorkspaceStore.getState();
+    const { activeConnectionId, pushUndo } = useWorkspaceStore.getState();
     if (!activeConnectionId) return { success: false, error: "No active connection" };
-    const reviewSql = `DELETE FROM "${cmd.schema}"."${cmd.table}" WHERE ${cmd.where};`;
-    setEditorSql(reviewSql);
-    DbClient.recordSecurityAudit({
-      event_type: "destructive_action_execution",
-      outcome: "manual_review_required",
-      details_json: {
-        command_type: cmd.type,
-        schema: cmd.schema,
-        table: cmd.table,
-      },
-    }).catch(() => {});
-    toast.warning("Destructive SQL was loaded into the editor for manual review.");
-    return {
-      success: true,
-      result: "Delete statement loaded into the editor. Review and run it manually if you approve.",
-    };
+    try {
+      const affected = await DbClient.execute(
+        activeConnectionId,
+        `DELETE FROM "${cmd.schema}"."${cmd.table}" WHERE ${cmd.where};`,
+      );
+      pushUndo({
+        id: `undo-${Date.now()}`,
+        humanReadable: `Deleted rows from ${cmd.schema}.${cmd.table} WHERE ${cmd.where}`,
+        command: cmd,
+        timestamp: Date.now(),
+      });
+      return { success: true, result: `Deleted ${affected} rows` };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
   });
 
   commandBus.register<BulkTransformCmd>("bulk_transform", async (cmd) => {
-    const { activeConnectionId, setEditorSql } = useWorkspaceStore.getState();
-    const connectionId = activeConnectionId;
+    const connectionId = useWorkspaceStore.getState().activeConnectionId;
     if (!connectionId) return { success: false, error: "No active connection" };
-    setEditorSql(cmd.sql);
-    DbClient.recordSecurityAudit({
-      event_type: "destructive_action_execution",
-      outcome: "manual_review_required",
-      details_json: {
-        command_type: cmd.type,
-      },
-    }).catch(() => {});
-    toast.warning("Bulk transform SQL was loaded into the editor for manual review.");
-    return {
-      success: true,
-      result: "Bulk transform SQL loaded into the editor. Review and run it manually if you approve.",
-    };
+    try {
+      const affected = await DbClient.execute(connectionId, cmd.sql);
+      return { success: true, result: `${affected} rows affected` };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
   });
 
   // ── Schema helpers ────────────────────────────────────────────────────────
@@ -475,31 +336,123 @@ export function registerHandlers() {
     }
   });
 
+  // ── Statistical Analysis (Pyodide) ───────────────────────────────────────
+
+  commandBus.register<RunStatToolCmd>("run_stat_tool", async (cmd) => {
+    const kernelCode = STAT_KERNELS[cmd.method];
+    if (!kernelCode) {
+      return { success: false, error: `Unknown stat method: ${cmd.method}` };
+    }
+    try {
+      const result = await PyodideRuntime.getInstance().run(kernelCode, cmd.params);
+      return { success: true, result };
+    } catch (e: any) {
+      return { success: false, error: e.message ?? "Stat kernel failed" };
+    }
+  });
+
+  // ── User-Defined Tools ────────────────────────────────────────────────────
+
+  commandBus.register<RunUserToolCmd>("run_user_tool", async (cmd) => {
+    const tool = useUserToolStore.getState().tools.find((t) => t.id === cmd.toolId);
+    if (!tool) {
+      return { success: false, error: `User tool not found: ${cmd.toolId}` };
+    }
+
+    const { body } = tool;
+
+    if (body.type === "notify") {
+      return commandBus.dispatch({
+        type: "notify_user",
+        message: fillTemplate(body.message, cmd.params),
+        level: body.level,
+        risk: "safe",
+      });
+    }
+
+    if (body.type === "sql_template") {
+      if (!cmd.connectionId) {
+        return { success: false, error: "No active database connection" };
+      }
+      return commandBus.dispatch({
+        type: "execute_sql",
+        sql: fillTemplate(body.sql, cmd.params),
+        connectionId: cmd.connectionId,
+        risk: "safe",
+      });
+    }
+
+    if (body.type === "chart") {
+      if (!cmd.connectionId) {
+        return { success: false, error: "No active database connection" };
+      }
+      const queryResult = await commandBus.dispatch({
+        type: "execute_sql",
+        sql: fillTemplate(body.sql, cmd.params),
+        connectionId: cmd.connectionId,
+        risk: "safe",
+      });
+      if (!queryResult.success) return queryResult;
+      return commandBus.dispatch({
+        type: "create_chart",
+        chartType: body.chartType,
+        xColumn: body.xColumn,
+        yColumn: body.yColumn,
+        title: body.title ?? tool.displayName,
+        risk: "safe",
+      });
+    }
+
+    if (body.type === "report") {
+      if (!cmd.connectionId) {
+        return { success: false, error: "No active database connection" };
+      }
+      const results: Array<{ label: string; data: unknown }> = [];
+      for (const step of body.steps) {
+        const r = await commandBus.dispatch({
+          type: "execute_sql",
+          sql: fillTemplate(step.sql, cmd.params),
+          connectionId: cmd.connectionId,
+          risk: "safe",
+        });
+        if (!r.success) return r;
+        results.push({ label: step.label, data: r.result });
+      }
+      return { success: true, result: results };
+    }
+
+    return { success: false, error: "Unknown user tool body type" };
+  });
+
   // ── Analytics ─────────────────────────────────────────────────────────────
 
   commandBus.register<RunDuckDbAnalysisCmd>("run_duckdb_analysis", async (cmd) => {
     try {
-      return await new Promise((resolve) => {
-        runDuckDbQuery(cmd.sql, {
-          onSuccess(results) {
-            resolve({
-              success: true,
-              result: `DuckDB analysis complete: ${results.rows.length} rows`,
-            });
-          },
-          onError(message) {
-            resolve({ success: false, error: message });
-          },
-          onSettled() {
+      const queryId = await DbClient.duckdbQuery(cmd.sql);
+      rowStore.reset(queryId);
+
+      return new Promise((resolve) => {
+        let unlistenFn: (() => void) | null = null;
+
+        listen<QueryBatch>("query_batch", (event) => {
+          const batch = event.payload;
+          if (batch.query_id !== queryId) return;
+
+          rowStore.appendBatch(batch);
+
+          if (batch.error) {
+            unlistenFn?.();
             rowStore.finalize();
-          },
-        }).catch((error: any) => {
-          rowStore.finalize();
-          resolve({ success: false, error: error?.message ?? "DuckDB query failed" });
+            resolve({ success: false, error: batch.error });
+          } else if (batch.is_final) {
+            unlistenFn?.();
+            resolve({ success: true, result: `DuckDB analysis complete: ${batch.rows_so_far} rows` });
+          }
+        }).then((fn) => {
+          unlistenFn = fn;
         });
       });
     } catch (e: any) {
-      rowStore.finalize();
       return { success: false, error: e.message ?? "DuckDB query failed" };
     }
   });
@@ -527,6 +480,133 @@ export function registerHandlers() {
     return { success: true, result: `Chart opened: ${cmd.chartType}` };
   });
 
+  // ── Grammar-of-Graphics charts (billion-scale) ────────────────────────────
+
+  commandBus.register<CreateGoGChartCmd>("create_gog_chart", async (cmd) => {
+    const { activeConnectionId } = useWorkspaceStore.getState();
+    const connectionId = activeConnectionId ?? "";
+    const schema = cmd.schema ?? "public";
+
+    // 1. Build GoGSpec
+    const spec: GoGSpec = {
+      table: cmd.table,
+      schema,
+      connectionId,
+      whereClause: cmd.where_clause,
+      aes: {
+        x: cmd.x,
+        y: cmd.y,
+        color: cmd.color,
+      },
+      geom: cmd.geom as GoGSpec["geom"],
+      stat: "identity",
+      guides: {
+        title: cmd.title,
+        xLabel: cmd.x_label ?? cmd.x,
+        yLabel: cmd.y_label ?? cmd.y,
+      },
+      overlays: (cmd.overlays ?? []) as GoGSpec["overlays"],
+    };
+
+    // 2. Estimate row count
+    let estimatedRows = 0;
+    try {
+      estimatedRows = await ScaleRouter.estimateRowCount(connectionId, cmd.table, schema, cmd.where_clause);
+    } catch {
+      estimatedRows = 0;
+    }
+
+    // 3. Decide strategy
+    const decision = ScaleRouter.decide(estimatedRows, cmd.geom);
+    const effectiveStrategy: "raw" | "binned" = decision.strategy === "binned" ? "binned" : "raw";
+    spec._runtime = {
+      strategy: effectiveStrategy,
+      estimatedRows: decision.estimatedRows,
+      generatedSQL: "",
+    };
+
+    // 4. If binned: generate and execute bin SQL
+    let binData: Record<string, unknown>[] | null = null;
+    if (decision.strategy === "binned" && connectionId) {
+      let sql = "";
+      try {
+        if (cmd.geom === "scatter" && cmd.y) {
+          sql = BinQueryBuilder.scatter(cmd.table, schema, cmd.x, cmd.y, cmd.color ?? undefined, decision.bins, cmd.where_clause);
+        } else if (cmd.geom === "line" && cmd.y) {
+          // Detect column type from schema
+          const { schemas } = useWorkspaceStore.getState();
+          const schemaData = schemas[connectionId];
+          const colKey = `${schema}.${cmd.table}`;
+          const col = (schemaData?.columns[colKey] ?? []).find((c) => c.name === cmd.x);
+          const xType = col?.type_name ?? "numeric";
+
+          // Phase 1: coarse (100 buckets) — render immediately
+          const coarseSQL = BinQueryBuilder.line(cmd.table, schema, cmd.x, cmd.y, xType, 100, cmd.where_clause);
+          const coarseRows = await DbClient.query(connectionId, coarseSQL);
+          useWorkspaceStore.getState().setGogChartRequest({
+            spec: { ...spec, _runtime: { ...spec._runtime!, generatedSQL: coarseSQL } },
+            binData: coarseRows,
+            strategy: effectiveStrategy,
+            estimatedRows: decision.estimatedRows,
+          });
+
+          // Phase 2: fine (1000 buckets) — refine asynchronously
+          // Use setTimeout(0) to yield to the render loop first
+          setTimeout(async () => {
+            try {
+              const fineSQL = BinQueryBuilder.line(cmd.table, schema, cmd.x, cmd.y!, xType, 1000, cmd.where_clause);
+              const fineRows = await DbClient.query(connectionId, fineSQL);
+              useWorkspaceStore.getState().setGogChartRequest({
+                spec: { ...spec, _runtime: { ...spec._runtime!, generatedSQL: fineSQL } },
+                binData: fineRows,
+                strategy: effectiveStrategy,
+                estimatedRows: decision.estimatedRows,
+              });
+            } catch (e) {
+              console.error("Phase 2 line refinement failed:", e);
+            }
+          }, 0);
+
+          toast.success(`Line chart created: ${decision.reason}`);
+          return {
+            success: true,
+            result: `Created line chart from ${schema}.${cmd.table}. Phase 1 (100 buckets) shown, refining to 1000 buckets in background.`,
+          };
+        } else if (cmd.geom === "box" && cmd.y) {
+          sql = BinQueryBuilder.boxPlot(cmd.table, schema, cmd.x, cmd.y, decision.bins, cmd.where_clause);
+        } else if (cmd.geom === "histogram") {
+          sql = BinQueryBuilder.histogram(cmd.table, schema, cmd.x, decision.bins, cmd.where_clause);
+        }
+        if (sql) {
+          spec._runtime!.generatedSQL = sql;
+          const rows = await DbClient.query(connectionId, sql);
+          binData = rows;
+        }
+      } catch (e) {
+        console.error("BinQuery failed:", e);
+      }
+    }
+
+    // 5. Store in WorkspaceStore for ChartPanel to pick up
+    useWorkspaceStore.getState().setGogChartRequest({
+      spec,
+      binData,
+      strategy: effectiveStrategy,
+      estimatedRows: decision.estimatedRows,
+    });
+
+    const strategyMsg =
+      decision.strategy === "binned"
+        ? `${(estimatedRows / 1e6).toFixed(1)}M rows → aggregated to ${decision.bins}×${decision.bins} bins`
+        : `${estimatedRows.toLocaleString()} rows — raw data`;
+
+    toast.success(`Chart created: ${cmd.geom} — ${strategyMsg}`);
+    return {
+      success: true,
+      result: `Created ${cmd.geom} chart from ${schema}.${cmd.table}. Data: ${strategyMsg}.`,
+    };
+  });
+
   // ── Pipeline (stub — wires to future PipelinePanel) ──────────────────────
 
   commandBus.register<CreatePipelineCmd>("create_pipeline", async (cmd) => {
@@ -537,161 +617,6 @@ export function registerHandlers() {
 
   // ── UI ────────────────────────────────────────────────────────────────────
 
-  commandBus.register<CreateChartCmd>("create_chart", async (cmd) => {
-    const store = useWorkspaceStore.getState();
-    const activeTab = store.tabs.find((tab) => tab.id === store.activeTabId) ?? null;
-
-    if (activeTab && isDashboardTab(activeTab) && Object.keys(activeTab.dashboard.datasources).length > 0) {
-      const latestSnapshot = Object.values(activeTab.dashboard.datasources).sort(
-        (left, right) => right.capturedAt - left.capturedAt,
-      )[0];
-      const widget = buildDashboardWidgetFromChartIntent({
-        snapshot: latestSnapshot,
-        chartType: cmd.chartType,
-        xColumn: cmd.xColumn,
-        yColumn: cmd.yColumn,
-        title: cmd.title,
-      });
-      store.addDashboardWidget(activeTab.id, {
-        id: `dashboard-widget-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        ...widget,
-      });
-      toast.success(`Dashboard widget: ${cmd.chartType} - ${cmd.xColumn} vs ${cmd.yColumn}`);
-      return { success: true, result: `Dashboard widget added: ${cmd.chartType}` };
-    }
-
-    const { dashboardId, snapshotId } = createDashboardFromCurrentResults({
-      title: cmd.title ? `${cmd.title} Dashboard` : undefined,
-      useCurrentResults: true,
-    });
-
-    if (snapshotId) {
-      const dashboardTab = store.tabs.find((tab) => tab.id === dashboardId);
-      if (dashboardTab && isDashboardTab(dashboardTab)) {
-        const snapshot = dashboardTab.dashboard.datasources[snapshotId];
-        const widget = buildDashboardWidgetFromChartIntent({
-          snapshot,
-          chartType: cmd.chartType,
-          xColumn: cmd.xColumn,
-          yColumn: cmd.yColumn,
-          title: cmd.title,
-        });
-        store.addDashboardWidget(dashboardId, {
-          id: `dashboard-widget-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          ...widget,
-        });
-        toast.success(`Dashboard chart: ${cmd.chartType} - ${cmd.xColumn} vs ${cmd.yColumn}`);
-        return { success: true, result: `Dashboard chart created: ${cmd.chartType}` };
-      }
-    }
-
-    store.setChartRequest({
-      chartType: cmd.chartType,
-      xColumn: cmd.xColumn,
-      yColumn: cmd.yColumn,
-      title: cmd.title,
-    });
-    toast.success(`Chart: ${cmd.chartType} - ${cmd.xColumn} vs ${cmd.yColumn}`);
-    return { success: true, result: `Chart opened: ${cmd.chartType}` };
-  });
-
-  commandBus.register<CreateChartCmd>("create_chart", async (cmd) => {
-    const store = useWorkspaceStore.getState();
-    const activeTab = store.tabs.find((tab) => tab.id === store.activeTabId) ?? null;
-
-    if (activeTab && isDashboardTab(activeTab) && Object.keys(activeTab.dashboard.datasources).length > 0) {
-      const latestSnapshot = Object.values(activeTab.dashboard.datasources).sort(
-        (left, right) => right.capturedAt - left.capturedAt,
-      )[0];
-      const widget = buildDashboardWidgetFromChartIntent({
-        snapshot: latestSnapshot,
-        chartType: cmd.chartType,
-        xColumn: cmd.xColumn,
-        yColumn: cmd.yColumn,
-        title: cmd.title,
-      });
-      store.addDashboardWidget(activeTab.id, {
-        id: `dashboard-widget-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        ...widget,
-      });
-      toast.success(`Dashboard widget: ${cmd.chartType} - ${cmd.xColumn} vs ${cmd.yColumn}`);
-      return { success: true, result: `Dashboard widget added: ${cmd.chartType}` };
-    }
-
-    const { dashboardId, snapshotId } = createDashboardFromCurrentResults({
-      title: cmd.title ? `${cmd.title} Dashboard` : undefined,
-      useCurrentResults: true,
-    });
-
-    if (snapshotId) {
-      const dashboardTab = store.tabs.find((tab) => tab.id === dashboardId);
-      if (dashboardTab && isDashboardTab(dashboardTab)) {
-        const snapshot = dashboardTab.dashboard.datasources[snapshotId];
-        const widget = buildDashboardWidgetFromChartIntent({
-          snapshot,
-          chartType: cmd.chartType,
-          xColumn: cmd.xColumn,
-          yColumn: cmd.yColumn,
-          title: cmd.title,
-        });
-        store.addDashboardWidget(dashboardId, {
-          id: `dashboard-widget-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          ...widget,
-        });
-        toast.success(`Dashboard chart: ${cmd.chartType} - ${cmd.xColumn} vs ${cmd.yColumn}`);
-        return { success: true, result: `Dashboard chart created: ${cmd.chartType}` };
-      }
-    }
-
-    store.setChartRequest({
-      chartType: cmd.chartType,
-      xColumn: cmd.xColumn,
-      yColumn: cmd.yColumn,
-      title: cmd.title,
-    });
-    toast.success(`Chart: ${cmd.chartType} - ${cmd.xColumn} vs ${cmd.yColumn}`);
-    return { success: true, result: `Chart opened: ${cmd.chartType}` };
-  });
-
-  commandBus.register<import("./commands").UpdateDashboardWidgetCmd>("update_dashboard_widget", async (cmd) => {
-    const store = useWorkspaceStore.getState();
-    const activeTab = store.tabs.find((tab) => tab.id === store.activeTabId) ?? null;
-    if (!activeTab || !isDashboardTab(activeTab)) {
-      return { success: false, error: "No active dashboard tab" };
-    }
-
-    const targetWidget = cmd.widgetTitle
-      ? activeTab.dashboard.widgets.find((widget) => widget.title === cmd.widgetTitle)
-      : activeTab.dashboard.widgets.find(
-          (widget) => widget.id === activeTab.dashboard.selectedWidget.widgetId,
-        ) ?? activeTab.dashboard.widgets[0];
-
-    if (!targetWidget) {
-      return { success: false, error: "No dashboard widget found to update" };
-    }
-
-    const configUpdates: Record<string, unknown> = {};
-    if (cmd.xField !== undefined) configUpdates.xField = cmd.xField;
-    if (cmd.yField !== undefined) configUpdates.yField = cmd.yField;
-    if (cmd.metricField !== undefined) configUpdates.metricField = cmd.metricField;
-    if (cmd.aggregate !== undefined) configUpdates.aggregate = cmd.aggregate;
-
-    store.updateDashboardWidget(activeTab.id, targetWidget.id, {
-      title: cmd.title ?? targetWidget.title,
-      type: cmd.widgetType ?? targetWidget.type,
-      config: Object.keys(configUpdates).length > 0 ? configUpdates : undefined,
-    });
-    store.setDashboardSelectedWidget(activeTab.id, {
-      widgetId: targetWidget.id,
-      mode: "edit",
-    });
-
-    return {
-      success: true,
-      result: `Updated dashboard widget ${cmd.title ?? cmd.widgetTitle ?? targetWidget.title}`,
-    };
-  });
-
   commandBus.register<NotifyUserCmd>("notify_user", async (cmd) => {
     const fn = {
       info: toast.info,
@@ -701,5 +626,62 @@ export function registerHandlers() {
     }[cmd.level];
     fn(cmd.message);
     return { success: true };
+  });
+
+  // ── Hypothesis Engine ─────────────────────────────────────────────────────
+
+  commandBus.register<DeclareHypothesesCmd>("declare_hypotheses", async (cmd) => {
+    useWorkspaceStore.getState().setActiveHypotheses(cmd.hypotheses, cmd.problemFrame);
+    return { success: true, result: "Hypotheses declared" };
+  });
+
+  // ── Confidence Scoring ────────────────────────────────────────────────────
+
+  commandBus.register<DeclareConfidenceCmd>("declare_confidence", async (cmd) => {
+    const { type, risk, ...declaration } = cmd;
+    useWorkspaceStore.getState().setActiveConfidence(declaration as ConfidenceDeclaration);
+    return { success: true, result: "Confidence declared" };
+  });
+
+  // ── OSIsoft PI Historian ──────────────────────────────────────────────────
+
+  commandBus.register<PISearchTagsCmd>("pi_search_tags", async (cmd) => {
+    try {
+      const tags = await invoke("pi_search_tags", {
+        connectionId: cmd.connectionId,
+        query: cmd.query,
+        maxCount: cmd.maxCount,
+      });
+      return { success: true, result: tags };
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
+  commandBus.register<PIGetHistoryCmd>("pi_get_history", async (cmd) => {
+    try {
+      const data = await invoke("pi_get_history", {
+        connectionId: cmd.connectionId,
+        webIds: cmd.webIds,
+        start: cmd.start,
+        end: cmd.end,
+        interval: cmd.interval,
+      });
+      return { success: true, result: data };
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
+  commandBus.register<PIGetCurrentCmd>("pi_get_current", async (cmd) => {
+    try {
+      const values = await invoke("pi_get_current", {
+        connectionId: cmd.connectionId,
+        webIds: cmd.webIds,
+      });
+      return { success: true, result: values };
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   });
 }

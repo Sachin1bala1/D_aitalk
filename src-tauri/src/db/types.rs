@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+fn default_true() -> bool { true }
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ColumnMeta {
     pub name: String,
@@ -53,6 +55,7 @@ impl DisplayType {
         Self::Text
     }
 
+    #[allow(dead_code)]
     pub fn from_mssql_type(type_name: &str) -> Self {
         let lower = type_name.to_lowercase();
         if ["bigint","int","smallint","tinyint"].iter().any(|t| lower == *t) { return Self::Integer; }
@@ -72,6 +75,10 @@ pub struct TableMeta {
     pub row_estimate: Option<i64>,
     pub size_bytes: Option<i64>,
     pub object_type: TableObjectType,
+    #[serde(default)]
+    pub is_hypertable: bool,
+    #[serde(default)]
+    pub hypertable_chunks: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -151,7 +158,6 @@ pub struct QueryBatch {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecuteStreamingResponse {
     pub query_id: String,
-    #[serde(default)]
     pub source_tables: Vec<String>,
 }
 
@@ -181,6 +187,8 @@ pub struct ConnectionConfig {
     pub ssh: Option<SshConfig>,
     #[serde(default)]
     pub read_only: bool,
+    #[serde(default)]
+    pub pi_config: Option<PIConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -197,4 +205,14 @@ pub enum DbDriver {
     MongoDB,
     Redis,
     ClickHouse,
+    PIHistorian,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PIConfig {
+    pub base_url: String,
+    pub username: String,
+    pub password: String,
+    #[serde(default = "default_true")]
+    pub verify_ssl: bool,
 }

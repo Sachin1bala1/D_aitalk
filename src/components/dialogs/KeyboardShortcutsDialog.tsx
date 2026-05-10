@@ -65,6 +65,8 @@ const SHORTCUTS: { category: string; items: { keys: string[]; description: strin
       { keys: ["Ctrl", "Tab"], description: "Next tab" },
       { keys: ["Ctrl", "P"], description: "Quick open — fuzzy table picker" },
       { keys: ["Ctrl", "Shift", "S"], description: "Open schema search panel" },
+      { keys: ["Ctrl", "Shift", "F"], description: "Focus schema search" },
+      { keys: ["Escape"], description: "Close dialog / panel" },
     ],
   },
   {
@@ -72,6 +74,7 @@ const SHORTCUTS: { category: string; items: { keys: string[]; description: strin
     items: [
       { keys: ["Ctrl", "Z"], description: "Undo last agent action (in chat)" },
       { keys: ["Ctrl", "K"], description: "Focus AI chat input" },
+      { keys: ["Ctrl", "/"], description: "Toggle Plan Mode" },
     ],
   },
 ];

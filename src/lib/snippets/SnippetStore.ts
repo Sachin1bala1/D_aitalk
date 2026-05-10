@@ -1,9 +1,9 @@
 /**
- * SnippetStore keeps SQL snippets only for the current app session.
- * High-security mode avoids persisting SQL text into browser storage.
+ * SnippetStore — localStorage-backed SQL snippet CRUD.
+ * A snippet is a named, reusable piece of SQL with optional tags.
  */
 
-const snippets: Snippet[] = [];
+const KEY = "daitalk_snippets";
 
 export interface Snippet {
   id: string;
@@ -14,12 +14,15 @@ export interface Snippet {
 }
 
 export function loadSnippets(): Snippet[] {
-  return [...snippets];
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) return JSON.parse(raw) as Snippet[];
+  } catch {}
+  return [];
 }
 
-function persist(next: Snippet[]): void {
-  snippets.length = 0;
-  snippets.push(...next);
+function persist(snippets: Snippet[]): void {
+  localStorage.setItem(KEY, JSON.stringify(snippets));
 }
 
 export function addSnippet(name: string, sql: string, tags: string[] = []): Snippet {

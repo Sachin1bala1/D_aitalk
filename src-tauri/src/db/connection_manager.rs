@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -39,7 +38,14 @@ impl ConnectionManager {
         }
     }
 
-    async fn build_active_entry(&self, config: &ConnectionConfig) -> Result<ActiveEntry, DbError> {
+    pub async fn connect(&self, config: ConnectionConfig) -> Result<(), DbError> {
+        // PI Historian uses HTTP — no connection pool needed; just store the config.
+        if matches!(config.driver, DbDriver::PIHistorian) {
+            let id = config.id.clone();
+            self.configs.write().await.insert(id, config);
+            return Ok(());
+        }
+
         // Open SSH tunnel if configured, rewriting the connection string to use local port
         let (effective_conn_str, tunnel) = if let Some(ref ssh) = config.ssh {
             let url = url::Url::parse(&config.connection_string)
@@ -52,18 +58,12 @@ impl ConnectionManager {
                 DbDriver::MongoDB => 27017,
                 DbDriver::Redis => 6379,
                 DbDriver::ClickHouse => 8123,
-                DbDriver::Sqlite => 0,
+                DbDriver::Sqlite | DbDriver::PIHistorian => 0,
             };
             let remote_port = url.port().unwrap_or(default_port);
 
-            let tun = tokio::task::spawn_blocking({
-                let ssh = ssh.clone();
-                let rh = remote_host.clone();
-                move || SshTunnel::open(&ssh, &rh, remote_port)
-            })
-            .await
-            .map_err(|e| DbError::Other(format!("SSH tunnel task failed: {e}")))?
-            .map_err(|e| DbError::Other(e))?;
+            let tun = SshTunnel::open(ssh, &remote_host, remote_port)
+                .map_err(|e| DbError::Other(e))?;
 
             // Rewrite connection string: replace host:port with 127.0.0.1:local_port
             let original = format!(
@@ -80,13 +80,34 @@ impl ConnectionManager {
 
         let conn = match &config.driver {
             DbDriver::Postgres | DbDriver::Timescaledb => {
-                let options = sqlx::postgres::PgConnectOptions::from_str(&effective_conn_str)
-                    .map_err(|e| DbError::Other(format!("Invalid PostgreSQL connection string: {e}")))?
-                    .statement_cache_capacity(0);
+                use std::str::FromStr;
+                use sqlx::postgres::{PgConnectOptions, PgSslMode};
+
+                let mut opts = PgConnectOptions::from_str(&effective_conn_str)
+                    .map_err(|e| DbError::Other(format!("Invalid Postgres URL: {e}")))?;
+
+                // For non-local hosts (Supabase, RDS, Cloud SQL, etc.):
+                // 1. Require SSL — Supavisor/PgBouncer rejects unencrypted connections.
+                // 2. Disable statement cache — PgBouncer/Supavisor transaction mode does
+                //    not support server-side prepared statements; sqlx's default caching
+                //    causes "prepared statement does not exist" errors.
+                let host = opts.get_host().to_string();
+                let is_local = host == "localhost" || host == "127.0.0.1" || host == "::1";
+                if !is_local {
+                    // Only set SSL mode if the URL didn't already specify one
+                    let already_has_ssl = effective_conn_str.contains("sslmode=")
+                        || effective_conn_str.contains("sslrootcert=");
+                    if !already_has_ssl {
+                        opts = opts.ssl_mode(PgSslMode::Require);
+                    }
+                    // Disable prepared-statement caching for pooler compatibility
+                    opts = opts.statement_cache_capacity(0);
+                }
+
                 let pool = sqlx::postgres::PgPoolOptions::new()
                     .max_connections(config.pool_max.unwrap_or(10))
                     .min_connections(config.pool_min.unwrap_or(1))
-                    .connect_with(options)
+                    .connect_with(opts)
                     .await?;
                 ActiveConnection::Postgres(pool)
             }
@@ -175,66 +196,17 @@ impl ConnectionManager {
                     .map_err(|e| DbError::Other(format!("ClickHouse ping failed: {e}")))?;
                 ActiveConnection::ClickHouse(client)
             }
+            // PIHistorian is handled above before this match — unreachable here.
+            DbDriver::PIHistorian => {
+                return Err(DbError::Other("PI Historian connections are HTTP-only and handled separately".to_string()));
+            }
         };
 
-        Ok(ActiveEntry { connection: Arc::new(conn), _tunnel: tunnel })
-    }
-
-    async fn ping_connection(connection: &ActiveConnection) -> Result<(), DbError> {
-        match connection {
-            ActiveConnection::Postgres(pool) => {
-                sqlx::query("SELECT 1").persistent(false).execute(pool).await?;
-            }
-            ActiveConnection::Mysql(pool) => {
-                sqlx::query("SELECT 1").execute(pool).await?;
-            }
-            ActiveConnection::Sqlite(pool) => {
-                sqlx::query("SELECT 1").execute(pool).await?;
-            }
-            ActiveConnection::Mssql(client) => {
-                let mut guard = client.lock().await;
-                guard
-                    .query("SELECT 1", &[])
-                    .await
-                    .map_err(|e| DbError::Other(e.to_string()))?;
-            }
-            ActiveConnection::Mongodb(client, _) => {
-                client
-                    .database("admin")
-                    .run_command(mongodb::bson::doc! { "ping": 1 })
-                    .await
-                    .map_err(|e| DbError::Other(e.to_string()))?;
-            }
-            ActiveConnection::Redis(mgr) => {
-                let mut c = mgr.clone();
-                redis::cmd("PING")
-                    .query_async::<String>(&mut c)
-                    .await
-                    .map_err(|e| DbError::Other(e.to_string()))?;
-            }
-            ActiveConnection::ClickHouse(client) => {
-                client
-                    .query("SELECT 1")
-                    .execute()
-                    .await
-                    .map_err(|e| DbError::Other(e.to_string()))?;
-            }
-        }
-        Ok(())
-    }
-
-    pub async fn test_connection(&self, config: ConnectionConfig) -> Result<(), DbError> {
-        let entry = self.build_active_entry(&config).await?;
-        Self::ping_connection(entry.connection.as_ref()).await
-    }
-
-    pub async fn connect(&self, config: ConnectionConfig) -> Result<(), DbError> {
-        let entry = self.build_active_entry(&config).await?;
         let id = config.id.clone();
         self.connections
             .write()
             .await
-            .insert(id.clone(), entry);
+            .insert(id.clone(), ActiveEntry { connection: Arc::new(conn), _tunnel: tunnel });
         self.configs.write().await.insert(id, config);
         Ok(())
     }
@@ -256,3 +228,4 @@ impl ConnectionManager {
         self.configs.read().await.get(id).cloned()
     }
 }
+

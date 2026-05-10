@@ -11,7 +11,6 @@ import { DbClient } from "../../lib/db/DbClient";
 import { QueryManager } from "../../lib/table/QueryManager";
 import { rowStore } from "../../lib/table/RowStore";
 import type { ColumnMeta } from "../../lib/db/DbClient";
-import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
 
 interface InsertRowDialogProps {
   open: boolean;
@@ -31,9 +30,6 @@ function sqlLiteralForInsert(val: string, col: ColumnMeta): string {
 
 export function InsertRowDialog({ open, onClose, onSuccess }: InsertRowDialogProps) {
   const columns = rowStore.columns;
-  const queryResults = useWorkspaceStore((s) =>
-    s.tabs.find((tab) => tab.id === s.activeTabId)?.queryResults ?? null
-  );
   const [values, setValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
@@ -42,16 +38,7 @@ export function InsertRowDialog({ open, onClose, onSuccess }: InsertRowDialogPro
     if (open) setValues({});
   }, [open]);
 
-  const tableInfo = (() => {
-    const sourceTables = queryResults?.source_tables ?? [];
-    if (sourceTables.length !== 1) return null;
-    const raw = sourceTables[0];
-    const parts = raw.split(".");
-    if (parts.length === 1) return { schema: "public", table: parts[0] };
-    const table = parts.pop();
-    if (!table) return null;
-    return { schema: parts.join("."), table };
-  })();
+  const tableInfo = QueryManager.getBaseTable();
   const connectionId = QueryManager.getConnectionId();
 
   const editableCols = columns.filter((c) => !c.is_primary_key || c.display_type?.kind !== "integer");

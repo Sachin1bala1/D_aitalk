@@ -3,6 +3,7 @@
  * Uses UnifiedTool (provider-agnostic). Each provider converts internally.
  */
 import type { UnifiedTool } from "../ai/types";
+import { STAT_TOOLS } from "../tools/stat.tools";
 
 export const AGENT_TOOLS: UnifiedTool[] = [
   // ── SQL ───────────────────────────────────────────────────────────────────
@@ -51,64 +52,6 @@ export const AGENT_TOOLS: UnifiedTool[] = [
       type: "object",
       properties: {
         title: { type: "string", description: "Optional tab title" },
-      },
-    },
-  },
-  {
-    name: "create_dashboard",
-    description:
-      "Create a dashboard tab. Use current query results when available so charts and widgets can be seeded immediately.",
-    parameters: {
-      type: "object",
-      properties: {
-        title: { type: "string", description: "Optional dashboard title" },
-        useCurrentResults: {
-          type: "boolean",
-          description: "Whether to seed the dashboard from the current query results if available",
-        },
-      },
-    },
-  },
-  {
-    name: "update_dashboard_widget",
-    description:
-      "Update an existing widget in the active dashboard. Use this to retitle widgets, switch widget type, change datasource bindings, or rebind x/y/metric fields after a dashboard already exists.",
-    parameters: {
-      type: "object",
-      properties: {
-        widgetId: {
-          type: "string",
-          description: "Optional exact widget id when you know it",
-        },
-        widgetTitle: {
-          type: "string",
-          description: "Optional current widget title to target when id is unknown",
-        },
-        datasourceId: {
-          type: "string",
-          description: "Optional datasource id to bind the widget to",
-        },
-        datasourceName: {
-          type: "string",
-          description: "Optional datasource name to bind by name when id is unknown",
-        },
-        widgetType: {
-          type: "string",
-          enum: ["bar_chart", "line_chart", "scatter_chart", "area_chart", "pie_chart", "metric", "table", "text"],
-          description: "Optional widget type to switch to",
-        },
-        title: { type: "string", description: "Optional new widget title" },
-        xField: { type: "string", description: "Optional X/category field for chart widgets" },
-        yField: { type: "string", description: "Optional Y/value field for chart widgets" },
-        metricField: {
-          anyOf: [{ type: "string" }, { type: "null" }],
-          description: "Optional numeric field for metric widgets. Use null for row count metrics.",
-        } as any,
-        aggregate: {
-          type: "string",
-          enum: ["row_count", "sum", "avg", "min", "max"],
-          description: "Optional aggregate for metric widgets",
-        },
       },
     },
   },
@@ -287,8 +230,7 @@ export const AGENT_TOOLS: UnifiedTool[] = [
   // ── Charts ────────────────────────────────────────────────────────────────
   {
     name: "create_chart",
-    description:
-      "Create a chart visualization from the current query results. If a dashboard tab is active, add a widget there. Otherwise create or seed a dashboard from the current results.",
+    description: "Request a chart visualization of the current query results.",
     parameters: {
       type: "object",
       properties: {
@@ -318,6 +260,9 @@ export const AGENT_TOOLS: UnifiedTool[] = [
     },
   },
 
+  // ── Statistical Analysis (Pyodide WASM) ──────────────────────────────────
+  ...STAT_TOOLS,
+
   // ── UI ────────────────────────────────────────────────────────────────────
   {
     name: "notify_user",
@@ -329,6 +274,138 @@ export const AGENT_TOOLS: UnifiedTool[] = [
         level: { type: "string", enum: ["info", "success", "warning", "error"] },
       },
       required: ["message", "level"],
+    },
+  },
+
+    // ── Confidence Scoring ──────────────────────────────────────────────
+  {
+    name: 'declare_confidence',
+    description:
+      'After completing an analysis, declare your confidence in the findings and what evidence would change your conclusion. Call this as the LAST tool call before giving the final narrative.',
+    parameters: {
+      type: 'object',
+      properties: {
+        confidence: { type: 'number', description: '0.0 to 1.0' },
+        confidence_label: { type: 'string', enum: ['high', 'medium', 'low', 'insufficient_data'] },
+        data_quality: { type: 'string', enum: ['good', 'limited', 'sparse', 'unreliable'] },
+        what_would_change_conclusion: { type: 'string' },
+        data_gaps: { type: 'string', description: 'What data is missing that would help?' },
+      },
+      required: ['confidence', 'confidence_label', 'what_would_change_conclusion'],
+    },
+  },
+
+  // ── Hypothesis Engine ─────────────────────────────────────────────────────
+  {
+    name: "declare_hypotheses",
+    description:
+      "Before running any analysis tool, declare your competing hypotheses about what is causing the observed pattern. ALWAYS call this first when analyzing an anomaly, quality issue, or process upset.",
+    parameters: {
+      type: "object",
+      properties: {
+        hypotheses: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              statement: { type: "string" },
+              probability: { type: "number", description: "0.0 to 1.0" },
+              evidence_for: { type: "string" },
+              evidence_against: { type: "string" },
+              discriminating_test: { type: "string", description: "What single analysis would confirm this?" },
+            },
+            required: ["statement", "probability"],
+          },
+        } as any,
+        problem_frame: { type: "string", description: "One sentence: what exactly is being investigated?" },
+      },
+      required: ["hypotheses", "problem_frame"],
+    },
+  },
+
+  // ── OSIsoft PI Historian ───────────────────────────────────────────────────
+  {
+    name: 'pi_search_tags',
+    description: 'Search OSIsoft PI tags by name or description. Use this to find process data tags in a PI historian.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search query, e.g. "temperature" or "PLANT.UNIT.*"' },
+        max_count: { type: 'number', description: 'Maximum results to return (default 50)' }
+      },
+      required: ['query']
+    }
+  },
+  {
+    name: 'pi_get_history',
+    description: 'Get historical time-series data for PI tags. Specify start/end as ISO8601 strings.',
+    parameters: {
+      type: 'object',
+      properties: {
+        web_ids: { type: 'array', items: { type: 'string' }, description: 'List of PI tag WebIds' } as any,
+        start: { type: 'string', description: 'Start time (ISO8601 or relative like "*-24h")' },
+        end: { type: 'string', description: 'End time (ISO8601 or "*" for now)' },
+        interval: { type: 'string', description: 'Interpolation interval e.g. "1h", "5m"' }
+      },
+      required: ['web_ids', 'start', 'end']
+    }
+  },
+  {
+    name: 'pi_get_current',
+    description: 'Get current snapshot values for PI tags.',
+    parameters: {
+      type: 'object',
+      properties: {
+        web_ids: { type: 'array', items: { type: 'string' }, description: 'List of PI tag WebIds' } as any
+      },
+      required: ['web_ids']
+    }
+  },
+
+  // ── Billion-Scale Visualization ───────────────────────────────────────────
+  {
+    name: "create_gog_chart",
+    description: `Create a chart using the Grammar of Graphics specification. This is the PRIMARY tool for all visualization requests. Automatically handles billion-row datasets by using aggregate SQL (binned strategy). Use this for ALL chart/visualization requests.`,
+    parameters: {
+      type: "object",
+      properties: {
+        table: { type: "string", description: "Table name" },
+        schema: { type: "string", description: "Schema name (default: public)" },
+        geom: {
+          type: "string",
+          enum: ["scatter", "line", "bar", "histogram", "box", "area"],
+          description: "Chart geometry type",
+        },
+        x: { type: "string", description: "Column name for X axis" },
+        y: { type: "string", description: "Column name for Y axis (optional for histogram)" },
+        color: { type: "string", description: "Column for color encoding" },
+        title: { type: "string", description: "Chart title" },
+        x_label: { type: "string", description: "X axis label" },
+        y_label: { type: "string", description: "Y axis label" },
+        where_clause: {
+          type: "string",
+          description: "SQL WHERE clause for filtering (without the WHERE keyword)",
+        },
+        overlays: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              type: {
+                type: "string",
+                enum: ["ref_line", "spec_limits", "mean_line", "trend_line"],
+              },
+              axis: { type: "string", enum: ["x", "y"] },
+              value: { type: "number" },
+              lsl: { type: "number" },
+              usl: { type: "number" },
+              target: { type: "number" },
+            },
+            required: ["type"],
+          },
+        } as any,
+      },
+      required: ["table", "geom", "x"],
     },
   },
 ];

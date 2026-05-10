@@ -1,151 +1,181 @@
-//! SSH port-forward tunnel for database connections.
+//! SSH port-forward tunnel using libssh2.
 //!
-//! Opens an SSH session, binds a random local TCP port, and proxies every
-//! connection on that port through an SSH channel to the real DB host:port.
-//! Each forwarded connection opens its own SSH session to avoid libssh2 thread-safety issues.
+//! Opens a local TCP listener on a random port and forwards all connections
+//! through an SSH tunnel to `remote_host:remote_port`.
+//!
+//! Each accepted local TCP connection creates a completely fresh SSH session
+//! (TCP connect + handshake + auth + channel_direct_tcpip).  This avoids the
+//! libssh2 session-level thread-safety issue: libssh2 is not thread-safe at
+//! the Session level, so sharing one Session across threads is UB.
+
+use std::io::{self, Read, Write};
+use std::net::{TcpListener, TcpStream};
+use std::sync::Arc;
 
 use ssh2::Session;
-use std::{
-    io::{Read, Write},
-    net::{TcpListener, TcpStream},
-    path::Path,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-    thread,
-    time::Duration,
-};
 
 use super::types::{SshAuth, SshConfig};
 
 pub struct SshTunnel {
     pub local_port: u16,
-    _stop: Arc<AtomicBool>,
-}
-
-fn make_session(cfg: &SshConfig) -> Result<Session, String> {
-    let tcp = TcpStream::connect(format!("{}:{}", cfg.host, cfg.port))
-        .map_err(|e| format!("SSH connect to {}:{} failed: {e}", cfg.host, cfg.port))?;
-
-    let mut sess = Session::new()
-        .map_err(|e| format!("SSH session init failed: {e}"))?;
-    sess.set_tcp_stream(tcp);
-    sess.handshake()
-        .map_err(|e| format!("SSH handshake failed: {e}"))?;
-
-    match &cfg.auth {
-        SshAuth::Password { password } => {
-            sess.userauth_password(&cfg.username, password)
-                .map_err(|e| format!("SSH password auth failed: {e}"))?;
-        }
-        SshAuth::Key { key_path, passphrase } => {
-            sess.userauth_pubkey_file(
-                &cfg.username,
-                None,
-                Path::new(key_path),
-                passphrase.as_deref(),
-            )
-            .map_err(|e| format!("SSH key auth failed: {e}"))?;
-        }
-    }
-
-    if !sess.authenticated() {
-        return Err("SSH authentication failed".into());
-    }
-
-    Ok(sess)
-}
-
-impl SshTunnel {
-    /// Open a local port-forward to `remote_host:remote_port` via SSH.
-    /// Returns the local port number that the DB pool should connect to.
-    pub fn open(cfg: &SshConfig, remote_host: &str, remote_port: u16) -> Result<Self, String> {
-        // Verify credentials once before accepting connections
-        let _ = make_session(cfg)?;
-
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .map_err(|e| format!("Local port bind failed: {e}"))?;
-        let local_port = listener.local_addr().unwrap().port();
-
-        let stop = Arc::new(AtomicBool::new(false));
-        let stop_clone = Arc::clone(&stop);
-        let cfg_clone = cfg.clone();
-        let remote_host = remote_host.to_string();
-
-        thread::spawn(move || {
-            for stream in listener.incoming() {
-                if stop_clone.load(Ordering::Relaxed) {
-                    break;
-                }
-                let Ok(local) = stream else { break };
-                let cfg = cfg_clone.clone();
-                let rh = remote_host.clone();
-
-                thread::spawn(move || {
-                    proxy_one_connection(local, &cfg, &rh, remote_port);
-                });
-            }
-        });
-
-        Ok(SshTunnel { local_port, _stop: stop })
-    }
+    shutdown_tx: std::sync::mpsc::Sender<()>,
+    _listener_handle: std::thread::JoinHandle<()>,
 }
 
 impl Drop for SshTunnel {
     fn drop(&mut self) {
-        self._stop.store(true, Ordering::Relaxed);
+        // Signal the listener thread to stop
+        let _ = self.shutdown_tx.send(());
+        // Wake up the listener's blocking accept() by connecting to it
+        let _ = TcpStream::connect(format!("127.0.0.1:{}", self.local_port));
     }
 }
 
-fn proxy_one_connection(mut local: TcpStream, cfg: &SshConfig, remote_host: &str, remote_port: u16) {
-    let Ok(sess) = make_session(cfg) else { return };
-    sess.set_blocking(false);
-    let Ok(mut ch) = sess.channel_direct_tcpip(remote_host, remote_port, None) else { return };
+impl SshTunnel {
+    pub fn open(config: &SshConfig, remote_host: &str, remote_port: u16) -> Result<Self, String> {
+        // 1. Bind a random local port
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .map_err(|e| format!("Local bind failed: {}", e))?;
+        let local_port = listener
+            .local_addr()
+            .map_err(|e| format!("Local addr error: {}", e))?
+            .port();
 
-    // Use non-blocking reads on both sides to avoid thread-per-direction overhead.
-    // Writes remain blocking to guarantee delivery.
-    local.set_nonblocking(true).ok();
+        let config = Arc::new(config.clone());
+        let remote_host: Arc<str> = Arc::from(remote_host);
 
-    let mut buf = [0u8; 8192];
+        let (shutdown_tx, shutdown_rx) = std::sync::mpsc::channel::<()>();
 
+        // 2. Spawn a thread to accept connections and forward them
+        let handle = std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                // Check for shutdown signal before handling each connection
+                if shutdown_rx.try_recv().is_ok() {
+                    break;
+                }
+                let Ok(local_stream) = stream else { break };
+                let config = Arc::clone(&config);
+                let remote_host = Arc::clone(&remote_host);
+                std::thread::spawn(move || {
+                    forward_connection(local_stream, config, remote_host, remote_port);
+                });
+            }
+        });
+
+        Ok(SshTunnel { local_port, shutdown_tx, _listener_handle: handle })
+    }
+}
+
+/// Write all bytes in `buf` to `channel`, retrying on WouldBlock.
+///
+/// `write_all` treats `WouldBlock` as a fatal error when the SSH channel is in
+/// non-blocking mode.  This helper retries instead.
+fn write_all_retry(channel: &mut ssh2::Channel, mut buf: &[u8]) -> io::Result<()> {
+    while !buf.is_empty() {
+        match channel.write(buf) {
+            Ok(0) => return Err(io::Error::new(io::ErrorKind::WriteZero, "channel closed")),
+            Ok(n) => buf = &buf[n..],
+            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(())
+}
+
+/// Bidirectional forward: local TCP socket <-> SSH direct-tcpip channel.
+///
+/// Creates a fresh SSH session per connection so that libssh2 session state
+/// is never shared between threads.
+fn forward_connection(
+    mut local: TcpStream,
+    config: Arc<SshConfig>,
+    remote_host: Arc<str>,
+    remote_port: u16,
+) {
+    // 1. Connect TCP to SSH server
+    let tcp = match TcpStream::connect(format!("{}:{}", config.host, config.port)) {
+        Ok(t) => t,
+        Err(_) => return,
+    };
+
+    // 2. Create SSH session
+    let mut session = match Session::new() {
+        Ok(s) => s,
+        Err(_) => return,
+    };
+    session.set_tcp_stream(tcp);
+    if session.handshake().is_err() {
+        return;
+    }
+
+    // 3. Authenticate
+    let authed = match &config.auth {
+        SshAuth::Password { password } => {
+            session.userauth_password(&config.username, password).is_ok()
+        }
+        SshAuth::Key { key_path, passphrase } => {
+            let path = std::path::Path::new(key_path);
+            session
+                .userauth_pubkey_file(&config.username, None, path, passphrase.as_deref())
+                .is_ok()
+        }
+    };
+    if !authed || !session.authenticated() {
+        return;
+    }
+
+    // 4. Open direct-tcpip channel
+    let mut channel = match session.channel_direct_tcpip(&remote_host, remote_port, None) {
+        Ok(c) => c,
+        Err(_) => return,
+    };
+
+    // 5. Enable non-blocking mode and pump data bidirectionally
+    session.set_blocking(false);
+    let _ = local.set_nonblocking(true);
+
+    let mut buf = [0u8; 4096];
     loop {
         let mut activity = false;
 
-        // SSH channel → local TCP
-        match ch.read(&mut buf) {
-            Ok(0) => break,
+        // local -> channel
+        match local.read(&mut buf) {
+            Ok(0) => break, // local closed
             Ok(n) => {
                 activity = true;
-                local.set_nonblocking(false).ok();
-                let r = local.write_all(&buf[..n]);
-                local.set_nonblocking(true).ok();
-                if r.is_err() {
+                if write_all_retry(&mut channel, &buf[..n]).is_err() {
                     break;
                 }
             }
-            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+            Err(e) if e.kind() == io::ErrorKind::WouldBlock => {}
             Err(_) => break,
         }
 
-        // local TCP → SSH channel
-        match local.read(&mut buf) {
-            Ok(0) => break,
+        // channel -> local
+        match channel.read(&mut buf) {
+            Ok(0) => break, // remote closed
             Ok(n) => {
                 activity = true;
-                sess.set_blocking(true);
-                let r = ch.write_all(&buf[..n]);
-                sess.set_blocking(false);
-                if r.is_err() {
+                if local.write_all(&buf[..n]).is_err() {
                     break;
                 }
             }
-            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+            Err(e) if e.kind() == io::ErrorKind::WouldBlock => {}
             Err(_) => break,
+        }
+
+        if channel.eof() {
+            break;
         }
 
         if !activity {
-            thread::sleep(Duration::from_micros(500));
+            std::thread::sleep(std::time::Duration::from_millis(1));
         }
     }
+
+    // Drop handles cleanup; skip wait_close() in non-blocking mode as it can
+    // block indefinitely.
+    let _ = channel.close();
 }
