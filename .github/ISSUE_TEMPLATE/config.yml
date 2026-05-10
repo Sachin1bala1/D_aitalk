@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Integration playbook
+    url: https://github.com/Sachin1bala1/D_aitalk/blob/main/docs/integration-playbook.md
+    about: Review the branch intake and merge validation process before filing integration regressions.

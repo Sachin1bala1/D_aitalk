@@ -1,0 +1,67 @@
+name: validate
+
+on:
+  pull_request:
+    branches:
+      - main
+      - "integration/**"
+      - "feature/**"
+  push:
+    branches:
+      - main
+      - "integration/**"
+      - "feature/**"
+  workflow_dispatch:
+
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npm exec tsc -- --noEmit
+
+      - name: Frontend build
+        run: npm run build
+
+  rust:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend dependencies
+        shell: powershell
+        run: npm ci
+
+      - name: Install Rust stable
+        shell: powershell
+        run: |
+          rustup update stable
+          rustup default stable-x86_64-pc-windows-msvc
+
+      - name: Cargo check
+        working-directory: src-tauri
+        shell: powershell
+        run: cargo check

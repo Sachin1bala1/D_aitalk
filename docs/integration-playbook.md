@@ -38,6 +38,12 @@ For any divergent branch or external repo intake:
 6. Fix compile/runtime regressions in follow-up commits on the integration branch.
 7. Only after validation succeeds, merge the integration branch back to `main`.
 
+GitHub Actions now enforces the minimum validation gate on:
+
+- `main`
+- `integration/**`
+- `feature/**`
+
 ## Commands
 
 ### Start a new integration branch
@@ -102,6 +108,8 @@ npm run build
 cd .\src-tauri
 cargo check
 ```
+
+These same checks are mirrored in `.github/workflows/validate.yml`.
 
 If desktop/runtime-sensitive changes landed, also verify manually:
 

@@ -1,0 +1,126 @@
+name: Bug report - merge or runtime regression
+description: Report a regression introduced by a merge, integration branch, desktop runtime change, or release build.
+title: "[Bug]: "
+labels:
+  - bug
+  - regression
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for regressions that appeared after a merge, branch intake, release build, desktop packaging change, or runtime integration update.
+
+  - type: dropdown
+    id: regression_type
+    attributes:
+      label: Regression type
+      description: Choose the closest match.
+      options:
+        - Merge / integration regression
+        - Desktop runtime regression
+        - Database connection regression
+        - SQL editor / dashboard regression
+        - AI / agent workflow regression
+        - Release / packaging regression
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: introduced_by
+    attributes:
+      label: Suspected branch, commit, or release
+      description: Include the branch name, commit SHA, PR, or release tag if known.
+      placeholder: integration/graph-builder, bb01e66, PR #123, v0.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options:
+        - Windows desktop app
+        - Browser dev mode
+        - CI / GitHub Actions
+        - Packaging machine
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What broke?
+      description: Describe the regression clearly and include exact error text when possible.
+      placeholder: After merging integration/dashboard-wave into main, the desktop app opens but the SQL editor stays on Loading...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Launch the desktop app
+        2. Connect to ...
+        3. Open dashboard tab
+        4. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: validation_commands
+    attributes:
+      label: Validation commands already run
+      description: Paste command output summaries or failures if available.
+      placeholder: |
+        npm exec tsc -- --noEmit
+        npm run build
+        cargo check
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: runtime_area
+    attributes:
+      label: Affected runtime area
+      options:
+        - label: Database connection / pooling
+        - label: Tauri desktop launch
+        - label: SQL editor / Monaco
+        - label: Dashboard / Graph Builder
+        - label: AI / agent tool flow
+        - label: Release workflow / installer
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots, logs, or workflow links
+      description: Paste screenshots, error logs, GitHub Actions URLs, or desktop log snippets.
+
+  - type: textarea
+    id: merge_context
+    attributes:
+      label: Merge or integration context
+      description: If this followed a branch intake, note the source branch/repo and any conflict-prone files.
+      placeholder: Merged origin/feature/gaps-complete into integration/gaps-complete, then into main. Conflicts around App.tsx and AgentLoop.ts.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I confirmed this is a regression, not a net-new feature request
+          required: true
+        - label: I included exact error text or clear reproduction steps
+          required: true
+        - label: I identified the suspected branch, commit, PR, or release when possible
+          required: true
