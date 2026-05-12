@@ -29,6 +29,7 @@ jobs:
         run: |
           rustup update stable
           rustup default stable-x86_64-pc-windows-msvc
+          rustup target add x86_64-pc-windows-msvc
 
       - name: Install Windows build prerequisites
         shell: powershell
@@ -51,12 +52,23 @@ jobs:
           $perlBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           & $perlExe -v
 
+      - name: Install WebView2
+        shell: powershell
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP "MicrosoftEdgeWebView2Setup.exe"
+          Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile $installer
+          Start-Process -FilePath $installer -ArgumentList "/silent", "/install" -Wait
+
       - name: Verify toolchain
         shell: powershell
         run: |
+          rustup show
           cargo --version
           rustc --version
           npm --version
+          where.exe link
+          where.exe cl
+          Write-Host "CARGO_TARGET_DIR=$env:CARGO_TARGET_DIR"
 
       - name: Install frontend dependencies
         shell: powershell
