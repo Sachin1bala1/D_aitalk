@@ -31,6 +31,9 @@ jobs:
           rustup default stable-x86_64-pc-windows-msvc
           rustup target add x86_64-pc-windows-msvc
 
+      - name: Setup MSVC developer shell
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: Install Windows build prerequisites
         shell: powershell
         run: |
