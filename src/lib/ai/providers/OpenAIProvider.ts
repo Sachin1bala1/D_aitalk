@@ -3,6 +3,7 @@
  * NVIDIA NIM is fully OpenAI-API compatible; only the baseURL and model differ.
  */
 import OpenAI from "openai";
+import { invoke } from "@tauri-apps/api/core";
 import type { AIProvider, ConversationTurn, StreamResult, UnifiedTool } from "../types";
 
 export class OpenAIProvider implements AIProvider {
@@ -10,10 +11,12 @@ export class OpenAIProvider implements AIProvider {
   readonly name;
 
   private client: OpenAI;
+  private apiKey: string;
 
   constructor(apiKey: string, providerId: "openai" | "nvidia", baseURL?: string) {
     this.id = providerId;
     this.name = providerId === "nvidia" ? "NVIDIA NIM" : "OpenAI";
+    this.apiKey = apiKey;
     this.client = new OpenAI({
       apiKey,
       baseURL: baseURL ?? undefined,
@@ -39,6 +42,31 @@ export class OpenAIProvider implements AIProvider {
         parameters: t.parameters,
       },
     }));
+
+    if (this.id === "nvidia") {
+      const response = await invoke<{
+        text: string;
+        tool_calls: Array<{ id: string; name: string; input: Record<string, unknown> }>;
+        stop_reason: string;
+      }>("nvidia_chat_completion", {
+        request: {
+          apiKey: this.apiKey,
+          model,
+          messages,
+          tools: openAITools.length > 0 ? openAITools : null,
+        },
+      });
+
+      if (response.text) {
+        onToken(response.text);
+      }
+
+      return {
+        text: response.text ?? "",
+        toolCalls: response.tool_calls ?? [],
+        stopReason: response.tool_calls?.length ? "tool_use" : "end_turn",
+      };
+    }
 
     const stream = await this.client.chat.completions.create({
       model,

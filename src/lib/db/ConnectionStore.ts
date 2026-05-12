@@ -13,6 +13,43 @@ import { DbClient } from "./DbClient";
 
 const LS_KEY = "daitalk_connections_v1";
 
+function normalizeConnectionString(raw: string): string {
+  if (!raw) return "";
+
+  try {
+    const url = new URL(raw);
+    url.password = "";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return raw.trim().replace(/(password|pwd)\s*=\s*[^;]+/gi, "$1=").toLowerCase();
+  }
+}
+
+function connectionIdentity(config: ConnectionConfig): string {
+  const piBase =
+    config.pi_config?.base_url?.trim().toLowerCase() ??
+    config.connection_string?.trim().toLowerCase() ??
+    "";
+
+  return [
+    config.driver,
+    normalizeConnectionString(piBase),
+    config.pi_config?.username?.trim().toLowerCase() ?? "",
+  ].join("|");
+}
+
+function dedupeConnections(configs: ConnectionConfig[]): ConnectionConfig[] {
+  const byIdentity = new Map<string, ConnectionConfig>();
+
+  for (const config of configs) {
+    byIdentity.set(connectionIdentity(config), config);
+  }
+
+  return [...byIdentity.values()];
+}
+
 // ── Keychain helpers ──────────────────────────────────────────────────────────
 
 function credKey(id: string): string {
@@ -112,7 +149,7 @@ function restorePassword(config: ConnectionConfig, password: string): Connection
   if (restored.connection_string) {
     try {
       const url = new URL(restored.connection_string);
-      url.password = encodeURIComponent(password);
+      url.password = password;
       restored = { ...restored, connection_string: url.toString() };
     } catch {
       // Not a URL — can't restore
@@ -175,10 +212,14 @@ export async function loadConnectionWithPassword(
 
 /** Persist the full connection list. Strips passwords to keychain before saving. */
 export async function persistConnections(configs: ConnectionConfig[]): Promise<void> {
+  const deduped = dedupeConnections(configs);
   // Extract and vault passwords, then strip from configs
-  const sanitized = await Promise.all(
-    configs.map(async (cfg) => {
-      const pw = extractPassword(cfg);
+  const hydrated = await Promise.all(
+    deduped.map(async (cfg) => {
+      let pw = extractPassword(cfg);
+      if (!pw) {
+        pw = await keychainLoad(cfg.id);
+      }
       if (pw) {
         try {
           await keychainSave(cfg.id, pw);
@@ -186,15 +227,16 @@ export async function persistConnections(configs: ConnectionConfig[]): Promise<v
           // Keychain unavailable — fall through (password stays in config as fallback)
           return cfg;
         }
-        return stripPassword(cfg);
+        return restorePassword(cfg, pw);
       }
       return cfg;
     })
   );
 
+  const sanitized = hydrated.map(stripPassword);
   lsSave(sanitized);
   try {
-    await DbClient.saveConnections(sanitized);
+    await DbClient.saveConnections(hydrated);
   } catch {
     // Non-fatal: localStorage copy already saved
   }
@@ -252,10 +294,11 @@ export function saveConnection(config: ConnectionConfig): void {
   const pw = extractPassword(config);
   const toStore = pw ? stripPassword(config) : config;
 
-  const all = lsLoad();
+  const all = dedupeConnections(lsLoad());
   const idx = all.findIndex((c) => c.id === config.id);
   if (idx !== -1) all[idx] = toStore; else all.push(toStore);
-  lsSave(all);
+  const deduped = dedupeConnections(all);
+  lsSave(deduped);
 
   // Vault password + persist to Tauri file async
   (async () => {
@@ -266,7 +309,7 @@ export function saveConnection(config: ConnectionConfig): void {
         // Keychain unavailable
       }
     }
-    DbClient.saveConnections(all).catch(() => {});
+    DbClient.saveConnections(deduped).catch(() => {});
   })();
 }
 

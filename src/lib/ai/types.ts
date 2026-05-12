@@ -201,6 +201,12 @@ export interface ProviderSettings {
 
 const STORAGE_KEY = "daitalk_provider_settings";
 const KEYCHAIN_PREFIX = "daitalk_";
+const LEGACY_KEY_STORAGE: Partial<Record<ProviderID, string>> = {
+  nvidia: "nvidia_api_key",
+  openai: "openai_api_key",
+  claude: "claude_api_key",
+  gemini: "gemini_api_key",
+};
 
 /** Load provider selection + model prefs from localStorage. Keys are NOT included. */
 export function loadSettings(): ProviderSettings {
@@ -230,7 +236,19 @@ export async function loadApiKeysFromKeychain(): Promise<Partial<Record<Provider
   const results = await Promise.all(
     ids.map(async (id) => {
       try {
-        const key = await DbClient.getApiKey(KEYCHAIN_PREFIX + id);
+        let key = await DbClient.getApiKey(KEYCHAIN_PREFIX + id);
+        if (!key) {
+          const legacyStorageKey = LEGACY_KEY_STORAGE[id];
+          const legacyKey = legacyStorageKey ? localStorage.getItem(legacyStorageKey) ?? "" : "";
+          if (legacyKey) {
+            key = legacyKey;
+            try {
+              await DbClient.storeApiKey(KEYCHAIN_PREFIX + id, legacyKey);
+            } catch {
+              // best-effort migration
+            }
+          }
+        }
         return [id, key] as const;
       } catch {
         return [id, ""] as const;

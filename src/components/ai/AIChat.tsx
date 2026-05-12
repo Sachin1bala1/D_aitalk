@@ -129,6 +129,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
   const clearPendingChatInput = useWorkspaceStore((s) => s.clearPendingChatInput);
 
   const [providerSettings, setProviderSettings] = useState(loadSettings);
+  const [providerKeysHydrated, setProviderKeysHydrated] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [toolsPanelOpen, setToolsPanelOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(loadMessages);
@@ -147,10 +148,11 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
   // Load API keys from OS keychain on mount and merge into settings
   useEffect(() => {
     loadApiKeysFromKeychain().then((keys) => {
-      if (Object.keys(keys).length > 0) {
-        setProviderSettings((s) => ({ ...s, keys: { ...keys, ...s.keys } }));
-      }
-    }).catch(() => {});
+      setProviderSettings((s) => ({ ...s, keys: { ...s.keys, ...keys } }));
+      setProviderKeysHydrated(true);
+    }).catch(() => {
+      setProviderKeysHydrated(true);
+    });
   }, []);
 
   // Consume pending chat input set by StatResultView "Ask APEX" button
@@ -387,6 +389,14 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
   };
 
   const isOllamaActive = providerSettings.activeProvider === "ollama";
+  if (!providerKeysHydrated && !isOllamaActive) {
+    return (
+      <div className="flex items-center justify-center h-full text-xs text-white/30">
+        Loading provider settings…
+      </div>
+    );
+  }
+
   if (!activeKey && !isOllamaActive) {
     return (
       <>

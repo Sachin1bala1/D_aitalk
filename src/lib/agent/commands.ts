@@ -185,6 +185,8 @@ export interface CreateChartCmd {
   xColumn: string;
   yColumn: string;
   title?: string;
+  xLabel?: string;
+  yLabel?: string;
   risk: "safe";
 }
 
@@ -345,7 +347,7 @@ export function describeCommand(cmd: AgentCommand): string {
     case "run_stat_tool": return `Stat analysis: ${cmd.method}`;
     case "run_user_tool": return `User tool: ${cmd.toolId}`;
     case "run_duckdb_analysis": return `DuckDB: ${cmd.sql.slice(0, 60)}…`;
-    case "create_chart": return `Create ${cmd.chartType} chart: ${cmd.xColumn} vs ${cmd.yColumn}`;
+    case "create_chart": return `Open ${cmd.chartType} graph in Graph Builder: ${cmd.xColumn} vs ${cmd.yColumn}`;
     case "create_gog_chart": return `Create GoG ${cmd.geom} chart: ${cmd.x}${cmd.y ? ` vs ${cmd.y}` : ""} from ${cmd.schema ?? "public"}.${cmd.table}`;
     case "create_pipeline": return `Create pipeline "${cmd.name}" → ${cmd.targetTable}`;
     case "close_tab": return cmd.tabId ? `Close tab ${cmd.tabId}` : `Close active tab`;

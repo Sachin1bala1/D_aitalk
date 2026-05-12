@@ -82,6 +82,41 @@ function skewness(vals: number[]): number {
   return (vals.reduce((sum, v) => sum + ((v - m) / s) ** 3, 0) * n) / ((n - 1) * (n - 2));
 }
 
+function computeNumericDomain(
+  vals: number[],
+  options: { include?: number[]; logScale?: boolean; paddingRatio?: number } = {},
+): [number, number] | ['auto', 'auto'] {
+  const include = options.include ?? [];
+  const paddingRatio = options.paddingRatio ?? 0.08;
+  const candidates = [...vals, ...include].filter((value) =>
+    Number.isFinite(value) && (!options.logScale || value > 0),
+  );
+
+  if (candidates.length === 0) return ['auto', 'auto'];
+
+  let min = Math.min(...candidates);
+  let max = Math.max(...candidates);
+
+  if (min === max) {
+    const pad = min === 0 ? 1 : Math.abs(min) * 0.1;
+    min -= pad;
+    max += pad;
+  } else {
+    const pad = (max - min) * paddingRatio;
+    min -= pad;
+    max += pad;
+  }
+
+  if (options.logScale) {
+    const positives = candidates.filter((value) => value > 0);
+    if (positives.length === 0) return ['auto', 'auto'];
+    min = Math.max(min, Math.min(...positives) * 0.9);
+    max = Math.max(max, Math.min(...positives) * 1.1);
+  }
+
+  return [min, max];
+}
+
 /** Freedman-Diaconis bin width */
 function fdBins(vals: number[], overrideBinCount?: number): { bins: { x: number; count: number }[]; binWidth: number } {
   if (vals.length === 0) return { bins: [], binWidth: 1 };
@@ -149,9 +184,102 @@ export interface GraphBuilderProps {
   logScaleY?: boolean;
   referenceLineY?: { value: number; label: string } | null;
   confidenceInterval?: 'none' | '95' | '99';
+  xAxisLabel?: string | null;
+  yAxisLabel?: string | null;
+  xAxisMode?: 'auto' | 'fit' | 'zero' | 'manual';
+  yAxisMode?: 'auto' | 'fit' | 'zero' | 'manual';
+  xAxisMin?: number | null;
+  xAxisMax?: number | null;
+  yAxisMin?: number | null;
+  yAxisMax?: number | null;
   selectedIndices?: Set<number>;
   onPointClick?: (index: number) => void;
   onRightClickSelection?: (indices: number[], dataSummary: string) => void;
+}
+
+const AXIS_LABEL_STYLE = {
+  fill: '#ffffff50',
+  fontSize: 10,
+} as const;
+
+function resolveAxisLabel(explicit: string | null | undefined, fallback: string): string {
+  const trimmed = explicit?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : fallback;
+}
+
+function xAxisLabelProps(explicit: string | null | undefined, fallback: string) {
+  return {
+    value: resolveAxisLabel(explicit, fallback),
+    position: 'insideBottom' as const,
+    offset: -10,
+    ...AXIS_LABEL_STYLE,
+  };
+}
+
+function yAxisLabelProps(explicit: string | null | undefined, fallback: string) {
+  return {
+    value: resolveAxisLabel(explicit, fallback),
+    angle: -90,
+    position: 'insideLeft' as const,
+    ...AXIS_LABEL_STYLE,
+  };
+}
+
+function buildChartTitle(chartType: ChartType, xCol: string | null, yCol: string | null): string {
+  const label = chartType.replace('_', ' ');
+  if (xCol && yCol) return `${label}: ${yCol} vs ${xCol}`;
+  if (yCol) return `${label}: ${yCol}`;
+  if (xCol) return `${label}: ${xCol}`;
+  return label;
+}
+
+function resolveNumericDomain(
+  vals: number[],
+  options: {
+    mode?: 'auto' | 'fit' | 'zero' | 'manual';
+    include?: number[];
+    logScale?: boolean;
+    manualMin?: number | null;
+    manualMax?: number | null;
+  } = {},
+): [number, number] | ['auto', 'auto'] {
+  const mode = options.mode ?? 'fit';
+  if (mode === 'auto') return ['auto', 'auto'];
+
+  if (mode === 'manual') {
+    const min = options.manualMin;
+    const max = options.manualMax;
+    if (
+      typeof min === 'number' &&
+      typeof max === 'number' &&
+      Number.isFinite(min) &&
+      Number.isFinite(max) &&
+      min < max &&
+      (!options.logScale || (min > 0 && max > 0))
+    ) {
+      return [min, max];
+    }
+  }
+
+  const include = options.include ?? [];
+  const candidates = [...vals, ...include].filter((value) =>
+    Number.isFinite(value) && (!options.logScale || value > 0),
+  );
+  if (candidates.length === 0) return ['auto', 'auto'];
+
+  if (mode === 'zero' && !options.logScale) {
+    const min = Math.min(...candidates);
+    const max = Math.max(...candidates);
+    const range = Math.max(Math.abs(max - min), Math.abs(max), Math.abs(min), 1);
+    const pad = range * 0.08;
+    if (min >= 0) return [0, max + pad];
+    if (max <= 0) return [min - pad, 0];
+  }
+
+  return computeNumericDomain(vals, {
+    include,
+    logScale: options.logScale,
+  });
 }
 
 // ── Context menu ──────────────────────────────────────────────────────────────
@@ -202,7 +330,7 @@ function ChartContextMenu({
 // ── Scatter chart ─────────────────────────────────────────────────────────────
 
 function ScatterChartImpl({
-  data, xCol, yCol, colorCol, showTrendLine, logScaleX, logScaleY, confidenceInterval, selectedIndices, onPointClick,
+  data, xCol, yCol, colorCol, showTrendLine, logScaleX, logScaleY, confidenceInterval, xAxisLabel, yAxisLabel, xAxisMode, yAxisMode, xAxisMin, xAxisMax, yAxisMin, yAxisMax, selectedIndices, onPointClick,
 }: {
   data: Record<string, unknown>[];
   xCol: string;
@@ -212,6 +340,14 @@ function ScatterChartImpl({
   logScaleX?: boolean;
   logScaleY?: boolean;
   confidenceInterval?: 'none' | '95' | '99';
+  xAxisLabel?: string | null;
+  yAxisLabel?: string | null;
+  xAxisMode?: 'auto' | 'fit' | 'zero' | 'manual';
+  yAxisMode?: 'auto' | 'fit' | 'zero' | 'manual';
+  xAxisMin?: number | null;
+  xAxisMax?: number | null;
+  yAxisMin?: number | null;
+  yAxisMax?: number | null;
   selectedIndices: Set<number>;
   onPointClick?: (i: number) => void;
 }) {
@@ -227,6 +363,19 @@ function ScatterChartImpl({
   });
 
   const groupEntries = [...groups.entries()];
+  const allPoints = groupEntries.flatMap(([, points]) => points);
+  const xDomain = resolveNumericDomain(allPoints.map((point) => point.x), {
+    mode: xAxisMode,
+    logScale: logScaleX,
+    manualMin: xAxisMin,
+    manualMax: xAxisMax,
+  });
+  const yDomain = resolveNumericDomain(allPoints.map((point) => point.y), {
+    mode: yAxisMode,
+    logScale: logScaleY,
+    manualMin: yAxisMin,
+    manualMax: yAxisMax,
+  });
 
   // Simple linear regression for trend line — use paired filter to avoid index mismatch
   let trendPoints: { x: number; y: number }[] = [];
@@ -288,18 +437,22 @@ function ScatterChartImpl({
         <XAxis
           dataKey="x"
           type="number"
-          name={xCol}
+          name={resolveAxisLabel(xAxisLabel, xCol)}
+          label={xAxisLabelProps(xAxisLabel, xCol)}
+          domain={xDomain}
           stroke="#ffffff30"
           tick={{ fill: '#ffffff40', fontSize: 10 }}
-          {...(logScaleX ? { scale: 'log', domain: ['auto', 'auto'] } : {})}
+          {...(logScaleX ? { scale: 'log' } : {})}
         />
         <YAxis
           dataKey="y"
           type="number"
-          name={yCol}
+          name={resolveAxisLabel(yAxisLabel, yCol)}
+          label={yAxisLabelProps(yAxisLabel, yCol)}
+          domain={yDomain}
           stroke="#ffffff30"
           tick={{ fill: '#ffffff40', fontSize: 10 }}
-          {...(logScaleY ? { scale: 'log', domain: ['auto', 'auto'] } : {})}
+          {...(logScaleY ? { scale: 'log' } : {})}
         />
         <Tooltip
           contentStyle={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, fontSize: 11 }}
@@ -378,7 +531,7 @@ function ScatterChartImpl({
 // ── Line chart ────────────────────────────────────────────────────────────────
 
 function LineChartImpl({
-  data, xCol, yCol, colorCol, referenceLineY, showDataPoints, logScaleX, logScaleY, confidenceInterval, selectedIndices,
+  data, xCol, yCol, colorCol, referenceLineY, showDataPoints, logScaleX, logScaleY, confidenceInterval, xAxisLabel, yAxisLabel, xAxisMode, yAxisMode, xAxisMin, xAxisMax, yAxisMin, yAxisMax, selectedIndices,
 }: {
   data: Record<string, unknown>[];
   xCol: string;
@@ -389,6 +542,14 @@ function LineChartImpl({
   logScaleX?: boolean;
   logScaleY?: boolean;
   confidenceInterval?: 'none' | '95' | '99';
+  xAxisLabel?: string | null;
+  yAxisLabel?: string | null;
+  xAxisMode?: 'auto' | 'fit' | 'zero' | 'manual';
+  yAxisMode?: 'auto' | 'fit' | 'zero' | 'manual';
+  xAxisMin?: number | null;
+  xAxisMax?: number | null;
+  yAxisMin?: number | null;
+  yAxisMax?: number | null;
   selectedIndices: Set<number>;
 }) {
   const groups: Map<string, boolean> = new Map();
@@ -430,6 +591,32 @@ function LineChartImpl({
   }
 
   const displayData = showCI ? ciData : chartData;
+  const xNumericVals = displayData
+    .map((row) => toNum(row._x))
+    .filter((value): value is number => value !== null);
+  const yNumericVals = displayData.flatMap((row) =>
+    groupKeys
+      .map((key) => toNum(row[key]))
+      .filter((value): value is number => value !== null),
+  );
+  const xIsNumeric = xNumericVals.length > 0 && xNumericVals.length === displayData.length;
+  const xDomain = xIsNumeric ? resolveNumericDomain(xNumericVals, {
+    mode: xAxisMode,
+    logScale: logScaleX,
+    manualMin: xAxisMin,
+    manualMax: xAxisMax,
+  }) : undefined;
+  const yDomain = resolveNumericDomain(yNumericVals, {
+    mode: yAxisMode,
+    include: [
+      ...(referenceLineY ? [referenceLineY.value] : []),
+      ...displayData.map((row) => toNum(row._upper)).filter((value): value is number => value !== null),
+      ...displayData.map((row) => toNum(row._lower)).filter((value): value is number => value !== null),
+    ],
+    logScale: logScaleY,
+    manualMin: yAxisMin,
+    manualMax: yAxisMax,
+  });
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -437,14 +624,20 @@ function LineChartImpl({
         <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
         <XAxis
           dataKey="_x"
+          {...(xIsNumeric ? { type: 'number', domain: xDomain } : {})}
+          name={resolveAxisLabel(xAxisLabel, xCol)}
+          label={xAxisLabelProps(xAxisLabel, xCol)}
           stroke="#ffffff30"
           tick={{ fill: '#ffffff40', fontSize: 10 }}
-          {...(logScaleX ? { scale: 'log', domain: ['auto', 'auto'] } : {})}
+          {...(logScaleX ? { scale: 'log' } : {})}
         />
         <YAxis
+          domain={yDomain}
+          name={resolveAxisLabel(yAxisLabel, yCol)}
+          label={yAxisLabelProps(yAxisLabel, yCol)}
           stroke="#ffffff30"
           tick={{ fill: '#ffffff40', fontSize: 10 }}
-          {...(logScaleY ? { scale: 'log', domain: ['auto', 'auto'] } : {})}
+          {...(logScaleY ? { scale: 'log' } : {})}
         />
         <Tooltip
           contentStyle={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, fontSize: 11 }}
@@ -522,12 +715,17 @@ function LineChartImpl({
 // ── Bar chart ─────────────────────────────────────────────────────────────────
 
 function BarChartImpl({
-  data, xCol, yCol, colorCol, selectedIndices, onPointClick,
+  data, xCol, yCol, colorCol, xAxisLabel, yAxisLabel, yAxisMode, yAxisMin, yAxisMax, selectedIndices, onPointClick,
 }: {
   data: Record<string, unknown>[];
   xCol: string;
   yCol: string;
   colorCol?: string | null;
+  xAxisLabel?: string | null;
+  yAxisLabel?: string | null;
+  yAxisMode?: 'auto' | 'fit' | 'zero' | 'manual';
+  yAxisMin?: number | null;
+  yAxisMax?: number | null;
   selectedIndices: Set<number>;
   onPointClick?: (i: number) => void;
 }) {
@@ -551,13 +749,25 @@ function BarChartImpl({
   });
 
   const ckArr = [...colorKeys];
+  const yDomain = resolveNumericDomain(
+    chartData.flatMap((entry) =>
+      ckArr
+        .map((key) => toNum(entry[key]))
+        .filter((value): value is number => value !== null),
+    ),
+    {
+      mode: yAxisMode,
+      manualMin: yAxisMin,
+      manualMax: yAxisMax,
+    },
+  );
 
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={chartData} margin={{ top: 10, right: 20, bottom: 40, left: 20 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-        <XAxis dataKey="_x" stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 9 }} angle={-25} textAnchor="end" />
-        <YAxis stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
+        <XAxis dataKey="_x" name={resolveAxisLabel(xAxisLabel, xCol)} label={xAxisLabelProps(xAxisLabel, xCol)} stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 9 }} angle={-25} textAnchor="end" />
+        <YAxis domain={yDomain} name={resolveAxisLabel(yAxisLabel, yCol)} label={yAxisLabelProps(yAxisLabel, yCol)} stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
         <Tooltip
           contentStyle={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, fontSize: 11 }}
           labelStyle={{ color: '#ffffff60' }}
@@ -593,11 +803,19 @@ function BarChartImpl({
 // ── Histogram ─────────────────────────────────────────────────────────────────
 
 function HistogramImpl({
-  data, xCol, binCount,
+  data, xCol, binCount, xAxisLabel, yAxisLabel, xAxisMode, yAxisMode, xAxisMin, xAxisMax, yAxisMin, yAxisMax,
 }: {
   data: Record<string, unknown>[];
   xCol: string;
   binCount?: number;
+  xAxisLabel?: string | null;
+  yAxisLabel?: string | null;
+  xAxisMode?: 'auto' | 'fit' | 'zero' | 'manual';
+  yAxisMode?: 'auto' | 'fit' | 'zero' | 'manual';
+  xAxisMin?: number | null;
+  xAxisMax?: number | null;
+  yAxisMin?: number | null;
+  yAxisMax?: number | null;
 }) {
   const vals = numericValues(data, xCol);
   if (vals.length === 0) return <div className="flex items-center justify-center h-full text-white/20 text-xs">No numeric data</div>;
@@ -615,6 +833,23 @@ function HistogramImpl({
       ? (vals.length * binSpan) * (1 / (s * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * ((b.x - m) / s) ** 2)
       : undefined,
   }));
+  const xDomain = resolveNumericDomain(
+    normalData.map((bin) => bin.x),
+    {
+      mode: xAxisMode,
+      manualMin: xAxisMin,
+      manualMax: xAxisMax,
+    },
+  );
+  const yDomain = resolveNumericDomain(
+    normalData.flatMap((bin) => [bin.count, typeof bin.normal === 'number' ? bin.normal : null].filter((value): value is number => value !== null)),
+    {
+      mode: yAxisMode,
+      include: [0],
+      manualMin: yAxisMin,
+      manualMax: yAxisMax,
+    },
+  );
 
   const tooltipFormatter = makeFormatter((v, n) => [
     v.toFixed(2),
@@ -625,9 +860,9 @@ function HistogramImpl({
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={normalData} margin={{ top: 10, right: 20, bottom: 30, left: 20 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-        <XAxis dataKey="x" type="number" stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }}
+        <XAxis dataKey="x" type="number" name={resolveAxisLabel(xAxisLabel, xCol)} label={xAxisLabelProps(xAxisLabel, xCol)} domain={xDomain} stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }}
           tickFormatter={(v: number) => v.toFixed(1)} />
-        <YAxis stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
+        <YAxis domain={yDomain} name={resolveAxisLabel(yAxisLabel, 'Count')} label={yAxisLabelProps(yAxisLabel, 'Count')} stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
         <Tooltip
           contentStyle={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, fontSize: 11 }}
           labelStyle={{ color: '#ffffff60' }}
@@ -657,11 +892,16 @@ interface BoxStats {
 }
 
 function BoxPlotImpl({
-  data, xCol, yCol,
+  data, xCol, yCol, xAxisLabel, yAxisLabel, yAxisMode, yAxisMin, yAxisMax,
 }: {
   data: Record<string, unknown>[];
   xCol: string;
   yCol: string;
+  xAxisLabel?: string | null;
+  yAxisLabel?: string | null;
+  yAxisMode?: 'auto' | 'fit' | 'zero' | 'manual';
+  yAxisMin?: number | null;
+  yAxisMax?: number | null;
 }) {
   const groups = new Map<string, number[]>();
   data.forEach((row) => {
@@ -705,6 +945,17 @@ function BoxPlotImpl({
   });
 
   const tooltipFormatter = makeFormatter((v, n) => [v.toFixed(3), n]);
+  const yDomain = resolveNumericDomain(
+    [
+      ...boxData.flatMap((stat) => [stat.whiskerLow, stat.whiskerHigh, stat.q1, stat.q3, stat.median]),
+      ...allOutliers.map((outlier) => outlier.value),
+    ],
+    {
+      mode: yAxisMode,
+      manualMin: yAxisMin,
+      manualMax: yAxisMax,
+    },
+  );
 
   // Custom whisker rendering using a Customized component
   const WhiskerLayer = (props: { formattedGraphicalItems?: { props: { data: BoxStats[]; xAxisMap?: Record<string, { scale: (v: unknown) => number }> } }[]; yAxisMap?: Record<string, { scale: (v: number) => number }> }) => {
@@ -761,8 +1012,8 @@ function BoxPlotImpl({
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={boxData} margin={{ top: 10, right: 20, bottom: 40, left: 20 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-        <XAxis dataKey="category" stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
-        <YAxis stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
+        <XAxis dataKey="category" name={resolveAxisLabel(xAxisLabel, xCol)} label={xAxisLabelProps(xAxisLabel, xCol)} stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
+        <YAxis domain={yDomain} name={resolveAxisLabel(yAxisLabel, yCol)} label={yAxisLabelProps(yAxisLabel, yCol)} stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
         <Tooltip
           contentStyle={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, fontSize: 11 }}
           labelStyle={{ color: '#ffffff60' }}
@@ -796,11 +1047,13 @@ function BoxPlotImpl({
 // ── Heatmap ───────────────────────────────────────────────────────────────────
 
 function HeatmapImpl({
-  data, xCol, yCol,
+  data, xCol, yCol, xAxisLabel, yAxisLabel,
 }: {
   data: Record<string, unknown>[];
   xCol: string;
   yCol: string;
+  xAxisLabel?: string | null;
+  yAxisLabel?: string | null;
 }) {
   const xVals = [...new Set(data.map((r) => String(r[xCol] ?? '')))].slice(0, 30);
   const yVals = [...new Set(data.map((r) => String(r[yCol] ?? '')))].slice(0, 20);
@@ -832,7 +1085,15 @@ function HeatmapImpl({
   }
 
   return (
-    <div className="flex-1 overflow-auto p-2">
+    <div className="flex h-full flex-col">
+      <div className="px-3 pt-2 text-center text-[10px] uppercase tracking-[0.22em] text-white/35">
+        {resolveAxisLabel(xAxisLabel, xCol)}
+      </div>
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex w-7 items-center justify-center text-[10px] uppercase tracking-[0.22em] text-white/35 [writing-mode:vertical-rl] rotate-180">
+          {resolveAxisLabel(yAxisLabel, yCol)}
+        </div>
+        <div className="flex-1 overflow-auto p-2">
       <svg width={svgW} height={svgH} style={{ display: 'block' }}>
         {xVals.map((xv, xi) => (
           <text
@@ -877,6 +1138,8 @@ function HeatmapImpl({
           })
         )}
       </svg>
+        </div>
+      </div>
     </div>
   );
 }
@@ -884,10 +1147,15 @@ function HeatmapImpl({
 // ── Control chart (SPC) ───────────────────────────────────────────────────────
 
 function ControlChartImpl({
-  data, yCol,
+  data, yCol, xAxisLabel, yAxisLabel, yAxisMode, yAxisMin, yAxisMax,
 }: {
   data: Record<string, unknown>[];
   yCol: string;
+  xAxisLabel?: string | null;
+  yAxisLabel?: string | null;
+  yAxisMode?: 'auto' | 'fit' | 'zero' | 'manual';
+  yAxisMin?: number | null;
+  yAxisMax?: number | null;
 }) {
   const vals = numericValues(data, yCol);
   if (vals.length === 0) return <div className="flex items-center justify-center h-full text-white/20 text-xs">No data</div>;
@@ -897,6 +1165,12 @@ function ControlChartImpl({
   const ucl = m + 3 * s;
   const lcl = m - 3 * s;
   const violations = new Set(westernElectricViolations(vals, ucl, lcl));
+  const yDomain = resolveNumericDomain(vals, {
+    mode: yAxisMode,
+    include: [ucl, lcl, m],
+    manualMin: yAxisMin,
+    manualMax: yAxisMax,
+  });
 
   const chartData = data.map((row, i) => ({
     index: i,
@@ -913,8 +1187,8 @@ function ControlChartImpl({
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={chartData} margin={{ top: 10, right: 80, bottom: 20, left: 20 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-        <XAxis dataKey="index" stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
-        <YAxis stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
+        <XAxis dataKey="index" name={resolveAxisLabel(xAxisLabel, 'Observation')} label={xAxisLabelProps(xAxisLabel, 'Observation')} stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
+        <YAxis domain={yDomain} name={resolveAxisLabel(yAxisLabel, yCol)} label={yAxisLabelProps(yAxisLabel, yCol)} stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
         <Tooltip
           contentStyle={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, fontSize: 11 }}
           labelStyle={{ color: '#ffffff60' }}
@@ -954,11 +1228,16 @@ function ControlChartImpl({
 // ── Pareto chart ──────────────────────────────────────────────────────────────
 
 function ParetoImpl({
-  data, xCol, yCol,
+  data, xCol, yCol, xAxisLabel, yAxisLabel, yAxisMode, yAxisMin, yAxisMax,
 }: {
   data: Record<string, unknown>[];
   xCol: string;
   yCol: string;
+  xAxisLabel?: string | null;
+  yAxisLabel?: string | null;
+  yAxisMode?: 'auto' | 'fit' | 'zero' | 'manual';
+  yAxisMin?: number | null;
+  yAxisMax?: number | null;
 }) {
   const aggMap = new Map<string, number>();
   data.forEach((row) => {
@@ -974,6 +1253,15 @@ function ParetoImpl({
     cumSum += value;
     return { category, value, cumPct: total > 0 ? (cumSum / total) * 100 : 0 };
   });
+  const valueDomain = resolveNumericDomain(
+    chartData.map((entry) => entry.value),
+    {
+      mode: yAxisMode,
+      include: [0],
+      manualMin: yAxisMin,
+      manualMax: yAxisMax,
+    },
+  );
 
   const tooltipFormatter = makeFormatter((v, n) => [
     n === 'cumPct' ? `${v.toFixed(1)}%` : v.toFixed(2),
@@ -984,9 +1272,10 @@ function ParetoImpl({
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={chartData} margin={{ top: 10, right: 40, bottom: 40, left: 20 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-        <XAxis dataKey="category" stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 9 }} angle={-25} textAnchor="end" />
-        <YAxis yAxisId="left" stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
+        <XAxis dataKey="category" name={resolveAxisLabel(xAxisLabel, xCol)} label={xAxisLabelProps(xAxisLabel, xCol)} stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 9 }} angle={-25} textAnchor="end" />
+        <YAxis yAxisId="left" domain={valueDomain} name={resolveAxisLabel(yAxisLabel, yCol)} label={yAxisLabelProps(yAxisLabel, yCol)} stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
         <YAxis yAxisId="right" orientation="right" domain={[0, 100]} stroke="#ffd166" tick={{ fill: '#ffd16680', fontSize: 10 }}
+          label={{ value: 'Cumulative %', angle: 90, position: 'insideRight', ...AXIS_LABEL_STYLE }}
           tickFormatter={(v: number) => `${v}%`} />
         <Tooltip
           contentStyle={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, fontSize: 11 }}
@@ -1005,14 +1294,29 @@ function ParetoImpl({
 // ── Area chart ────────────────────────────────────────────────────────────────
 
 function AreaChartImpl({
-  data, xCol, yCol,
+  data, xCol, yCol, xAxisLabel, yAxisLabel, xAxisMode, yAxisMode, xAxisMin, xAxisMax, yAxisMin, yAxisMax,
 }: {
   data: Record<string, unknown>[];
   xCol: string;
   yCol: string;
+  xAxisLabel?: string | null;
+  yAxisLabel?: string | null;
+  xAxisMode?: 'auto' | 'fit' | 'zero' | 'manual';
+  yAxisMode?: 'auto' | 'fit' | 'zero' | 'manual';
+  xAxisMin?: number | null;
+  xAxisMax?: number | null;
+  yAxisMin?: number | null;
+  yAxisMax?: number | null;
 }) {
   const gradId = React.useId().replace(/:/g, '');  // useId() returns ":r0:" etc, strip colons for SVG id
   const chartData = data.map((r) => ({ x: r[xCol], y: toNum(r[yCol]) }));
+  const xNumericVals = chartData.map((row) => toNum(row.x)).filter((value): value is number => value !== null);
+  const yVals = chartData.map((row) => row.y).filter((value): value is number => value !== null);
+  const xIsNumeric = xNumericVals.length > 0 && xNumericVals.length === chartData.length;
+  const xDomain = xIsNumeric
+    ? resolveNumericDomain(xNumericVals, { mode: xAxisMode, manualMin: xAxisMin, manualMax: xAxisMax })
+    : undefined;
+  const yDomain = resolveNumericDomain(yVals, { mode: yAxisMode, manualMin: yAxisMin, manualMax: yAxisMax });
   return (
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={chartData} margin={{ top: 10, right: 20, bottom: 30, left: 20 }}>
@@ -1023,8 +1327,8 @@ function AreaChartImpl({
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-        <XAxis dataKey="x" stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
-        <YAxis stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
+        <XAxis dataKey="x" name={resolveAxisLabel(xAxisLabel, xCol)} {...(xIsNumeric ? { type: 'number', domain: xDomain } : {})} label={xAxisLabelProps(xAxisLabel, xCol)} stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
+        <YAxis domain={yDomain} name={resolveAxisLabel(yAxisLabel, yCol)} label={yAxisLabelProps(yAxisLabel, yCol)} stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
         <Tooltip
           contentStyle={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, fontSize: 11 }}
           labelStyle={{ color: '#ffffff60' }}
@@ -1038,12 +1342,20 @@ function AreaChartImpl({
 // ── Bubble chart (scatter with size) ─────────────────────────────────────────
 
 function BubbleChartImpl({
-  data, xCol, yCol, sizeCol,
+  data, xCol, yCol, sizeCol, xAxisLabel, yAxisLabel, xAxisMode, yAxisMode, xAxisMin, xAxisMax, yAxisMin, yAxisMax,
 }: {
   data: Record<string, unknown>[];
   xCol: string;
   yCol: string;
   sizeCol?: string | null;
+  xAxisLabel?: string | null;
+  yAxisLabel?: string | null;
+  xAxisMode?: 'auto' | 'fit' | 'zero' | 'manual';
+  yAxisMode?: 'auto' | 'fit' | 'zero' | 'manual';
+  xAxisMin?: number | null;
+  xAxisMax?: number | null;
+  yAxisMin?: number | null;
+  yAxisMax?: number | null;
 }) {
   const sizeVals = sizeCol ? numericValues(data, sizeCol) : [];
   const maxSize = sizeVals.length > 0 ? Math.max(...sizeVals) : 1;
@@ -1058,13 +1370,15 @@ function BubbleChartImpl({
       return { index, x: xv, y: yv, z };
     })
     .filter((p): p is { index: number; x: number; y: number; z: number } => p !== null);
+  const xDomain = resolveNumericDomain(points.map((point) => point.x), { mode: xAxisMode, manualMin: xAxisMin, manualMax: xAxisMax });
+  const yDomain = resolveNumericDomain(points.map((point) => point.y), { mode: yAxisMode, manualMin: yAxisMin, manualMax: yAxisMax });
 
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 20 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-        <XAxis dataKey="x" type="number" stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
-        <YAxis dataKey="y" type="number" stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
+        <XAxis dataKey="x" type="number" name={resolveAxisLabel(xAxisLabel, xCol)} domain={xDomain} label={xAxisLabelProps(xAxisLabel, xCol)} stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
+        <YAxis dataKey="y" type="number" name={resolveAxisLabel(yAxisLabel, yCol)} domain={yDomain} label={yAxisLabelProps(yAxisLabel, yCol)} stroke="#ffffff30" tick={{ fill: '#ffffff40', fontSize: 10 }} />
         <Tooltip
           contentStyle={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 8, fontSize: 11 }}
           labelStyle={{ color: '#ffffff60' }}
@@ -1094,12 +1408,21 @@ export function GraphBuilder({
   logScaleY,
   referenceLineY,
   confidenceInterval,
+  xAxisLabel,
+  yAxisLabel,
+  xAxisMode,
+  yAxisMode,
+  xAxisMin,
+  xAxisMax,
+  yAxisMin,
+  yAxisMax,
   selectedIndices = new Set(),
   onPointClick,
   onRightClickSelection,
 }: GraphBuilderProps) {
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const chartTitle = useMemo(() => buildChartTitle(chartType, xCol, yCol), [chartType, xCol, yCol]);
 
   const handleContainerClick = useCallback(
     (_e: React.MouseEvent) => {
@@ -1164,6 +1487,14 @@ export function GraphBuilder({
             logScaleX={logScaleX}
             logScaleY={logScaleY}
             confidenceInterval={confidenceInterval}
+            xAxisLabel={xAxisLabel}
+            yAxisLabel={yAxisLabel}
+            xAxisMode={xAxisMode}
+            yAxisMode={yAxisMode}
+            xAxisMin={xAxisMin}
+            xAxisMax={xAxisMax}
+            yAxisMin={yAxisMin}
+            yAxisMax={yAxisMax}
             selectedIndices={selectedIndices}
             onPointClick={onPointClick}
           />
@@ -1181,6 +1512,14 @@ export function GraphBuilder({
             logScaleX={logScaleX}
             logScaleY={logScaleY}
             confidenceInterval={confidenceInterval}
+            xAxisLabel={xAxisLabel}
+            yAxisLabel={yAxisLabel}
+            xAxisMode={xAxisMode}
+            yAxisMode={yAxisMode}
+            xAxisMin={xAxisMin}
+            xAxisMax={xAxisMax}
+            yAxisMin={yAxisMin}
+            yAxisMax={yAxisMax}
             selectedIndices={selectedIndices}
           />
         ) : null;
@@ -1192,6 +1531,11 @@ export function GraphBuilder({
             xCol={xCol}
             yCol={yCol}
             colorCol={colorCol}
+            xAxisLabel={xAxisLabel}
+            yAxisLabel={yAxisLabel}
+            yAxisMode={yAxisMode}
+            yAxisMin={yAxisMin}
+            yAxisMax={yAxisMax}
             selectedIndices={selectedIndices}
             onPointClick={onPointClick}
           />
@@ -1199,38 +1543,67 @@ export function GraphBuilder({
 
       case 'histogram':
         return xCol ? (
-          <HistogramImpl data={displayData} xCol={xCol} />
+          <HistogramImpl
+            data={displayData}
+            xCol={xCol}
+            xAxisLabel={xAxisLabel}
+            yAxisLabel={yAxisLabel}
+            xAxisMode={xAxisMode}
+            yAxisMode={yAxisMode}
+            xAxisMin={xAxisMin}
+            xAxisMax={xAxisMax}
+            yAxisMin={yAxisMin}
+            yAxisMax={yAxisMax}
+          />
         ) : null;
 
       case 'box':
       case 'violin': // violin falls back to box
         return xCol && yCol ? (
-          <BoxPlotImpl data={displayData} xCol={xCol} yCol={yCol} />
+          <BoxPlotImpl
+            data={displayData}
+            xCol={xCol}
+            yCol={yCol}
+            xAxisLabel={xAxisLabel}
+            yAxisLabel={yAxisLabel}
+            yAxisMode={yAxisMode}
+            yAxisMin={yAxisMin}
+            yAxisMax={yAxisMax}
+          />
         ) : null;
 
       case 'heatmap':
         return xCol && yCol ? (
-          <HeatmapImpl data={displayData} xCol={xCol} yCol={yCol} />
+          <HeatmapImpl data={displayData} xCol={xCol} yCol={yCol} xAxisLabel={xAxisLabel} yAxisLabel={yAxisLabel} />
         ) : null;
 
       case 'control_chart':
         return yCol ? (
-          <ControlChartImpl data={displayData} yCol={yCol} />
+          <ControlChartImpl data={displayData} yCol={yCol} xAxisLabel={xAxisLabel} yAxisLabel={yAxisLabel} yAxisMode={yAxisMode} yAxisMin={yAxisMin} yAxisMax={yAxisMax} />
         ) : null;
 
       case 'pareto':
         return xCol && yCol ? (
-          <ParetoImpl data={displayData} xCol={xCol} yCol={yCol} />
+          <ParetoImpl
+            data={displayData}
+            xCol={xCol}
+            yCol={yCol}
+            xAxisLabel={xAxisLabel}
+            yAxisLabel={yAxisLabel}
+            yAxisMode={yAxisMode}
+            yAxisMin={yAxisMin}
+            yAxisMax={yAxisMax}
+          />
         ) : null;
 
       case 'area':
         return xCol && yCol ? (
-          <AreaChartImpl data={displayData} xCol={xCol} yCol={yCol} />
+          <AreaChartImpl data={displayData} xCol={xCol} yCol={yCol} xAxisLabel={xAxisLabel} yAxisLabel={yAxisLabel} xAxisMode={xAxisMode} yAxisMode={yAxisMode} xAxisMin={xAxisMin} xAxisMax={xAxisMax} yAxisMin={yAxisMin} yAxisMax={yAxisMax} />
         ) : null;
 
       case 'bubble':
         return xCol && yCol ? (
-          <BubbleChartImpl data={displayData} xCol={xCol} yCol={yCol} sizeCol={sizeCol} />
+          <BubbleChartImpl data={displayData} xCol={xCol} yCol={yCol} sizeCol={sizeCol} xAxisLabel={xAxisLabel} yAxisLabel={yAxisLabel} xAxisMode={xAxisMode} yAxisMode={yAxisMode} xAxisMin={xAxisMin} xAxisMax={xAxisMax} yAxisMin={yAxisMin} yAxisMax={yAxisMax} />
         ) : null;
 
       default:
@@ -1239,12 +1612,14 @@ export function GraphBuilder({
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const chart = useMemo(() => renderChart(), [displayData, xCol, yCol, colorCol, chartType, showTrendLine, logScaleX, logScaleY, referenceLineY, confidenceInterval, selectedIndices]);
+  const chart = useMemo(() => renderChart(), [displayData, xCol, yCol, colorCol, sizeCol, chartType, showTrendLine, showDataPoints, logScaleX, logScaleY, referenceLineY, confidenceInterval, xAxisLabel, yAxisLabel, xAxisMode, yAxisMode, xAxisMin, xAxisMax, yAxisMin, yAxisMax, selectedIndices]);
 
   return (
     <div
       ref={containerRef}
       className="w-full h-full relative"
+      role="img"
+      aria-label={chartTitle}
       onClick={handleContainerClick}
       onContextMenu={handleContextMenu}
     >

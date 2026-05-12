@@ -4,49 +4,14 @@ use crate::db::connection_manager::ActiveConnection;
 use crate::db::types::ConnectionConfig;
 
 use super::AppState;
-use super::persistence::{load_connection_secret, sanitize_connection_config, store_connection_secret};
+use super::persistence::{merge_with_stored_secret, sanitize_connection_config, store_connection_secret};
 
 #[tauri::command]
 pub async fn db_connect(
     config: ConnectionConfig,
     state: State<'_, AppState>,
 ) -> Result<ConnectionConfig, String> {
-    let mut effective_config = config.clone();
-    if let Some(secret) = load_connection_secret(&config.id)? {
-        if config.connection_string.contains("***") {
-            effective_config.connection_string = secret.connection_string;
-        }
-        effective_config.ssh = match (config.ssh.as_ref(), secret.ssh.as_ref()) {
-            (Some(incoming), Some(stored)) => {
-                let mut merged = incoming.clone();
-                merged.auth = match (&incoming.auth, &stored.auth) {
-                    (
-                        crate::db::types::SshAuth::Password { password },
-                        crate::db::types::SshAuth::Password {
-                            password: stored_password,
-                        },
-                    ) if password.is_empty() => crate::db::types::SshAuth::Password {
-                        password: stored_password.clone(),
-                    },
-                    (
-                        crate::db::types::SshAuth::Key { key_path, passphrase },
-                        crate::db::types::SshAuth::Key {
-                            passphrase: stored_passphrase,
-                            ..
-                        },
-                    ) if passphrase.is_none() => crate::db::types::SshAuth::Key {
-                        key_path: key_path.clone(),
-                        passphrase: stored_passphrase.clone(),
-                    },
-                    _ => incoming.auth.clone(),
-                };
-                Some(merged)
-            }
-            (Some(incoming), None) => Some(incoming.clone()),
-            (None, Some(stored)) => Some(stored.clone()),
-            (None, None) => None,
-        };
-    }
+    let effective_config = merge_with_stored_secret(&config)?;
 
     state
         .connections

@@ -230,7 +230,8 @@ export const AGENT_TOOLS: UnifiedTool[] = [
   // ── Charts ────────────────────────────────────────────────────────────────
   {
     name: "create_chart",
-    description: "Request a chart visualization of the current query results.",
+    description:
+      "Open an editable chart in Graph Builder using the current query results. Prefer this when the user wants a plot they can continue refining. If the needed results are not already loaded, call execute_sql first.",
     parameters: {
       type: "object",
       properties: {
@@ -238,6 +239,8 @@ export const AGENT_TOOLS: UnifiedTool[] = [
         xColumn: { type: "string", description: "Column to use as the X axis / category" },
         yColumn: { type: "string", description: "Column to use as the Y axis / value" },
         title: { type: "string", description: "Optional chart title" },
+        xLabel: { type: "string", description: "Optional X axis label override. Defaults to xColumn." },
+        yLabel: { type: "string", description: "Optional Y axis label override. Defaults to yColumn." },
       },
       required: ["chartType", "xColumn", "yColumn"],
     },
@@ -365,7 +368,7 @@ export const AGENT_TOOLS: UnifiedTool[] = [
   // ── Billion-Scale Visualization ───────────────────────────────────────────
   {
     name: "create_gog_chart",
-    description: `Create a chart using the Grammar of Graphics specification. This is the PRIMARY tool for all visualization requests. Automatically handles billion-row datasets by using aggregate SQL (binned strategy). Use this for ALL chart/visualization requests.`,
+    description: `Create a chart using the Grammar of Graphics specification for large table-scale visualizations that need server-side aggregation or binning. Do not use this as the default when the relevant query results are already loaded; use create_chart for editable Graph Builder plots.`,
     parameters: {
       type: "object",
       properties: {

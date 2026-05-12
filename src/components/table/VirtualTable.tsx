@@ -681,6 +681,7 @@ export function VirtualTable({ isLoading }: VirtualTableProps = {}) {
   const store = useRowStore();
   const { rows, columns, isStreaming, elapsedMs } = store;
   const chartRequest = useWorkspaceStore((s) => s.chartRequest);
+  const graphBuilderRequest = useWorkspaceStore((s) => s.graphBuilderRequest);
   const setChartRequest = useWorkspaceStore((s) => s.setChartRequest);
   const activeConnectionId = useWorkspaceStore((s) => s.activeConnectionId);
   const activeTabId = useWorkspaceStore((s) => s.activeTabId);
@@ -719,14 +720,34 @@ export function VirtualTable({ isLoading }: VirtualTableProps = {}) {
   const [graphBuilderVisible, setGraphBuilderVisible] = useState(false);
   const [pivotMode, setPivotMode] = useState(false);
   const lastTrackedChartSignatureRef = useRef<string | null>(null);
+  const consumedGraphBuilderRequestIdRef = useRef<string | null>(null);
 
-  // Respond to create_chart command from agent
+  // Legacy lightweight preview charts remain opt-in; AI chart requests should prefer Graph Builder.
   useEffect(() => {
     if (chartRequest && rows.length > 0) {
+      setPivotMode(false);
+      setGraphBuilderVisible(false);
       setChartVisible(true);
       setChartRequest(null); // consume
     }
-  }, [chartRequest, rows.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [chartRequest, rows.length, setChartRequest]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!graphBuilderRequest || rows.length === 0) return;
+    if (consumedGraphBuilderRequestIdRef.current === graphBuilderRequest.requestId) return;
+
+    consumedGraphBuilderRequestIdRef.current = graphBuilderRequest.requestId;
+    setPivotMode(false);
+    setChartVisible(false);
+    setGraphBuilderVisible(true);
+  }, [graphBuilderRequest, rows.length]);
+
+  useEffect(() => {
+    if (!graphBuilderRequest) {
+      consumedGraphBuilderRequestIdRef.current = null;
+    }
+  }, [graphBuilderRequest]);
+
   useEffect(() => {
     lastTrackedChartSignatureRef.current = null;
   }, [activeConnectionId, currentQueryResult?.queryId]);
@@ -1039,6 +1060,7 @@ export function VirtualTable({ isLoading }: VirtualTableProps = {}) {
   // Visible columns (after hiding)
   const visibleColumns = columns.filter((c) => !hiddenCols.has(c.name));
   const totalWidth = _totalWidthFn(visibleColumns);
+  const useFloatingColumnPicker = chartVisible || graphBuilderVisible;
 
   // Detect EXPLAIN output — single column named "QUERY PLAN"
   const isExplain =
@@ -1051,7 +1073,7 @@ export function VirtualTable({ isLoading }: VirtualTableProps = {}) {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden relative">
       {/* ── Status bar ───────────────────────────────────────────────── */}
       <div className="h-7 border-b border-[#262626] bg-[#0d0d0d] flex items-center px-3 gap-3 shrink-0">
         <div className="flex-1 flex items-center gap-3">
@@ -1089,47 +1111,51 @@ export function VirtualTable({ isLoading }: VirtualTableProps = {}) {
         {rows.length > 0 && !isStreaming && (
           <div className="flex items-center gap-1.5 relative">
             {/* Column visibility picker */}
-            <button
-              onClick={() => setColPickerOpen((v) => !v)}
-              className={`p-1 rounded transition-colors ${hiddenCols.size > 0 ? "text-violet-400" : "text-white/20 hover:text-white/50"}`}
-              title={`Columns (${columns.length - hiddenCols.size}/${columns.length} visible)`}
-            >
-              <Rows3 className="w-3 h-3" />
-            </button>
-            {colPickerOpen && (
-              <div className="absolute top-7 right-0 z-50 bg-[#141414] border border-[#2a2a2a] rounded-xl shadow-2xl py-2 w-48 max-h-72 overflow-y-auto">
-                <div className="flex items-center justify-between px-3 pb-1.5 mb-1 border-b border-[#1e1e1e]">
-                  <span className="text-[9px] font-mono uppercase tracking-widest text-white/30">Columns</span>
-                  <button
-                    onClick={() => setHiddenCols(new Set())}
-                    className="text-[9px] text-white/25 hover:text-white/60 font-mono"
-                  >
-                    show all
-                  </button>
-                </div>
-                {columns.map((col) => {
-                  const hidden = hiddenCols.has(col.name);
-                  return (
-                    <label
-                      key={col.name}
-                      className="flex items-center gap-2 px-3 py-1 hover:bg-white/[0.03] cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={!hidden}
-                        onChange={() => setHiddenCols((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(col.name)) next.delete(col.name);
-                          else next.add(col.name);
-                          return next;
-                        })}
-                        className="accent-[#00d2ff] w-3 h-3"
-                      />
-                      <span className="text-[10px] font-mono text-white/60 truncate">{col.name}</span>
-                    </label>
-                  );
-                })}
-              </div>
+            {!useFloatingColumnPicker && (
+              <>
+                <button
+                  onClick={() => setColPickerOpen((v) => !v)}
+                  className={`p-1 rounded transition-colors ${hiddenCols.size > 0 ? "text-violet-400" : "text-white/20 hover:text-white/50"}`}
+                  title={`Columns (${columns.length - hiddenCols.size}/${columns.length} visible)`}
+                >
+                  <Rows3 className="w-3 h-3" />
+                </button>
+                {colPickerOpen && (
+                  <div className="absolute top-7 right-0 z-50 bg-[#141414] border border-[#2a2a2a] rounded-xl shadow-2xl py-2 w-48 max-h-72 overflow-y-auto">
+                    <div className="flex items-center justify-between px-3 pb-1.5 mb-1 border-b border-[#1e1e1e]">
+                      <span className="text-[9px] font-mono uppercase tracking-widest text-white/30">Columns</span>
+                      <button
+                        onClick={() => setHiddenCols(new Set())}
+                        className="text-[9px] text-white/25 hover:text-white/60 font-mono"
+                      >
+                        show all
+                      </button>
+                    </div>
+                    {columns.map((col) => {
+                      const hidden = hiddenCols.has(col.name);
+                      return (
+                        <label
+                          key={col.name}
+                          className="flex items-center gap-2 px-3 py-1 hover:bg-white/[0.03] cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={!hidden}
+                            onChange={() => setHiddenCols((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(col.name)) next.delete(col.name);
+                              else next.add(col.name);
+                              return next;
+                            })}
+                            className="accent-[#00d2ff] w-3 h-3"
+                          />
+                          <span className="text-[10px] font-mono text-white/60 truncate">{col.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
             <button
               onClick={() => setRowDetailIdx(rowDetailIdx !== null ? null : focusedRowRef.current)}
@@ -1309,11 +1335,63 @@ export function VirtualTable({ isLoading }: VirtualTableProps = {}) {
       {/* ── Graph Builder view ──────────────────────────────────────── */}
       {graphBuilderVisible && (
         <div className="flex-1 overflow-hidden">
-          <GraphBuilderPanel columns={columns} data={rows} />
+          <GraphBuilderPanel columns={columns} data={rows} initialRequest={graphBuilderRequest} />
         </div>
       )}
 
       {/* ── Pivot / transpose view ────────────────────────────────────── */}
+      {useFloatingColumnPicker && rows.length > 0 && !isStreaming && (
+        <div className="absolute left-3 bottom-3 z-40">
+          {colPickerOpen && (
+            <div className="mb-2 w-52 max-h-72 overflow-y-auto bg-[#141414] border border-[#2a2a2a] rounded-xl shadow-2xl py-2">
+              <div className="flex items-center justify-between px-3 pb-1.5 mb-1 border-b border-[#1e1e1e]">
+                <span className="text-[9px] font-mono uppercase tracking-widest text-white/30">Columns</span>
+                <button
+                  onClick={() => setHiddenCols(new Set())}
+                  className="text-[9px] text-white/25 hover:text-white/60 font-mono"
+                >
+                  show all
+                </button>
+              </div>
+              {columns.map((col) => {
+                const hidden = hiddenCols.has(col.name);
+                return (
+                  <label
+                    key={col.name}
+                    className="flex items-center gap-2 px-3 py-1 hover:bg-white/[0.03] cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!hidden}
+                      onChange={() => setHiddenCols((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(col.name)) next.delete(col.name);
+                        else next.add(col.name);
+                        return next;
+                      })}
+                      className="accent-[#00d2ff] w-3 h-3"
+                    />
+                    <span className="text-[10px] font-mono text-white/60 truncate">{col.name}</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+          <button
+            onClick={() => setColPickerOpen((v) => !v)}
+            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] font-mono uppercase tracking-widest transition-colors ${
+              hiddenCols.size > 0
+                ? "border-violet-400/40 bg-violet-400/10 text-violet-300"
+                : "border-[#2a2a2a] bg-[#121212]/95 text-white/45 hover:text-white/70"
+            }`}
+            title={`Columns (${columns.length - hiddenCols.size}/${columns.length} visible)`}
+          >
+            <Rows3 className="w-3 h-3" />
+            Columns
+          </button>
+        </div>
+      )}
+
       {!chartVisible && !graphBuilderVisible && pivotMode && (
         <PivotView columns={visibleColumns} rows={rows} />
       )}

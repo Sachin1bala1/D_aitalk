@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { invoke } from "@tauri-apps/api/core";
 import { DbClient, ConnectionConfig, DbDriver } from "../../lib/db/DbClient";
-import { loadSavedConnections, removeConnection } from "../../lib/db/ConnectionStore";
+import { loadSavedConnectionsAsync, removeConnection } from "../../lib/db/ConnectionStore";
 import { diagnoseConnection, DiagnosisResult } from "../../lib/connection/ConnectionDoctor";
 import { ConnectionDoctorPanel } from "./ConnectionDoctorPanel";
 import { loadApiKeysFromKeychain } from "../../lib/ai/types";
@@ -124,6 +124,28 @@ function parseConnectionUrl(raw: string): ParsedUrl | null {
   }
 }
 
+function normalizeConnectionString(raw: string): string {
+  try {
+    const url = new URL(raw);
+    url.password = "";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return raw.trim().replace(/(password|pwd)\s*=\s*[^;]+/gi, "$1=").toLowerCase();
+  }
+}
+
+function sameSavedConnection(a: ConnectionConfig, b: Pick<ConnectionConfig, "driver" | "connection_string" | "pi_config">): boolean {
+  const aPi = a.pi_config?.base_url?.trim().toLowerCase() ?? "";
+  const bPi = b.pi_config?.base_url?.trim().toLowerCase() ?? "";
+  return (
+    a.driver === b.driver &&
+    normalizeConnectionString(a.connection_string) === normalizeConnectionString(b.connection_string) &&
+    aPi === bPi
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDialogProps) {
@@ -151,7 +173,9 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
 
   useEffect(() => {
     if (open) {
-      setSavedConns(loadSavedConnections());
+      loadSavedConnectionsAsync()
+        .then(setSavedConns)
+        .catch(() => setSavedConns([]));
       // Reset manual flags when dialog reopens
       setDriverManual(false);
       setNameManual(false);
@@ -190,22 +214,35 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
     setSavedConns((s) => s.filter((c) => c.id !== id));
   };
 
-  const buildConfig = (): ConnectionConfig => ({
-    id: `conn-${Date.now()}`,
-    display_name: displayName || selectedDriver.label,
-    driver,
-    connection_string: connectionString,
-    pool_min: 1,
-    pool_max: 10,
-    ...(isPIHistorian && {
-      pi_config: {
-        base_url: connectionString,
-        username: piUsername,
-        password: piPassword,
-        verify_ssl: piVerifySsl,
-      },
-    }),
-  });
+  const buildConfig = (): ConnectionConfig => {
+    const draft: ConnectionConfig = {
+      id: `conn-${Date.now()}`,
+      display_name: displayName || selectedDriver.label,
+      driver,
+      connection_string: connectionString,
+      pool_min: 1,
+      pool_max: 10,
+      ...(isPIHistorian && {
+        pi_config: {
+          base_url: connectionString,
+          username: piUsername,
+          password: piPassword,
+          verify_ssl: piVerifySsl,
+        },
+      }),
+    };
+
+    const existing = savedConns.find((conn) => sameSavedConnection(conn, draft));
+    if (!existing) return draft;
+
+    return {
+      ...draft,
+      id: existing.id,
+      display_name: displayName || existing.display_name || draft.display_name,
+      pool_min: existing.pool_min ?? draft.pool_min,
+      pool_max: existing.pool_max ?? draft.pool_max,
+    };
+  };
 
   const handleTestConnection = async () => {
     if (!connectionString) return;

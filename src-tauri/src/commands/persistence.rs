@@ -9,6 +9,8 @@ use crate::security::validate_secret_service;
 
 const CONNECTIONS_FILE: &str = "connections.json";
 const CONNECTION_SECRET_PREFIX: &str = "connection_config:";
+const LEGACY_PASSWORD_PREFIX: &str = "conn_";
+const LEGACY_PASSWORD_SUFFIX: &str = "_password";
 const KEYRING_SERVICE: &str = "daitalk";
 
 fn connections_path(app: &AppHandle) -> std::path::PathBuf {
@@ -22,6 +24,10 @@ fn connection_secret_service(connection_id: &str) -> String {
     format!("{}{}", CONNECTION_SECRET_PREFIX, connection_id)
 }
 
+fn legacy_password_service(connection_id: &str) -> String {
+    format!("{}{}{}", LEGACY_PASSWORD_PREFIX, connection_id, LEGACY_PASSWORD_SUFFIX)
+}
+
 fn keyring_entry(service: &str) -> Result<keyring::Entry, String> {
     keyring::Entry::new(KEYRING_SERVICE, service).map_err(|e| e.to_string())
 }
@@ -29,7 +35,16 @@ fn keyring_entry(service: &str) -> Result<keyring::Entry, String> {
 pub(crate) fn store_connection_secret(config: &ConnectionConfig) -> Result<(), String> {
     let entry = keyring_entry(&connection_secret_service(&config.id))?;
     let json = serde_json::to_string(config).map_err(|e| e.to_string())?;
-    entry.set_password(&json).map_err(|e| e.to_string())
+    entry.set_password(&json).map_err(|e| e.to_string())?;
+
+    if let Some(password) = extract_connection_password(config) {
+        let legacy_entry = keyring_entry(&legacy_password_service(&config.id))?;
+        legacy_entry
+            .set_password(&password)
+            .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
 }
 
 pub(crate) fn load_connection_secret(
@@ -48,9 +63,58 @@ pub(crate) fn load_connection_secret(
 fn delete_connection_secret(connection_id: &str) -> Result<(), String> {
     let entry = keyring_entry(&connection_secret_service(connection_id))?;
     match entry.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => {}
+        Err(e) => return Err(e.to_string()),
+    }
+
+    let legacy_entry = keyring_entry(&legacy_password_service(connection_id))?;
+    match legacy_entry.delete_credential() {
         Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
         Err(e) => Err(e.to_string()),
     }
+}
+
+fn extract_connection_password(config: &ConnectionConfig) -> Option<String> {
+    if let Some(pi) = &config.pi_config {
+        if !pi.password.is_empty() {
+            return Some(pi.password.clone());
+        }
+    }
+
+    if let Ok(url) = url::Url::parse(&config.connection_string) {
+        if let Some(password) = url.password() {
+            if !password.is_empty() && password != "***" {
+                return Some(password.to_string());
+            }
+        }
+    }
+
+    None
+}
+
+fn merge_with_legacy_password_credential(config: &ConnectionConfig) -> Result<ConnectionConfig, String> {
+    let entry = keyring_entry(&legacy_password_service(&config.id))?;
+    let password = match entry.get_password() {
+        Ok(password) if !password.is_empty() => password,
+        Ok(_) | Err(keyring::Error::NoEntry) => return Ok(config.clone()),
+        Err(e) => return Err(e.to_string()),
+    };
+
+    let mut merged = config.clone();
+    if let Some(pi) = &merged.pi_config {
+        let mut pi = pi.clone();
+        if pi.password.is_empty() {
+            pi.password = password.clone();
+        }
+        merged.pi_config = Some(pi);
+    } else if let Ok(mut url) = url::Url::parse(&merged.connection_string) {
+        if url.password().is_none() || url.password().is_some_and(|value| value.is_empty()) {
+            let _ = url.set_password(Some(&password));
+            merged.connection_string = url.to_string();
+        }
+    }
+
+    Ok(merged)
 }
 
 fn redact_connection_string(raw: &str) -> String {
@@ -123,16 +187,51 @@ async fn audit_secret_event(
 }
 
 fn config_contains_secret(config: &ConnectionConfig) -> bool {
-    if !config.connection_string.contains("***") {
+    if config
+        .pi_config
+        .as_ref()
+        .is_some_and(|pi| !pi.password.is_empty())
+    {
         return true;
     }
+
+    if connection_string_contains_secret(&config.connection_string) {
+        return true;
+    }
+
     config.ssh.as_ref().is_some_and(|ssh| match &ssh.auth {
         SshAuth::Password { password } => !password.is_empty(),
         SshAuth::Key { passphrase, .. } => passphrase.is_some(),
     })
 }
 
-fn merge_with_stored_secret(config: &ConnectionConfig) -> Result<ConnectionConfig, String> {
+fn connection_string_contains_secret(raw: &str) -> bool {
+    if raw.contains("***") {
+        return false;
+    }
+
+    if let Ok(url) = url::Url::parse(raw) {
+        return url.password().is_some_and(|password| !password.is_empty());
+    }
+
+    raw.split(';').any(|segment| {
+        let trimmed = segment.trim();
+        let lower = trimmed.to_ascii_lowercase();
+        if lower.starts_with("password=") || lower.starts_with("pwd=") {
+            trimmed
+                .split_once('=')
+                .map(|(_, value)| {
+                    let secret = value.trim();
+                    !secret.is_empty() && secret != "***"
+                })
+                .unwrap_or(false)
+        } else {
+            false
+        }
+    })
+}
+
+pub(crate) fn merge_with_stored_secret(config: &ConnectionConfig) -> Result<ConnectionConfig, String> {
     if config_contains_secret(config) {
         return Ok(config.clone());
     }
@@ -144,7 +243,7 @@ fn merge_with_stored_secret(config: &ConnectionConfig) -> Result<ConnectionConfi
         return Ok(merged);
     }
 
-    Ok(config.clone())
+    merge_with_legacy_password_credential(config)
 }
 
 fn merge_ssh_secret(

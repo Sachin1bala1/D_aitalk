@@ -9,8 +9,10 @@ import { listen } from "@tauri-apps/api/event";
 import { toast } from "sonner";
 
 import { commandBus } from "./CommandBus";
+import type { CommandResult } from "./CommandBus";
 import { DbClient } from "../db/DbClient";
 import { rowStore } from "../table/RowStore";
+import { QueryManager } from "../table/QueryManager";
 import { useWorkspaceStore } from "../stores/WorkspaceStore";
 import { ScaleRouter } from "../dashboard/ScaleRouter";
 import { BinQueryBuilder } from "../dashboard/BinQueryBuilder";
@@ -60,61 +62,82 @@ export function registerHandlers() {
   });
 
   commandBus.register<ExecuteSqlCmd>("execute_sql", async (cmd) => {
-    const { setEditorSql, setTabExecuting, setQueryResults, activeTabId } =
+    const { setEditorSql, setTabExecuting, setQueryResults } =
       useWorkspaceStore.getState();
 
     setEditorSql(cmd.sql);
     setTabExecuting(true);
+    QueryManager.setBaseQuery(cmd.sql, cmd.connectionId);
 
     try {
-      const response = await DbClient.executeStreaming(cmd.connectionId, cmd.sql);
-      const queryId = response.query_id;
-      rowStore.reset(queryId);
-
       return new Promise((resolve) => {
         const allRows: Record<string, unknown>[] = [];
         let fields: { name: string }[] = [];
-        let unlistenFn: (() => void) | null = null;
+        let queryId: string | null = null;
+        let sourceTables: string[] = [];
+        let settled = false;
 
+        const finish = (payload: CommandResult) => {
+          if (settled) return;
+          settled = true;
+          unlistenFn?.();
+          resolve(payload);
+        };
+
+        const onError = (message: string) => {
+          rowStore.finalize();
+          setTabExecuting(false);
+          finish({ success: false, error: message });
+        };
+
+        let unlistenFn: (() => void) | null = null;
         listen<QueryBatch>("query_batch", (event) => {
           const batch = event.payload;
-          if (batch.query_id !== queryId) return;
+          if (!queryId || batch.query_id !== queryId) return;
 
           rowStore.appendBatch(batch);
 
           if (batch.columns && fields.length === 0) {
             fields = batch.columns.map((c) => ({ name: c.name }));
+            QueryManager.setColumns(fields.map((field) => field.name));
           }
           allRows.push(...batch.rows);
 
           if (batch.error) {
-            unlistenFn?.();
-            rowStore.finalize();
-            setTabExecuting(false);
-            resolve({ success: false, error: batch.error });
+            onError(batch.error);
           } else if (batch.is_final) {
-            unlistenFn?.();
             setTabExecuting(false);
-            // Update WorkspaceStore for AIPanel context
             setQueryResults({
               rows: allRows,
               fields,
               rowCount: allRows.length,
               elapsedMs: batch.total_elapsed_ms,
               queryId,
-              source_tables: response.source_tables,
+              source_tables: sourceTables,
             });
-            resolve({
+            finish({
               success: true,
               result: {
                 rowCount: allRows.length,
                 elapsedMs: batch.total_elapsed_ms,
-                preview: allRows.slice(0, 5), // first 5 rows for AI context
+                preview: allRows.slice(0, 5),
+                columns: fields.map((field) => field.name),
+                sourceTables,
               },
             });
           }
-        }).then((fn) => {
+        }).then(async (fn) => {
           unlistenFn = fn;
+          try {
+            const response = await DbClient.executeStreaming(cmd.connectionId, cmd.sql);
+            queryId = response.query_id;
+            sourceTables = response.source_tables;
+            rowStore.reset(queryId);
+          } catch (e: any) {
+            onError(e.message ?? "Query failed");
+          }
+        }).catch((e: any) => {
+          onError(e?.message ?? "Failed to listen for query results");
         });
       });
     } catch (e: any) {
@@ -470,14 +493,46 @@ export function registerHandlers() {
   // ── Charts (stub — renders in future ChartPanel) ──────────────────────────
 
   commandBus.register<CreateChartCmd>("create_chart", async (cmd) => {
-    useWorkspaceStore.getState().setChartRequest({
+    const { activeTabId, tabs } = useWorkspaceStore.getState();
+    const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
+    const currentResults = activeTab?.queryResults ?? null;
+
+    if (!currentResults || currentResults.rowCount === 0) {
+      return {
+        success: false,
+        error: "No query results are loaded yet. Run execute_sql first, then create the chart from those loaded rows.",
+      };
+    }
+
+    const availableColumns = new Set(currentResults.fields.map((field) => field.name));
+    const missing = [cmd.xColumn, cmd.yColumn].filter((column) => !availableColumns.has(column));
+    if (missing.length > 0) {
+      return {
+        success: false,
+        error: `The current query results do not include: ${missing.join(", ")}. Re-run a query that selects those columns before plotting.`,
+      };
+    }
+
+    useWorkspaceStore.getState().setGraphBuilderRequest({
+      requestId: `gb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       chartType: cmd.chartType,
       xColumn: cmd.xColumn,
       yColumn: cmd.yColumn,
       title: cmd.title,
+      xLabel: cmd.xLabel ?? cmd.xColumn,
+      yLabel: cmd.yLabel ?? cmd.yColumn,
     });
     toast.success(`Chart: ${cmd.chartType} — ${cmd.xColumn} vs ${cmd.yColumn}`);
-    return { success: true, result: `Chart opened: ${cmd.chartType}` };
+    return {
+      success: true,
+      result: {
+        target: "graph_builder",
+        chartType: cmd.chartType,
+        rowCount: currentResults.rowCount,
+        columns: [cmd.xColumn, cmd.yColumn],
+        message: `Opened ${cmd.chartType} graph in Graph Builder`,
+      },
+    };
   });
 
   // ── Grammar-of-Graphics charts (billion-scale) ────────────────────────────
@@ -525,8 +580,23 @@ export function registerHandlers() {
       generatedSQL: "",
     };
 
+    if (estimatedRows <= 0) {
+      return {
+        success: false,
+        error: `No rows are available for ${schema}.${cmd.table}${cmd.where_clause ? ` with filter (${cmd.where_clause})` : ""}.`,
+      };
+    }
+
+    if (effectiveStrategy === "raw") {
+      return {
+        success: false,
+        error: "This request is small enough for interactive Graph Builder. Execute a SQL query first, then use create_chart instead of create_gog_chart.",
+      };
+    }
+
     // 4. If binned: generate and execute bin SQL
     let binData: Record<string, unknown>[] | null = null;
+    let binQueryError: string | null = null;
     if (decision.strategy === "binned" && connectionId) {
       let sql = "";
       try {
@@ -570,7 +640,14 @@ export function registerHandlers() {
           toast.success(`Line chart created: ${decision.reason}`);
           return {
             success: true,
-            result: `Created line chart from ${schema}.${cmd.table}. Phase 1 (100 buckets) shown, refining to 1000 buckets in background.`,
+            result: {
+              target: "chart_panel",
+              chartType: cmd.geom,
+              strategy: effectiveStrategy,
+              estimatedRows: decision.estimatedRows,
+              binRows: coarseRows.length,
+              message: `Created line chart from ${schema}.${cmd.table}. Phase 1 (100 buckets) shown, refining to 1000 buckets in background.`,
+            },
           };
         } else if (cmd.geom === "box" && cmd.y) {
           sql = BinQueryBuilder.boxPlot(cmd.table, schema, cmd.x, cmd.y, decision.bins, cmd.where_clause);
@@ -582,9 +659,24 @@ export function registerHandlers() {
           const rows = await DbClient.query(connectionId, sql);
           binData = rows;
         }
-      } catch (e) {
+      } catch (e: any) {
+        binQueryError = e?.message ?? String(e);
         console.error("BinQuery failed:", e);
       }
+    }
+
+    if (binQueryError) {
+      return {
+        success: false,
+        error: `Chart aggregation failed: ${binQueryError}`,
+      };
+    }
+
+    if (!binData || binData.length === 0) {
+      return {
+        success: false,
+        error: `The chart query produced no renderable rows for ${schema}.${cmd.table}. Try execute_sql plus create_chart, or narrow the filters.`,
+      };
     }
 
     // 5. Store in WorkspaceStore for ChartPanel to pick up
@@ -603,7 +695,14 @@ export function registerHandlers() {
     toast.success(`Chart created: ${cmd.geom} — ${strategyMsg}`);
     return {
       success: true,
-      result: `Created ${cmd.geom} chart from ${schema}.${cmd.table}. Data: ${strategyMsg}.`,
+      result: {
+        target: "chart_panel",
+        chartType: cmd.geom,
+        strategy: effectiveStrategy,
+        estimatedRows: decision.estimatedRows,
+        binRows: binData.length,
+        message: `Created ${cmd.geom} chart from ${schema}.${cmd.table}. Data: ${strategyMsg}.`,
+      },
     };
   });
 

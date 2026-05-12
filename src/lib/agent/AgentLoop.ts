@@ -80,6 +80,60 @@ function classifyQueryDepth(question: string): 'fast' | 'deep' {
   return 'fast'; // default
 }
 
+export function isVisualizationRequest(question: string): boolean {
+  return /\b(plot|chart|graph|visuali[sz]e|scatter|histogram|bar chart|line chart)\b/i.test(question);
+}
+
+export function isUnderspecifiedVisualizationRequest(question: string): boolean {
+  if (!isVisualizationRequest(question)) return false;
+  const q = question.toLowerCase().trim();
+  const hasRelationshipHint =
+    /\b(vs|versus|against|by|over|between|distribution|correlation|trend|histogram|scatter|bar|line|heatmap|box)\b/.test(q) ||
+    /".+?"/.test(question);
+  const shortGeneric =
+    /^(hi|hey|please\s+)?(make|create|show|plot|graph|visuali[sz]e)(\s+(a|me|the))?\s*(plot|chart|graph|data)?\s*$/i.test(question.trim()) ||
+    question.trim().split(/\s+/).length <= 4;
+  return shortGeneric && !hasRelationshipHint;
+}
+
+export function inferNumericColumns(currentResults: QueryResults | null): string[] {
+  if (!currentResults || currentResults.fields.length === 0) return [];
+  return currentResults.fields
+    .map((field) => field.name)
+    .filter((name) => {
+      for (const row of currentResults.rows.slice(0, 20)) {
+        const value = row[name];
+        if (value === null || value === undefined) continue;
+        if (typeof value === "number") return true;
+        if (typeof value === "string" && value.trim() !== "" && !Number.isNaN(Number(value))) return true;
+        return false;
+      }
+      return false;
+    });
+}
+
+export function buildVisualizationClarifier(
+  question: string,
+  currentResults: QueryResults | null,
+): string | null {
+  if (!isUnderspecifiedVisualizationRequest(question)) return null;
+
+  const fields = currentResults?.fields.map((field) => field.name) ?? [];
+  if (fields.length >= 2) {
+    const numeric = inferNumericColumns(currentResults);
+    const examples: string[] = [];
+    if (numeric.length >= 2) {
+      examples.push(`${numeric[0]} vs ${numeric[1]}`);
+      if (numeric.length >= 4) examples.push(`${numeric[2]} vs ${numeric[3]}`);
+    } else {
+      examples.push(`${fields[0]} vs ${fields[1]}`);
+    }
+    return `Which relationship do you want plotted? Please tell me the X and Y columns, for example "${examples.join('" or "')}".`;
+  }
+
+  return "Which columns or relationship do you want plotted? Please tell me the X and Y fields, or name the table plus the columns to use.";
+}
+
 // ── Column Type Resolver ──────────────────────────────────────────────────────
 
 async function resolveColumnTypes(
@@ -267,7 +321,7 @@ Avoid SELECT * on large hypertables — always add a time range WHERE clause.`);
 
   parts.push(
     `## Billion-Scale Visualization Protocol
-ALWAYS use create_gog_chart for visualization requests. This tool automatically handles any dataset size.
+Use create_gog_chart only when you are plotting directly from a table/query shape that is too large for interactive Graph Builder or when the user explicitly wants a table-scale aggregate visualization.
 
 AUTO GEOMETRY SELECTION:
 - timestamp/date column + numeric column → geom: line
@@ -284,7 +338,7 @@ OVERLAYS: if user mentions spec limits, control limits, or reference lines:
 - "mean line" → overlays: [{type:"mean_line"}]
 - "reference at 100" → overlays: [{type:"ref_line", axis:"y", value:100}]
 
-When you create a chart using binned strategy, ALWAYS mention it briefly:
+When you create a chart using binned strategy, mention it briefly:
 Example: "I've created a scatter plot of temperature vs pressure. Your table has 10M rows — I've aggregated them into a 200×200 bin grid so the chart renders instantly. Each dot represents multiple data points (dot size = number of points)."
 Keep this to 2-3 sentences. Do not over-explain.`
   );
@@ -297,7 +351,16 @@ For any question about anomalies, quality issues, process upsets, or unexplained
 - Use execute_sql to fetch data for answering questions
 - Use set_editor_content when the user wants to review SQL before running
 - Quote all SQL identifiers: "schema"."table"."column"
-- Never call delete_rows or drop_column without explicit user confirmation`);
+- Never call delete_rows or drop_column without explicit user confirmation
+
+## Visualization Execution Rules
+- If the user asks for a plot/chart and the request is underspecified, ask a clarifying question instead of guessing.
+- If the needed rows are already loaded in LAST QUERY RESULTS, prefer create_chart so the plot opens in editable Graph Builder.
+- If no suitable rows are loaded yet, execute_sql first, then create_chart using the returned columns.
+- Use create_gog_chart only when aggregation/binning is genuinely required.
+- Never say a chart was created unless the chart tool returned success.
+- If a chart tool fails, choose the next valid fallback and continue in the same turn before concluding.
+- For plotting requests, do not stop after only writing SQL into the editor unless the user explicitly asked for SQL only.`);
 
   if (memoryContext) {
     if (memoryContext.recentEpisodes.length > 0) {
@@ -466,6 +529,8 @@ function toolCallToCommand(
         xColumn: i.xColumn as string,
         yColumn: i.yColumn as string,
         title: i.title as string | undefined,
+        xLabel: i.xLabel as string | undefined,
+        yLabel: i.yLabel as string | undefined,
         risk: "safe",
       };
     case "create_gog_chart":
@@ -574,6 +639,15 @@ export async function runAgentLoop(
 
   const { agentMode, addPlanStep } = useWorkspaceStore.getState();
   const queryDepth = classifyQueryDepth(userMessage);
+  const clarifier = buildVisualizationClarifier(userMessage, currentResults);
+  if (clarifier) {
+    const updatedHistory: ConversationTurn[] = [
+      ...history,
+      { role: "user", text: userMessage },
+      { role: "assistant", text: clarifier },
+    ];
+    return { finalText: clarifier, updatedHistory: updatedHistory.slice(-40), queryDepth };
+  }
   const system = buildSystemPrompt(schema, currentSQL, currentResults, agentMode, options.memoryContext, queryDepth);
 
   // Append the user message to working history

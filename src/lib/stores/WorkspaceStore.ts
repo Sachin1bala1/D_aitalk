@@ -110,6 +110,25 @@ export interface DashboardSelectedWidgetState {
   mode: "browse" | "edit";
 }
 
+export interface ChartRequest {
+  chartType: string;
+  xColumn: string;
+  yColumn: string;
+  title?: string;
+}
+
+export interface GraphBuilderRequest {
+  requestId: string;
+  chartType: string;
+  xColumn: string;
+  yColumn: string;
+  colorColumn?: string | null;
+  sizeColumn?: string | null;
+  title?: string;
+  xLabel?: string;
+  yLabel?: string;
+}
+
 export interface DashboardTabStateData {
   datasources: Record<string, DashboardDatasourceSnapshot>;
   widgets: DashboardWidget[];
@@ -248,8 +267,10 @@ export interface WorkspaceState {
 
   focusedNode: string | null;
 
-  chartRequest: { chartType: string; xColumn: string; yColumn: string; title?: string } | null;
+  chartRequest: ChartRequest | null;
   setChartRequest: (req: WorkspaceState["chartRequest"]) => void;
+  graphBuilderRequest: GraphBuilderRequest | null;
+  setGraphBuilderRequest: (req: WorkspaceState["graphBuilderRequest"]) => void;
 
   gogChartRequest: {
     spec: import("../dashboard/GoGSpec").GoGSpec;
@@ -352,6 +373,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
     focusedNode: null,
     chartRequest: null,
+    graphBuilderRequest: null,
     gogChartRequest: null,
 
     tabs: [DEFAULT_TAB],
@@ -421,6 +443,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     setChartRequest: (req) =>
       set((state) => {
         state.chartRequest = req;
+      }),
+
+    setGraphBuilderRequest: (req) =>
+      set((state) => {
+        state.graphBuilderRequest = req;
       }),
 
     setGogChartRequest: (req) =>

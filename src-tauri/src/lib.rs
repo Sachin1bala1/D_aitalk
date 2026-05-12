@@ -40,6 +40,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::nvidia_chat_completion,
             commands::health_check,
             commands::db_connect,
             commands::db_disconnect,

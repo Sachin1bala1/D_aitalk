@@ -13,11 +13,12 @@
  * - Export: PNG (html2canvas TODO), TSV copy
  * - Selection via shift+click; right-click context menu → "Analyze with APEX"
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { X, ChevronDown, ChevronRight, BarChart2, TrendingUp, Download, Save, List, Hash, Calendar, Type, HelpCircle } from 'lucide-react';
 import type { ColumnMeta } from '../../lib/db/DbClient';
 import { GraphBuilder } from './GraphBuilder';
 import { autoSelectChart, type ChartType } from '../../lib/charts/chartAutoSelect';
+import { useWorkspaceStore } from '../../lib/stores/WorkspaceStore';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -34,6 +35,14 @@ interface ChartOptions {
   showTrendLine: boolean;
   logScaleX: boolean;
   logScaleY: boolean;
+  xAxisMode: 'auto' | 'fit' | 'zero' | 'manual';
+  yAxisMode: 'auto' | 'fit' | 'zero' | 'manual';
+  xAxisMin: string;
+  xAxisMax: string;
+  yAxisMin: string;
+  yAxisMax: string;
+  xAxisLabel: string;
+  yAxisLabel: string;
   refLineValue: string;
   refLineLabel: string;
   confidenceInterval: 'none' | '95' | '99';
@@ -126,39 +135,64 @@ function ColumnItem({
 
 function DropZone({
   label,
+  zoneKey,
   assignedCol,
   onDrop,
   onRemove,
+  disabled = false,
+  helperText,
 }: {
   label: string;
+  zoneKey: keyof AxisAssignments;
   assignedCol: string | null;
-  onDrop: (colName: string) => void;
+  onDrop: (payload: { colName: string; sourceZone: keyof AxisAssignments | null }) => void;
   onRemove: () => void;
+  disabled?: boolean;
+  helperText?: string;
 }) {
   const [dragOver, setDragOver] = useState(false);
 
   return (
     <div
       className={`flex items-center gap-1.5 h-7 px-2 rounded border transition-colors ${
+        disabled
+          ? 'border-[#1f1f1f] bg-[#0f0f0f] opacity-50'
+          :
         dragOver
           ? 'border-[#00d2ff] bg-[#00d2ff]/10'
           : assignedCol
           ? 'border-[#2a2a2a] bg-[#1a1a1a]'
           : 'border-dashed border-[#2a2a2a] bg-transparent'
       }`}
-      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+      onDragOver={(e) => {
+        if (disabled) return;
+        e.preventDefault();
+        setDragOver(true);
+      }}
       onDragLeave={() => setDragOver(false)}
       onDrop={(e) => {
+        if (disabled) return;
         e.preventDefault();
         setDragOver(false);
         const col = e.dataTransfer.getData('column');
-        if (col) onDrop(col);
+        const sourceZone = e.dataTransfer.getData('sourceZone') as keyof AxisAssignments | '';
+        if (col) onDrop({ colName: col, sourceZone: sourceZone || null });
       }}
     >
       <span className="text-[9px] text-white/25 uppercase tracking-widest font-bold shrink-0 w-9">{label}</span>
       {assignedCol ? (
         <>
-          <span className="text-[10px] text-[#00d2ff] font-mono flex-1 truncate">{assignedCol}</span>
+          <span
+            className="text-[10px] text-[#00d2ff] font-mono flex-1 truncate cursor-grab active:cursor-grabbing"
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.setData('column', assignedCol);
+              e.dataTransfer.setData('sourceZone', zoneKey);
+            }}
+            title="Drag to reassign"
+          >
+            {assignedCol}
+          </span>
           <button
             onClick={onRemove}
             className="shrink-0 text-white/20 hover:text-white/60 transition-colors"
@@ -167,7 +201,9 @@ function DropZone({
           </button>
         </>
       ) : (
-        <span className="text-[10px] text-white/15 italic flex-1">drop column here</span>
+        <span className="text-[10px] text-white/15 italic flex-1">
+          {disabled ? helperText ?? 'not available' : 'drop column here'}
+        </span>
       )}
     </div>
   );
@@ -178,18 +214,39 @@ function DropZone({
 export interface GraphBuilderPanelProps {
   columns: ColumnMeta[];
   data: Record<string, unknown>[];
+  initialRequest?: {
+    chartType: string;
+    xColumn: string;
+    yColumn: string;
+    colorColumn?: string | null;
+    sizeColumn?: string | null;
+    title?: string;
+    xLabel?: string;
+    yLabel?: string;
+  } | null;
 }
 
-export function GraphBuilderPanel({ columns, data }: GraphBuilderPanelProps) {
+export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilderPanelProps) {
+  const setGraphBuilderRequest = useWorkspaceStore((s) => s.setGraphBuilderRequest);
+  const lastConsumedRequestKeyRef = useRef<string | null>(null);
   const [assignments, setAssignments] = useState<AxisAssignments>({
     x: null, y: null, color: null, size: null, facet: null,
   });
+  const [title, setTitle] = useState<string>('');
   const [chartTypeOverride, setChartTypeOverride] = useState<ChartType | 'auto'>('auto');
   const [options, setOptions] = useState<ChartOptions>({
     showDataPoints: true,
     showTrendLine: false,
     logScaleX: false,
     logScaleY: false,
+    xAxisMode: 'fit',
+    yAxisMode: 'fit',
+    xAxisMin: '',
+    xAxisMax: '',
+    yAxisMin: '',
+    yAxisMax: '',
+    xAxisLabel: '',
+    yAxisLabel: '',
     refLineValue: '',
     refLineLabel: '',
     confidenceInterval: 'none',
@@ -210,26 +267,115 @@ export function GraphBuilderPanel({ columns, data }: GraphBuilderPanelProps) {
     (name: string | null) => columns.find((c) => c.name === name) ?? null,
     [columns]
   );
+  const supportedColumnNames = useMemo(() => new Set(columns.map((c) => c.name)), [columns]);
 
   // Auto chart type
   const resolvedChartType: ChartType =
     chartTypeOverride === 'auto'
-      ? autoSelectChart(colMeta(assignments.x), colMeta(assignments.y), colMeta(assignments.color), data)
+      ? autoSelectChart(colMeta(assignments.x), colMeta(assignments.y), colMeta(assignments.color), colMeta(assignments.size), data)
       : chartTypeOverride;
+
+  useEffect(() => {
+    if (!initialRequest) {
+      lastConsumedRequestKeyRef.current = null;
+      return;
+    }
+    if (columns.length === 0) return;
+
+    const requestKey = JSON.stringify({
+      chartType: initialRequest.chartType,
+      xColumn: initialRequest.xColumn,
+      yColumn: initialRequest.yColumn,
+      colorColumn: initialRequest.colorColumn ?? null,
+      sizeColumn: initialRequest.sizeColumn ?? null,
+      title: initialRequest.title ?? '',
+      xLabel: initialRequest.xLabel ?? '',
+      yLabel: initialRequest.yLabel ?? '',
+    });
+
+    if (lastConsumedRequestKeyRef.current === requestKey) return;
+    lastConsumedRequestKeyRef.current = requestKey;
+
+    const nextChartType: ChartType | 'auto' = (() => {
+      const candidate = initialRequest.chartType === 'pie' ? 'bar' : initialRequest.chartType;
+      return CHART_TYPES.some((entry) => entry.type === candidate) ? (candidate as ChartType) : 'auto';
+    })();
+
+    setAssignments({
+      x: supportedColumnNames.has(initialRequest.xColumn) ? initialRequest.xColumn : null,
+      y: supportedColumnNames.has(initialRequest.yColumn) ? initialRequest.yColumn : null,
+      color: initialRequest.colorColumn && supportedColumnNames.has(initialRequest.colorColumn) ? initialRequest.colorColumn : null,
+      size: initialRequest.sizeColumn && supportedColumnNames.has(initialRequest.sizeColumn) ? initialRequest.sizeColumn : null,
+      facet: null,
+    });
+    setChartTypeOverride(nextChartType);
+    setTitle(initialRequest.title ?? '');
+    setOptions((prev) => ({
+      ...prev,
+      xAxisLabel: initialRequest.xLabel ?? initialRequest.xColumn,
+      yAxisLabel: initialRequest.yLabel ?? initialRequest.yColumn,
+    }));
+    setGraphBuilderRequest(null);
+  }, [columns.length, initialRequest, setGraphBuilderRequest, supportedColumnNames]);
+
+  const zoneSupport = useMemo(() => ({
+    x: true,
+    y: true,
+    color: ['scatter', 'line', 'bar'].includes(resolvedChartType),
+    size: resolvedChartType === 'bubble' || chartTypeOverride === 'auto',
+    facet: false,
+  }), [chartTypeOverride, resolvedChartType]);
 
   // Assign a column to the next empty zone
   const assignToNextEmpty = useCallback((colName: string) => {
     setAssignments((prev) => {
       if (!prev.x) return { ...prev, x: colName };
       if (!prev.y) return { ...prev, y: colName };
-      if (!prev.color) return { ...prev, color: colName };
+      if (!prev.color && zoneSupport.color) return { ...prev, color: colName };
+      if (!prev.size && zoneSupport.size) return { ...prev, size: colName };
       return prev;
     });
-  }, []);
+  }, [zoneSupport.color, zoneSupport.size]);
 
   const setAssignment = useCallback((zone: keyof AxisAssignments, colName: string | null) => {
-    setAssignments((prev) => ({ ...prev, [zone]: colName }));
-  }, []);
+    setAssignments((prev) => {
+      const next: AxisAssignments = { ...prev, [zone]: colName };
+      if (zone === 'size' && colName && chartTypeOverride === 'auto') {
+        setChartTypeOverride('bubble');
+      }
+      return next;
+    });
+  }, [chartTypeOverride]);
+
+  const handleZoneDrop = useCallback((zone: keyof AxisAssignments, payload: { colName: string; sourceZone: keyof AxisAssignments | null }) => {
+    const { colName, sourceZone } = payload;
+
+    setAssignments((prev) => {
+      if (sourceZone === 'facet' || zone === 'facet') return prev;
+      if (sourceZone === zone && prev[zone] === colName) return prev;
+
+      const next = { ...prev };
+      const targetPreviousValue = next[zone];
+
+      next[zone] = colName;
+
+      if (sourceZone && next[sourceZone] === colName) {
+        next[sourceZone] = sourceZone === zone ? colName : targetPreviousValue;
+      } else {
+        (Object.keys(next) as (keyof AxisAssignments)[]).forEach((key) => {
+          if (key !== zone && key !== 'facet' && next[key] === colName) {
+            next[key] = null;
+          }
+        });
+      }
+
+      return next;
+    });
+
+    if (zone === 'size' && colName && chartTypeOverride === 'auto') {
+      setChartTypeOverride('bubble');
+    }
+  }, [chartTypeOverride]);
 
   // Save chart config
   const handleSaveChart = () => {
@@ -286,6 +432,10 @@ export function GraphBuilderPanel({ columns, data }: GraphBuilderPanelProps) {
     if (!isNaN(v)) return { value: v, label: options.refLineLabel || String(v) };
     return null;
   })();
+  const parseAxisNumber = (value: string): number | null => {
+    const parsed = parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-[#0a0a0a]">
@@ -318,18 +468,18 @@ export function GraphBuilderPanel({ columns, data }: GraphBuilderPanelProps) {
         {/* Drop zones */}
         <div className="shrink-0 px-3 py-2 border-b border-[#1a1a1a] space-y-1 bg-[#0d0d0d]">
           <div className="grid grid-cols-2 gap-1.5">
-            <DropZone label="X" assignedCol={assignments.x} onDrop={(c) => setAssignment('x', c)} onRemove={() => setAssignment('x', null)} />
-            <DropZone label="Y" assignedCol={assignments.y} onDrop={(c) => setAssignment('y', c)} onRemove={() => setAssignment('y', null)} />
-            <DropZone label="Color" assignedCol={assignments.color} onDrop={(c) => setAssignment('color', c)} onRemove={() => setAssignment('color', null)} />
-            <DropZone label="Size" assignedCol={assignments.size} onDrop={(c) => setAssignment('size', c)} onRemove={() => setAssignment('size', null)} />
+            <DropZone zoneKey="x" label="X" assignedCol={assignments.x} onDrop={(payload) => handleZoneDrop('x', payload)} onRemove={() => setAssignment('x', null)} />
+            <DropZone zoneKey="y" label="Y" assignedCol={assignments.y} onDrop={(payload) => handleZoneDrop('y', payload)} onRemove={() => setAssignment('y', null)} />
+            <DropZone zoneKey="color" label="Color" assignedCol={assignments.color} onDrop={(payload) => handleZoneDrop('color', payload)} onRemove={() => setAssignment('color', null)} disabled={!zoneSupport.color} helperText="unsupported for this chart" />
+            <DropZone zoneKey="size" label="Size" assignedCol={assignments.size} onDrop={(payload) => handleZoneDrop('size', payload)} onRemove={() => setAssignment('size', null)} disabled={!zoneSupport.size} helperText="use bubble or auto" />
           </div>
-          <DropZone label="Group" assignedCol={assignments.facet} onDrop={(c) => setAssignment('facet', c)} onRemove={() => setAssignment('facet', null)} />
+          <DropZone zoneKey="facet" label="Group" assignedCol={assignments.facet} onDrop={(payload) => handleZoneDrop('facet', payload)} onRemove={() => setAssignment('facet', null)} disabled={!zoneSupport.facet} helperText="faceting not implemented" />
         </div>
 
         {/* Export toolbar */}
         <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 border-b border-[#1a1a1a] bg-[#0d0d0d]">
           <span className="text-[9px] text-white/20 uppercase tracking-widest font-bold font-mono">
-            {resolvedChartType.replace('_', ' ')}
+            {title || resolvedChartType.replace('_', ' ')}
           </span>
           {data.length > 0 && (
             <span className="text-[9px] text-white/15 font-mono">{data.length.toLocaleString()} rows</span>
@@ -385,6 +535,14 @@ export function GraphBuilderPanel({ columns, data }: GraphBuilderPanelProps) {
               logScaleY={options.logScaleY}
               referenceLineY={refLineY}
               confidenceInterval={options.confidenceInterval}
+              xAxisMode={options.xAxisMode}
+              yAxisMode={options.yAxisMode}
+              xAxisMin={parseAxisNumber(options.xAxisMin)}
+              xAxisMax={parseAxisNumber(options.xAxisMax)}
+              yAxisMin={parseAxisNumber(options.yAxisMin)}
+              yAxisMax={parseAxisNumber(options.yAxisMax)}
+              xAxisLabel={options.xAxisLabel || assignments.x}
+              yAxisLabel={options.yAxisLabel || assignments.y}
               selectedIndices={selectedIndices}
               onPointClick={(i) => {
                 setSelectedIndices((prev) => {
@@ -481,6 +639,65 @@ export function GraphBuilderPanel({ columns, data }: GraphBuilderPanelProps) {
                 onChange={(e) => setOptions((prev) => ({ ...prev, refLineLabel: e.target.value }))}
                 placeholder="label"
                 className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-2 py-0.5 text-[10px] text-white/60 font-mono focus:outline-none focus:border-[#00d2ff]"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[9px] text-white/25 uppercase tracking-widest font-bold">Axis</p>
+
+              {([
+                { axis: 'x', label: 'X Axis', modeKey: 'xAxisMode', minKey: 'xAxisMin', maxKey: 'xAxisMax' },
+                { axis: 'y', label: 'Y Axis', modeKey: 'yAxisMode', minKey: 'yAxisMin', maxKey: 'yAxisMax' },
+              ] as const).map(({ axis, label, modeKey, minKey, maxKey }) => (
+                <div key={axis} className="rounded border border-[#1e1e1e] bg-[#121212] p-2 space-y-1.5">
+                  <p className="text-[9px] text-white/35 uppercase tracking-widest font-bold">{label}</p>
+                  <select
+                    value={options[modeKey]}
+                    onChange={(e) => setOptions((prev) => ({ ...prev, [modeKey]: e.target.value as ChartOptions[typeof modeKey] }))}
+                    className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-2 py-1 text-[10px] text-white/60 focus:outline-none focus:border-[#00d2ff]"
+                  >
+                    <option value="auto">Auto</option>
+                    <option value="fit">Fit to data</option>
+                    <option value="zero">Zero-based</option>
+                    <option value="manual">Manual</option>
+                  </select>
+                  {options[modeKey] === 'manual' && (
+                    <div className="grid grid-cols-2 gap-1">
+                      <input
+                        type="number"
+                        value={options[minKey]}
+                        onChange={(e) => setOptions((prev) => ({ ...prev, [minKey]: e.target.value }))}
+                        placeholder="min"
+                        className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-2 py-1 text-[10px] text-white/60 font-mono focus:outline-none focus:border-[#00d2ff]"
+                      />
+                      <input
+                        type="number"
+                        value={options[maxKey]}
+                        onChange={(e) => setOptions((prev) => ({ ...prev, [maxKey]: e.target.value }))}
+                        placeholder="max"
+                        className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-2 py-1 text-[10px] text-white/60 font-mono focus:outline-none focus:border-[#00d2ff]"
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-[9px] text-white/25 uppercase tracking-widest font-bold">Labels</p>
+              <input
+                type="text"
+                value={options.xAxisLabel}
+                onChange={(e) => setOptions((prev) => ({ ...prev, xAxisLabel: e.target.value }))}
+                placeholder={assignments.x ?? 'X axis label'}
+                className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-2 py-1 text-[10px] text-white/60 font-mono focus:outline-none focus:border-[#00d2ff]"
+              />
+              <input
+                type="text"
+                value={options.yAxisLabel}
+                onChange={(e) => setOptions((prev) => ({ ...prev, yAxisLabel: e.target.value }))}
+                placeholder={assignments.y ?? 'Y axis label'}
+                className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded px-2 py-1 text-[10px] text-white/60 font-mono focus:outline-none focus:border-[#00d2ff]"
               />
             </div>
 

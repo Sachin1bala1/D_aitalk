@@ -662,13 +662,158 @@ fn extract_pg_columns(row: &sqlx::postgres::PgRow) -> Vec<ColumnMeta> {
 }
 
 fn pg_row_to_json(row: &sqlx::postgres::PgRow, columns: &[ColumnMeta]) -> Value {
-    use sqlx::Row;
     let mut obj = Map::new();
     for (i, col) in columns.iter().enumerate() {
-        let val: Value = row.try_get(i).unwrap_or(Value::Null);
+        let val = pg_cell_to_json(row, i, &col.type_name);
         obj.insert(col.name.clone(), val);
     }
     Value::Object(obj)
+}
+
+fn pg_cell_to_json(row: &sqlx::postgres::PgRow, index: usize, type_name: &str) -> Value {
+    use sqlx::Row;
+    let kind = type_name.to_ascii_lowercase();
+
+    if kind == "bool" || kind == "boolean" {
+        return row
+            .try_get::<Option<bool>, _>(index)
+            .ok()
+            .flatten()
+            .map(Value::Bool)
+            .unwrap_or(Value::Null);
+    }
+
+    if matches!(kind.as_str(), "int2" | "smallint") {
+        return row
+            .try_get::<Option<i16>, _>(index)
+            .ok()
+            .flatten()
+            .map(|value| Value::Number((value as i64).into()))
+            .unwrap_or(Value::Null);
+    }
+
+    if matches!(kind.as_str(), "int4" | "integer" | "serial4") {
+        return row
+            .try_get::<Option<i32>, _>(index)
+            .ok()
+            .flatten()
+            .map(|value| Value::Number((value as i64).into()))
+            .unwrap_or(Value::Null);
+    }
+
+    if matches!(kind.as_str(), "int8" | "bigint" | "serial8") {
+        return row
+            .try_get::<Option<i64>, _>(index)
+            .ok()
+            .flatten()
+            .map(|value| Value::Number(value.into()))
+            .unwrap_or(Value::Null);
+    }
+
+    if matches!(kind.as_str(), "float4" | "real") {
+        return row
+            .try_get::<Option<f32>, _>(index)
+            .ok()
+            .flatten()
+            .and_then(|value| serde_json::Number::from_f64(value as f64).map(Value::Number))
+            .unwrap_or(Value::Null);
+    }
+
+    if matches!(kind.as_str(), "float8" | "double precision") {
+        return row
+            .try_get::<Option<f64>, _>(index)
+            .ok()
+            .flatten()
+            .and_then(|value| serde_json::Number::from_f64(value).map(Value::Number))
+            .unwrap_or(Value::Null);
+    }
+
+    if kind == "json" || kind == "jsonb" {
+        return row
+            .try_get::<Option<Value>, _>(index)
+            .ok()
+            .flatten()
+            .unwrap_or(Value::Null);
+    }
+
+    if kind == "uuid" {
+        return row
+            .try_get::<Option<uuid::Uuid>, _>(index)
+            .ok()
+            .flatten()
+            .map(|value| Value::String(value.to_string()))
+            .unwrap_or(Value::Null);
+    }
+
+    if kind.starts_with("timestamp") {
+        if let Some(value) = row
+            .try_get::<Option<chrono::DateTime<chrono::Utc>>, _>(index)
+            .ok()
+            .flatten()
+        {
+            return Value::String(value.to_rfc3339());
+        }
+        if let Some(value) = row
+            .try_get::<Option<chrono::NaiveDateTime>, _>(index)
+            .ok()
+            .flatten()
+        {
+            return Value::String(value.to_string());
+        }
+    }
+
+    if kind == "date" {
+        return row
+            .try_get::<Option<chrono::NaiveDate>, _>(index)
+            .ok()
+            .flatten()
+            .map(|value| Value::String(value.to_string()))
+            .unwrap_or(Value::Null);
+    }
+
+    if kind.starts_with("time") {
+        return row
+            .try_get::<Option<chrono::NaiveTime>, _>(index)
+            .ok()
+            .flatten()
+            .map(|value| Value::String(value.to_string()))
+            .unwrap_or(Value::Null);
+    }
+
+    if let Some(value) = row
+        .try_get::<Option<String>, _>(index)
+        .ok()
+        .flatten()
+    {
+        return Value::String(value);
+    }
+
+    if let Some(value) = row
+        .try_get::<Option<i64>, _>(index)
+        .ok()
+        .flatten()
+    {
+        return Value::Number(value.into());
+    }
+
+    if let Some(value) = row
+        .try_get::<Option<f64>, _>(index)
+        .ok()
+        .flatten()
+        .and_then(serde_json::Number::from_f64)
+    {
+        return Value::Number(value);
+    }
+
+    if let Some(value) = row
+        .try_get::<Option<bool>, _>(index)
+        .ok()
+        .flatten()
+    {
+        return Value::Bool(value);
+    }
+
+    Value::Null
 }
 
 fn mssql_row_to_json(row: &tiberius::Row) -> Value {

@@ -27,12 +27,14 @@ export function autoSelectChart(
   xCol: ColumnMeta | null,
   yCol: ColumnMeta | null,
   _colorCol?: ColumnMeta | null,
+  sizeCol?: ColumnMeta | null,
   _data?: Record<string, unknown>[]
 ): ChartType {
   if (!xCol && !yCol) return 'bar';
 
   if (xCol && yCol) {
     if (isDate(xCol) && isNumeric(yCol)) return 'line';
+    if (isNumeric(xCol) && isNumeric(yCol) && sizeCol && isNumeric(sizeCol)) return 'bubble';
     if (isNumeric(xCol) && isNumeric(yCol)) return 'scatter';
     if (!isNumeric(xCol) && !isDate(xCol) && isNumeric(yCol)) return 'bar';
     if (!isNumeric(xCol) && !isDate(xCol) && !isNumeric(yCol) && !isDate(yCol)) return 'heatmap';

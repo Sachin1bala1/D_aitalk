@@ -246,7 +246,7 @@ export const DbClient = {
           } else if (config.connection_string) {
             try {
               const url = new URL(config.connection_string);
-              url.password = encodeURIComponent(pw);
+              url.password = pw;
               resolved = { ...config, connection_string: url.toString() };
             } catch {
               // Non-URL connection strings can continue as-is.

@@ -18,7 +18,7 @@ import { ConnectionDialog } from "./components/dialogs/ConnectionDialog";
 import { AIPanel } from "./components/ai/AIPanel";
 import { AgentModeToggle } from "./components/ai/AgentModeToggle";
 import { registerHandlers } from "./lib/agent/registerHandlers";
-import { loadSavedConnectionsAsync, saveConnection, removeConnection as removePersistedConnection } from "./lib/db/ConnectionStore";
+import { loadSavedConnectionsAsync, persistConnections, removeConnection as removePersistedConnection } from "./lib/db/ConnectionStore";
 import { ERDiagram } from "./components/schema/ERDiagram";
 import { KeyboardShortcutsDialog } from "./components/dialogs/KeyboardShortcutsDialog";
 import { FileImportDialog } from "./components/dialogs/FileImportDialog";
@@ -551,7 +551,11 @@ export default function App() {
     setIsConnecting(false);
     if (config) {
       addConnection(config);
-      saveConnection(config);
+      const nextConnections = [
+        ...connections.filter((connection) => connection.id !== config.id),
+        config,
+      ];
+      persistConnections(nextConnections).catch(() => {});
     }
     toast.success("Connected");
     BusinessClient.trackUsageEvent({

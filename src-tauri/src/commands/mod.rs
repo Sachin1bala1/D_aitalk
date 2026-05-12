@@ -1,3 +1,4 @@
+mod ai;
 mod connection;
 mod duckdb;
 mod intelligence;
@@ -8,6 +9,7 @@ mod schema;
 mod state;
 mod utility;
 
+pub use ai::*;
 pub use connection::*;
 pub use duckdb::*;
 pub use intelligence::*;
