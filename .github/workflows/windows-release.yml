@@ -66,8 +66,20 @@ jobs:
           cargo --version
           rustc --version
           npm --version
-          where.exe link
-          where.exe cl
+          $linkCmd = Get-Command link.exe -ErrorAction SilentlyContinue
+          if ($linkCmd) {
+            Write-Host "link.exe=$($linkCmd.Source)"
+          } else {
+            Write-Warning "link.exe not found on PATH"
+          }
+
+          $clCmd = Get-Command cl.exe -ErrorAction SilentlyContinue
+          if ($clCmd) {
+            Write-Host "cl.exe=$($clCmd.Source)"
+          } else {
+            Write-Warning "cl.exe not found on PATH"
+          }
+
           Write-Host "CARGO_TARGET_DIR=$env:CARGO_TARGET_DIR"
 
       - name: Install frontend dependencies
