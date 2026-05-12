@@ -120,4 +120,21 @@ jobs:
       - name: Cargo check
         working-directory: src-tauri
         shell: powershell
-        run: cargo check -vv
+        run: |
+          $logPath = Join-Path $env:RUNNER_TEMP "cargo-check.log"
+          cargo check -vv *>&1 | Tee-Object -FilePath $logPath
+          $exitCode = $LASTEXITCODE
+
+          if ($exitCode -ne 0) {
+            Write-Host "Cargo check failed. Extracting first Rust error blocks..."
+            $matches = Select-String -Path $logPath -Pattern 'error(\[[A-Z0-9]+\])?:'
+            if ($matches) {
+              foreach ($match in $matches | Select-Object -First 5) {
+                Write-Host ("--- cargo error near line {0} ---" -f $match.LineNumber)
+                Get-Content $logPath | Select-Object -Skip ([Math]::Max($match.LineNumber - 3, 0)) -First 12
+              }
+            } else {
+              Write-Warning "No explicit Rust error lines found in cargo-check.log"
+            }
+            exit $exitCode
+          }
