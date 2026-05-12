@@ -6,6 +6,8 @@ Daitalk is a Windows desktop database workspace for running SQL, exploring schem
 
 Windows release and Microsoft Store preparation artifacts live under [docs/release](./docs/release/README.md).
 
+Windows CI and local build expectations are documented in [docs/windows-build-requirements.md](./docs/windows-build-requirements.md).
+
 Key public pages prepared for GitHub Pages:
 
 - [Support](./docs/support/index.html)
