@@ -8,6 +8,8 @@ Windows release and Microsoft Store preparation artifacts live under [docs/relea
 
 Windows CI and local build expectations are documented in [docs/windows-build-requirements.md](./docs/windows-build-requirements.md).
 
+Team workflow and branch policy are documented in [CONTRIBUTING.md](./CONTRIBUTING.md).
+
 Key public pages prepared for GitHub Pages:
 
 - [Support](./docs/support/index.html)

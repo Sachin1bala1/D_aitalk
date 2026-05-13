@@ -8,8 +8,10 @@ Describe the change in 2-5 bullets. Focus on user-visible behavior, integration 
 
 Select one and delete the others:
 
-- [ ] `feature/<topic>`
-- [ ] `integration/<topic>`
+- [ ] `feat/<topic>`
+- [ ] `fix/<topic>`
+- [ ] `ci/<topic>`
+- [ ] `docs/<topic>`
 - [ ] `hotfix/<topic>`
 
 Branch name:
@@ -63,6 +65,7 @@ Call out the most likely regression areas and how they were checked.
 
 - [ ] Scope is intentional and limited
 - [ ] No unrelated files were modified
-- [ ] Integration playbook was followed for large branch intake work
+- [ ] Branch was created from latest `main`
+- [ ] CI-only changes are isolated when practical
 - [ ] Validation commands and outcomes are recorded above
 - [ ] Desktop/runtime checks are recorded above when relevant

@@ -1,0 +1,19 @@
+# Default reviewers / owners
+* @Sachin1bala1
+
+# AI / agent
+/src/lib/agent/ @Sachin1bala1
+/src/components/ai/ @Sachin1bala1
+
+# Database / persistence / backend
+/src/lib/db/ @Sachin1bala1
+/src-tauri/src/commands/ @Sachin1bala1
+/src-tauri/src/db/ @Sachin1bala1
+
+# Charts / tables / dashboard
+/src/components/charts/ @Sachin1bala1
+/src/components/table/ @Sachin1bala1
+
+# CI / docs / release
+/.github/workflows/ @Sachin1bala1
+/docs/ @Sachin1bala1
