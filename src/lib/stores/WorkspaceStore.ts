@@ -13,6 +13,7 @@ import type {
 import type { WorkingMemoryState } from "../memory/WorkingMemory";
 import { DEFAULT_WORKING_MEMORY } from "../memory/WorkingMemory";
 import type { QueryRuntimeHandle, QuerySessionState } from "../query/runtime";
+import type { ImpactMap } from '../agent/harness/ImpactMapEngine';
 
 export type AgentMode = "plan" | "auto";
 export type QueryTabType = "sql_editor" | "table_viewer";
@@ -357,6 +358,9 @@ export interface WorkspaceState {
 
   currentTask: { userGoal: string; status: string } | null;
   setCurrentTask: (task: { userGoal: string; status: string } | null) => void;
+
+  impactMapResolution: ImpactMap | null;
+  setImpactMapResolution: (map: ImpactMap | null) => void;
 }
 
 export const useWorkspaceStore = create<WorkspaceState>()(
@@ -387,6 +391,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     pendingChatInput: null,
     selectedTableNode: null,
     currentTask: null,
+    impactMapResolution: null,
 
     setAgentMode: (mode) =>
       set((state) => {
@@ -756,6 +761,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     setCurrentTask: (task) =>
       set((state) => {
         state.currentTask = task;
+      }),
+
+    setImpactMapResolution: (map) =>
+      set((state) => {
+        state.impactMapResolution = map as ImpactMap | null;
       }),
   }))
 );

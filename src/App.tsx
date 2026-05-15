@@ -34,6 +34,7 @@ import { QuickOpenDialog } from "./components/dialogs/QuickOpenDialog";
 import { WelcomeScreen } from "./components/onboarding/WelcomeScreen";
 import { OnboardingTour } from "./components/onboarding/OnboardingTour";
 import { MemoryPanel } from "./components/ai/MemoryPanel";
+import HarnessDashboard from './components/admin/HarnessDashboard';
 import { BusinessClient, type ProactiveSuggestion } from "./lib/business/BusinessClient";
 import { ChartPanel } from "./components/dashboard/ChartPanel";
 
@@ -66,7 +67,7 @@ export default function App() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem("daitalk_onboarding_dismissed"));
   const [showTour, setShowTour] = useState(false);
-  const [activePanel, setActivePanel] = useState<"history" | "agent" | "erd" | "snippets" | "search" | "sessions" | "overview" | "founder" | "memory">("agent");
+  const [activePanel, setActivePanel] = useState<"history" | "agent" | "erd" | "snippets" | "search" | "sessions" | "overview" | "founder" | "memory" | "harness">("agent");
   const [inTransaction, setInTransaction] = useState(false);
   const [autoCommit, setAutoCommit] = useState(true);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -1011,7 +1012,7 @@ export default function App() {
       {/* Right: AI Panel */}
       <div data-tour="ai-panel" className="w-96 border-l border-[#262626] flex flex-col bg-[#0d0d0d] shrink-0">
         <div className="h-12 border-b border-[#262626] flex items-center px-4 gap-4 shrink-0">
-          {(["agent", "history", "memory", "founder", "snippets", "erd", "search", "sessions", "overview"] as const).map((p) => (
+          {(["agent", "history", "memory", "founder", "snippets", "erd", "search", "sessions", "overview", "harness"] as const).map((p) => (
             <button
               key={p}
               onClick={() => setActivePanel(p)}
@@ -1019,7 +1020,7 @@ export default function App() {
                 activePanel === p ? "text-[#00d2ff]" : "text-white/30 hover:text-white/50"
               }`}
             >
-              {p === "erd" ? "ERD" : p === "agent" ? "AI" : p === "snippets" ? "Snippets" : p === "search" ? "Search" : p === "sessions" ? "Sessions" : p === "overview" ? "DB" : p === "founder" ? "Founder" : p === "memory" ? "Memory" : "History"}
+              {p === "erd" ? "ERD" : p === "agent" ? "AI" : p === "snippets" ? "Snippets" : p === "search" ? "Search" : p === "sessions" ? "Sessions" : p === "overview" ? "DB" : p === "founder" ? "Founder" : p === "memory" ? "Memory" : p === "harness" ? "Harness" : "History"}
             </button>
           ))}
           {planQueue.length > 0 && (
@@ -1056,6 +1057,8 @@ export default function App() {
             <MemoryPanel />
           ) : activePanel === "overview" ? (
             <DatabaseOverview />
+          ) : activePanel === "harness" ? (
+            <HarnessDashboard />
           ) : (
             <AIPanel
               activePanel={activePanel}

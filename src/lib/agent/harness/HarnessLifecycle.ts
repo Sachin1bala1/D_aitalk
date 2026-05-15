@@ -1,36 +1,32 @@
 /**
  * HarnessLifecycle — Structured Entry/Exit Points for Agent Interactions
- * 
- * Based on Stanford Meta-Harness (arxiv 2603.05344):
- * "Lifecycle hooks enable systematic injection of harness-level behaviors
- * without modifying core agent logic. Cross-cutting concerns execute at
- * defined entry and exit points in the conversation lifecycle."
- * 
+ *
  * Hooks called at:
  * - onSessionStart: when user initiates a new analysis
- * - onBeforeToolCall: before ANY tool execution (can block or modify input)
- * - onAfterToolCall: after tool completes (record metrics)
- * - onToolError: on tool failure (retry logic, error recovery)
+ * - onBeforeToolCall: before ANY tool execution (security gate + policy check)
+ * - onAfterToolCall: after tool completes (record metrics + telemetry edge)
+ * - onToolError: on tool failure (retry logic)
  * - onStruggleDetected: when agent repeats attempts or has high error rate
  * - onSessionComplete: at end of analysis (store episode, record outcome)
  */
 
+import { invoke } from "@tauri-apps/api/core";
 import type { SessionContext, StruggleEvidence, SessionResult } from "./types";
-import { WorkingMemory } from "../../memory/WorkingMemory";
 import { UsageAnalytics } from "../../analytics/UsageAnalytics";
 import { EpisodicMemory } from "../../memory/EpisodicMemory";
 import { FailureTraceStore } from "./FailureTraceStore";
 import { HarnessObserver } from "./HarnessObserver";
+import { useWorkspaceStore } from "../../stores/WorkspaceStore";
+
+export type { SessionContext, StruggleEvidence, SessionResult };
 
 export interface HarnessHooks {
   onSessionStart?: (ctx: SessionContext) => Promise<void>;
-
   onBeforeToolCall?: (
     tool: string,
     input: unknown,
     ctx: SessionContext
   ) => Promise<unknown | void>;
-
   onAfterToolCall?: (
     tool: string,
     input: unknown,
@@ -38,38 +34,31 @@ export interface HarnessHooks {
     durationMs: number,
     ctx: SessionContext
   ) => Promise<void>;
-
   onToolError?: (
     tool: string,
     input: unknown,
     error: Error,
     ctx: SessionContext
   ) => Promise<{ retry: boolean; modifiedInput?: unknown }>;
-
   onStruggleDetected?: (
     ctx: SessionContext,
     evidence: StruggleEvidence
   ) => Promise<string | void>;
-
   onSessionComplete?: (
     ctx: SessionContext,
     result: SessionResult
   ) => Promise<void>;
 }
 
-/**
- * Standard DataIQ hooks — the default harness behavior
- * Manages security, analytics, memory, and failure tracking
- */
 export const DATAIQ_HOOKS: HarnessHooks = {
-  /**
-   * Initialize session context: set up working memory, tracking
-   */
   onSessionStart: async (ctx: SessionContext) => {
-    // Load memory context into WorkingMemory for this session
-    await WorkingMemory.setActiveQuestion(ctx.sessionId, ctx.question);
+    // Update WorkspaceStore for UI (local requirement)
+    try {
+      useWorkspaceStore.getState().setActiveQuestion(ctx.question);
+    } catch { /* non-critical outside React */ }
 
-    // Track session start in usage analytics
+    // (WorkingMemory is a Zustand state shape, not a class — use store directly)
+
     UsageAnalytics.track({
       event_type: "apex_session_start",
       feature: "apex_chat",
@@ -79,35 +68,31 @@ export const DATAIQ_HOOKS: HarnessHooks = {
       }),
     });
 
-    // Initialize telemetry observation
     HarnessObserver.initializeSession(ctx);
   },
 
-  /**
-   * Security gate before any tool execution
-   * Blocks destructive operations on read-only connections
-   * Enforces data governance policies
-   */
   onBeforeToolCall: async (tool: string, input: unknown, ctx: SessionContext) => {
-    // Security: block destructive tools if connection is read-only
-    const DESTRUCTIVE = ["delete_rows", "execute_sql_write", "drop_table", "bulk_transform"];
-    if (DESTRUCTIVE.includes(tool)) {
-      // Check connection config - in real implementation would fetch from ConnectionRegistry
-      const isReadOnly = (input as any)?.connectionId?.includes?.("readonly");
-      if (isReadOnly) {
-        throw new Error(
-          `Tool '${tool}' blocked: connection is read-only. Cannot execute destructive operations.`
-        );
+    HarnessObserver.recordToolCallStart(ctx.sessionId, tool, input);
+
+    // PolicyEngine check — lazy import to avoid circular dependency
+    if (ctx.policyContext) {
+      const { PolicyEngine } = await import("./PolicyEngine");
+      const policyResult = PolicyEngine.evaluate(tool, input, ctx.policyContext);
+      if (!policyResult.allowed) {
+        HarnessObserver.recordPolicyViolation(ctx.sessionId, policyResult.policyId!, tool);
+        throw new Error(`🛡️ Policy [${policyResult.policyName}]: ${policyResult.reason}`);
       }
     }
 
-    // Log tool call start for telemetry
-    HarnessObserver.recordToolCallStart(ctx.sessionId, tool, input);
+    // Block destructive tools on read-only connections
+    const DESTRUCTIVE = ["delete_rows", "execute_sql_write", "drop_table", "bulk_transform"];
+    if (DESTRUCTIVE.includes(tool) && ctx.policyContext?.isReadOnly) {
+      throw new Error(
+        `Tool '${tool}' blocked: connection is read-only. Cannot execute destructive operations.`
+      );
+    }
   },
 
-  /**
-   * Record successful tool execution metrics
-   */
   onAfterToolCall: async (
     tool: string,
     input: unknown,
@@ -115,13 +100,9 @@ export const DATAIQ_HOOKS: HarnessHooks = {
     durationMs: number,
     ctx: SessionContext
   ) => {
-    // Record to telemetry
     HarnessObserver.recordToolCallComplete(ctx.sessionId, tool, durationMs, !!output);
+    useWorkspaceStore.getState().addToolTried(tool);
 
-    // Add to WorkingMemory's tools tried list
-    WorkingMemory.recordToolUsed(ctx.sessionId, tool);
-
-    // Track in UsageAnalytics
     UsageAnalytics.track({
       event_type: "analysis_run",
       feature: "analysis",
@@ -129,41 +110,42 @@ export const DATAIQ_HOOKS: HarnessHooks = {
       success: true,
       metadata: JSON.stringify({ tool }),
     });
+
+    // Record telemetry edge to Rust (local requirement)
+    const toolInput = input as Record<string, unknown>;
+    if (tool === "execute_sql" && typeof toolInput?.sql === "string") {
+      const tableMatch = (toolInput.sql as string).match(/FROM\s+"?(\w+)"?\."?(\w+)"?/i);
+      if (tableMatch) {
+        invoke("harness_record_telemetry_edge", {
+          fromNode: `dataset:${tableMatch[1]}.${tableMatch[2]}`,
+          toNode: `analysis:${tool}`,
+          edgeType: "queried",
+          sessionId: ctx.sessionId,
+        }).catch(() => { /* non-critical */ });
+      }
+    }
   },
 
-  /**
-   * Handle tool errors with retry logic
-   * Transient errors (network, timeout) retry once
-   * Persistent errors fail immediately
-   */
   onToolError: async (
     tool: string,
     input: unknown,
     error: Error,
     ctx: SessionContext
   ) => {
-    // Record error in telemetry
     HarnessObserver.recordToolError(ctx.sessionId, tool, error.message);
 
-    // Retry once for transient errors (network, timeout, throttling)
     const RETRYABLE = ["db_execute_query", "pi_get_history", "analyze_run"];
     const TRANSIENT_ERRORS = ["timeout", "network", "ECONNREFUSED", "429"];
-
-    const isTransient = TRANSIENT_ERRORS.some(keyword =>
-      error.message.toLowerCase().includes(keyword)
+    const isTransient = TRANSIENT_ERRORS.some(k =>
+      error.message.toLowerCase().includes(k)
     );
 
     if (RETRYABLE.includes(tool) && isTransient && ctx.errorsSoFar.length < 2) {
       return { retry: true };
     }
-
     return { retry: false };
   },
 
-  /**
-   * Inject contextual guidance when agent is struggling
-   * Detects patterns: repeated errors, looping, no progress
-   */
   onStruggleDetected: async (
     ctx: SessionContext,
     evidence: StruggleEvidence
@@ -177,37 +159,30 @@ export const DATAIQ_HOOKS: HarnessHooks = {
         `Do NOT retry the same failing tool more than twice.`
       );
     }
-
     if (evidence.type === "same_tool_called_3x") {
       return (
         `🛡️ HARNESS NOTICE: You have called the same tool 3 times with similar inputs. ` +
-        `The repeated calls suggest the approach is not working. ` +
         `Consider: (1) using a different tool, (2) asking the user for more details, ` +
         `(3) reporting what you found so far.`
       );
     }
-
     if (evidence.type === "no_progress_5_iters") {
       return (
         `🛡️ HARNESS NOTICE: This analysis has run for 5 iterations without progress. ` +
         `Consider whether the user's question needs clarification or if a different approach is needed.`
       );
     }
-
     return undefined;
   },
 
-  /**
-   * Finalize session: store episode, record metrics, trigger optimizations
-   */
   onSessionComplete: async (
     ctx: SessionContext,
     result: SessionResult
   ) => {
-    // Store episode in episodic memory for learning
+    // Persist episode via EpisodicMemory (TypeScript layer)
     await EpisodicMemory.store({
       sessionId: ctx.sessionId,
-      connectionId: ctx.connectionId,
+      connectionId: ctx.connectionId ?? undefined,  // null → undefined for Episode type
       problem: ctx.question,
       toolsUsed: result.toolsUsed,
       findings: {
@@ -218,7 +193,24 @@ export const DATAIQ_HOOKS: HarnessHooks = {
       },
     });
 
-    // Track completion analytics
+    // Also persist via Tauri SQLite (Rust layer — authoritative storage)
+    invoke("memory_insert_episode", {
+      episode: {
+        id: `${ctx.sessionId}-ep`,
+        session_id: ctx.sessionId,
+        connection_id: ctx.connectionId,
+        problem: ctx.question,
+        tools_used: JSON.stringify(result.toolsUsed),
+        findings: JSON.stringify({
+          duration: result.totalDurationMs,
+          errors: result.errorCount,
+        }),
+        outcome: result.success ? "completed" : "failed",
+        embedding: JSON.stringify([]),
+        created_at: Date.now(),
+      },
+    }).catch(e => console.error("[HarnessLifecycle] Failed to store episode:", e));
+
     UsageAnalytics.track({
       event_type: "apex_session_complete",
       feature: "apex_chat",
@@ -231,7 +223,6 @@ export const DATAIQ_HOOKS: HarnessHooks = {
       }),
     });
 
-    // Update failure trace store (used by Meta-Harness optimizer)
     if (!result.success || result.errorCount > 0) {
       await FailureTraceStore.record({
         sessionId: ctx.sessionId,
@@ -244,67 +235,44 @@ export const DATAIQ_HOOKS: HarnessHooks = {
       });
     }
 
-    // Finalize telemetry observation
     await HarnessObserver.finalizeSession(ctx.sessionId, result);
   },
 };
 
 /**
- * Struggle detection engine
- * Identifies patterns indicating the agent is stuck or looping
+ * Struggle detection — identifies patterns indicating the agent is stuck.
+ * Called by AgentLoop after each iteration.
  */
 export function detectStruggle(ctx: SessionContext): StruggleEvidence | null {
-  // Pattern 1: same tool called 3+ times
   const toolCounts = new Map<string, number>();
   ctx.toolsCalledSoFar.forEach(t => {
     toolCounts.set(t, (toolCounts.get(t) || 0) + 1);
   });
-
   for (const [tool, count] of toolCounts.entries()) {
-    if (count >= 3) {
-      return {
-        type: "same_tool_called_3x",
-        details: tool,
-      };
-    }
+    if (count >= 3) return { type: "same_tool_called_3x", details: tool };
   }
-
-  // Pattern 2: multiple tool errors
   if (ctx.errorsSoFar.length >= 2) {
-    const toolsWithErrors = ctx.errorsSoFar.map(e => e.tool).join(", ");
     return {
       type: "repeated_tool_errors",
-      details: toolsWithErrors,
+      details: ctx.errorsSoFar.map(e => e.tool).join(", "),
     };
   }
-
-  // Pattern 3: 5+ iterations with no hypothesis update (high iteration count)
   if (ctx.iterationCount >= 5) {
-    return {
-      type: "no_progress_5_iters",
-      details: `${ctx.iterationCount} iterations`,
-    };
+    return { type: "no_progress_5_iters", details: `${ctx.iterationCount} iterations` };
   }
-
-  // No struggle detected
   return null;
 }
 
 /**
- * Register a hook handler
- * Useful for adding custom behavior to the harness at runtime
+ * Register an additional hook handler at runtime.
+ * Useful for test overrides or plugin extensions.
  */
-export function registerHook(
-  hookName: keyof HarnessHooks,
-  handler: any
-): void {
+export function registerHook(hookName: keyof HarnessHooks, handler: any): void {
   const original = DATAIQ_HOOKS[hookName] as
     | ((...args: any[]) => Promise<unknown>)
     | undefined;
-  DATAIQ_HOOKS[hookName] = async (...args: any[]) => {
-    if (original) {
-      await original(...args);
-    }
+  (DATAIQ_HOOKS as any)[hookName] = async (...args: any[]) => {
+    if (original) await original(...args);
     return handler(...args);
   };
 }

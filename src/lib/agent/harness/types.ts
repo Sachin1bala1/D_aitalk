@@ -1,16 +1,18 @@
 /**
  * Shared types used across the DataIQ harness system
  */
+import type { PolicyContext } from "./PolicyEngine";
 
 export interface SessionContext {
   sessionId: string;
-  userId: string;
-  connectionId: string;
+  userId?: string;
+  connectionId: string | null;
   question: string;
   toolsCalledSoFar: string[];
   errorsSoFar: Array<{ tool: string; error: string }>;
   startTime: number;
   iterationCount: number;
+  policyContext?: PolicyContext;
   schemaTableCount?: number;
 }
 

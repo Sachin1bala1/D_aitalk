@@ -17,6 +17,12 @@ import type { FullSchema } from "../db/DbClient";
 import type { QueryResults } from "../stores/WorkspaceStore";
 import type { AIProvider, ConversationTurn, ToolCall } from "../ai/types";
 import { withRetry } from "../ai/resilience";
+import { ContextEngine } from './harness/ContextEngine';
+import { DATAIQ_HOOKS, detectStruggle } from './harness/HarnessLifecycle';
+import type { SessionContext } from './harness/HarnessLifecycle';
+import type { PolicyContext } from './harness/PolicyEngine';
+import { FailureTraceStore } from './harness/FailureTraceStore';
+import { ImpactMapEngine } from './harness/ImpactMapEngine';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -169,7 +175,8 @@ function buildSystemPrompt(
   currentResults: QueryResults | null,
   agentMode: "plan" | "auto",
   memoryContext?: MemoryContext,
-  queryDepth?: 'fast' | 'deep'
+  queryDepth?: 'fast' | 'deep',
+  harnessAdditions?: string | null
 ): string {
   const parts: string[] = [];
 
@@ -399,6 +406,10 @@ For any question about anomalies, quality issues, process upsets, or unexplained
         .join("\n");
       parts.push(`## Open Learning Loops\n${lines}`);
     }
+  }
+
+  if (harnessAdditions) {
+    parts.push(`## Harness Guidance (Auto-Updated)\n${harnessAdditions}`);
   }
 
   return parts.join("\n\n");
@@ -648,13 +659,48 @@ export async function runAgentLoop(
     ];
     return { finalText: clarifier, updatedHistory: updatedHistory.slice(-40), queryDepth };
   }
-  const system = buildSystemPrompt(schema, currentSQL, currentResults, agentMode, options.memoryContext, queryDepth);
+
+  let harnessAdditions: string | null = null;
+  try {
+    const activeVersion = await FailureTraceStore.getActiveVersion();
+    harnessAdditions = activeVersion?.system_prompt_additions ?? null;
+  } catch {
+    // non-critical — proceed without harness additions
+  }
+
+  const system = buildSystemPrompt(schema, currentSQL, currentResults, agentMode, options.memoryContext, queryDepth, harnessAdditions);
+
+  const sessionId = `session-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
   // Append the user message to working history
   const working: ConversationTurn[] = [
     ...history,
     { role: "user", text: userMessage },
   ];
+
+  ContextEngine.trackContextBuild(sessionId, system, working);
+
+  const connections = useWorkspaceStore.getState().connections;
+  const activeConn = connections.find(c => c.id === connectionId);
+  const policyCtx: PolicyContext = {
+    sessionId,
+    connectionId,
+    question: userMessage,
+    isReadOnly: activeConn?.read_only ?? false,
+    connectionType: activeConn?.driver ?? '',
+    piiColumns: [],
+  };
+  const sessionCtx: SessionContext = {
+    sessionId,
+    connectionId,
+    question: userMessage,
+    toolsCalledSoFar: [],
+    errorsSoFar: [],
+    startTime: Date.now(),
+    iterationCount: 0,
+    policyContext: policyCtx,
+  };
+  await DATAIQ_HOOKS.onSessionStart?.(sessionCtx);
 
   const userToolDefs = useUserToolStore.getState().tools.map(userToolToUnifiedTool);
   const allTools = [...AGENT_TOOLS, ...userToolDefs];
@@ -705,9 +751,31 @@ export async function runAgentLoop(
         continue;
       }
 
+      sessionCtx.toolsCalledSoFar.push(tc.name);
+      try {
+        await DATAIQ_HOOKS.onBeforeToolCall?.(tc.name, tc.input, sessionCtx);
+      } catch (policyErr) {
+        // Policy block — short-circuit this tool
+        const errMsg = policyErr instanceof Error ? policyErr.message : String(policyErr);
+        toolResults!.push({
+          toolCallId: tc.id,
+          name: tc.name,
+          content: errMsg,
+          isError: true,
+        });
+        onToolEnd(tc.name, { success: false, error: errMsg });
+        continue;
+      }
+
       onToolStart(tc.name, tc.input);
 
       let result: CommandResult;
+
+      // Generate impact map for any command in plan mode
+      if (agentMode === "plan") {
+        const impactMap = ImpactMapEngine.fromCommands([cmd], connectionId);
+        useWorkspaceStore.getState().setImpactMapResolution(impactMap);
+      }
 
       if (agentMode === "plan" && isDestructive(cmd)) {
         const stepId = `plan-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -744,6 +812,12 @@ export async function runAgentLoop(
 
       onToolEnd(tc.name, result);
 
+      const afterDurationMs = Date.now() - sessionCtx.startTime;
+      await DATAIQ_HOOKS.onAfterToolCall?.(tc.name, tc.input, result, afterDurationMs, sessionCtx);
+      if (!result.success) {
+        sessionCtx.errorsSoFar.push({ tool: tc.name, error: result.error ?? 'unknown' });
+      }
+
       toolResults!.push({
         toolCallId: tc.id,
         name: tc.name,
@@ -756,8 +830,28 @@ export async function runAgentLoop(
 
     // Add tool results as a user turn
     working.push({ role: "user", toolResults });
+
+    // Struggle detection at end of each round
+    sessionCtx.iterationCount = round + 1;
+    const struggle = detectStruggle(sessionCtx);
+    if (struggle) {
+      const hint = await DATAIQ_HOOKS.onStruggleDetected?.(sessionCtx, struggle);
+      if (hint) {
+        // Inject struggle hint as a user message into working history
+        working.push({ role: 'user', text: hint });
+      }
+    }
   }
 
-  // Trim to last 40 turns to keep context manageable
-  return { finalText, updatedHistory: working.slice(-40), queryDepth };
+  const sessionSuccess = finalText.length > 0;
+  await DATAIQ_HOOKS.onSessionComplete?.(sessionCtx, {
+    success: sessionSuccess,
+    toolsUsed: sessionCtx.toolsCalledSoFar,
+    totalDurationMs: Date.now() - sessionCtx.startTime,
+    tokenEstimate: ContextEngine.estimateTokenUsage(system, working).total,
+    errorCount: sessionCtx.errorsSoFar.length,
+  });
+
+  const compacted = ContextEngine.compactHistory(working);
+  return { finalText, updatedHistory: compacted, queryDepth };
 }

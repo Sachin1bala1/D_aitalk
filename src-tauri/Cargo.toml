@@ -65,3 +65,15 @@ ssh2 = { version = "0.9" }
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+
+[profile.dev]
+# Minimize LLVM peak memory — needed on 8GB machines with sqlx + tokio + windows crate
+# debug = 0: no debug info (biggest single saver, ~30-40% less LLVM memory)
+# opt-level = 0: skip optimization passes (further reduces peak memory)
+debug = 0
+opt-level = 0
+split-debuginfo = "off"
+
+[profile.dev.package."*"]
+# All dependencies: no debug info either
+debug = false

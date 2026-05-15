@@ -1,27 +1,169 @@
 /**
- * FailureTraceStore — Persistent storage of failure traces for Meta-Harness optimization
- * 
- * Stores complete session traces including errors, struggles, and outcomes.
- * Used by HarnessOptimizer to analyze patterns and propose system prompt improvements.
+ * FailureTraceStore — typed Tauri client for harness DB
+ *
+ * Thin client layer over the Tauri `harness_*` commands defined in the Rust
+ * backend. Caches the active harness version and exposes typed queries.
+ *
+ * No React, no Zustand — pure TypeScript module.
  */
 
-import type { HarnessFailureTrace } from "./types";
+import { invoke } from "@tauri-apps/api/core";
+
+// ---------------------------------------------------------------------------
+// Raw types — match Rust struct field names exactly (snake_case).
+// Used for Tauri invoke return values.
+// ---------------------------------------------------------------------------
+
+export interface HarnessFailureTrace {
+  id: number;
+  session_id: string;
+  question: string;
+  tools_used: string;       // JSON string of string[]
+  errors: string;           // JSON string of {tool, error}[]
+  struggle_events: string;  // JSON string
+  final_success: boolean;
+  token_estimate: number | null;
+  duration_ms: number | null;
+  harness_version: string | null;
+  created_at: number;
+}
+
+export interface HarnessVersion {
+  id: number;
+  version_tag: string;
+  system_prompt_additions: string;  // used by AgentLoop directly
+  success_rate: number | null;
+  avg_token_estimate: number | null;
+  failure_count: number | null;
+  is_active: boolean;
+  created_at: number;
+}
+
+export interface TelemetryEdge {
+  id: number;
+  from_node: string;
+  to_node: string;
+  edge_type: string;
+  session_id: string;
+  weight: number | null;
+  created_at: number;
+}
+
+// ---------------------------------------------------------------------------
+// FailureTraceStore
+// ---------------------------------------------------------------------------
 
 export class FailureTraceStore {
-  private static traces: HarnessFailureTrace[] = [];
+  private static _activeVersion: HarnessVersion | null = null;
 
-  static async record(trace: HarnessFailureTrace): Promise<void> {
-    this.traces.push(trace);
-    // In production: persist to harness_failure_traces table via Tauri command
-    // await invoke('harness_record_failure', trace);
+  /**
+   * Records a failure trace — called by HarnessLifecycle.onSessionComplete.
+   * Accepts camelCase fields (TypeScript convention) and maps to Tauri invoke.
+   */
+  static async record(trace: {
+    sessionId: string;
+    question: string;
+    toolsUsed: string[];
+    errors: Array<{ tool: string; error: string }>;
+    finalSuccess: boolean;
+    tokenEstimate: number;
+    durationMs: number;
+  }): Promise<void> {
+    try {
+      await invoke("harness_record_failure", {
+        sessionId: trace.sessionId,
+        question: trace.question,
+        toolsUsed: JSON.stringify(trace.toolsUsed),
+        errors: JSON.stringify(trace.errors),
+        struggleEvents: JSON.stringify([]),
+        finalSuccess: trace.finalSuccess,
+        tokenEstimate: trace.tokenEstimate,
+        durationMs: trace.durationMs,
+        harnessVersion: null,
+      });
+    } catch (err) {
+      console.error("[FailureTraceStore] Failed to record trace:", err);
+    }
   }
 
-  static async getRecentFailures(limit: number = 20): Promise<HarnessFailureTrace[]> {
-    return [...this.traces].reverse().slice(0, limit);
+  /**
+   * Fetches the most recent N failure traces from Rust SQLite.
+   */
+  static async getFailures(limit = 50): Promise<HarnessFailureTrace[]> {
+    try {
+      return await invoke<HarnessFailureTrace[]>("harness_get_failures", { limit });
+    } catch (err) {
+      throw new Error(`FailureTraceStore.getFailures failed: ${err}`);
+    }
   }
 
-  static async getBySessionId(sessionId: string): Promise<HarnessFailureTrace | undefined> {
-    return this.traces.find(t => t.sessionId === sessionId);
+  /**
+   * Fetches all harness versions from the Rust backend.
+   */
+  static async getVersions(): Promise<HarnessVersion[]> {
+    try {
+      return await invoke<HarnessVersion[]>("harness_get_versions", {});
+    } catch (err) {
+      throw new Error(`FailureTraceStore.getVersions failed: ${err}`);
+    }
+  }
+
+  /**
+   * Returns the currently active harness version (cached).
+   * AgentLoop reads activeVersion.system_prompt_additions to inject into system prompt.
+   */
+  static async getActiveVersion(): Promise<HarnessVersion | null> {
+    if (FailureTraceStore._activeVersion !== null) {
+      return FailureTraceStore._activeVersion;
+    }
+    try {
+      const versions = await invoke<HarnessVersion[]>("harness_get_versions", {});
+      const active = versions.find((v) => v.is_active === true) ?? null;
+      FailureTraceStore._activeVersion = active;
+      return active;
+    } catch (err) {
+      throw new Error(`FailureTraceStore.getActiveVersion failed: ${err}`);
+    }
+  }
+
+  /**
+   * Inserts a new harness version. Does NOT activate it.
+   */
+  static async insertVersion(
+    versionTag: string,
+    systemPromptAdditions: string
+  ): Promise<void> {
+    try {
+      await invoke<void>("harness_insert_version", {
+        versionTag,
+        systemPromptAdditions,
+      });
+    } catch (err) {
+      throw new Error(`FailureTraceStore.insertVersion failed: ${err}`);
+    }
+  }
+
+  /**
+   * Activates a version by id. Clears the cache so getActiveVersion re-fetches.
+   */
+  static async activateVersion(id: number): Promise<void> {
+    try {
+      await invoke<void>("harness_activate_version", { id });
+      FailureTraceStore._activeVersion = null;
+    } catch (err) {
+      throw new Error(`FailureTraceStore.activateVersion(${id}) failed: ${err}`);
+    }
+  }
+
+  /**
+   * Fetches recent telemetry edges from the Rust backend.
+   */
+  static async getTelemetryGraph(limit = 200): Promise<TelemetryEdge[]> {
+    try {
+      return await invoke<TelemetryEdge[]>("harness_get_telemetry_graph", { limit });
+    } catch (err) {
+      throw new Error(`FailureTraceStore.getTelemetryGraph failed: ${err}`);
+    }
   }
 
   static async getFailureStats(): Promise<{
@@ -29,17 +171,14 @@ export class FailureTraceStore {
     lastFailure?: HarnessFailureTrace;
     avgDuration: number;
   }> {
-    const failures = this.traces.filter(t => !t.finalSuccess);
+    const failures = (await this.getFailures(200)).filter(t => !t.final_success);
     return {
       totalFailures: failures.length,
       lastFailure: failures[failures.length - 1],
-      avgDuration: failures.length > 0
-        ? failures.reduce((sum, t) => sum + t.durationMs, 0) / failures.length
-        : 0,
+      avgDuration:
+        failures.length > 0
+          ? failures.reduce((sum, t) => sum + (t.duration_ms ?? 0), 0) / failures.length
+          : 0,
     };
-  }
-
-  static async clear(): Promise<void> {
-    this.traces = [];
   }
 }
