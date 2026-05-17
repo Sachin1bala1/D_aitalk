@@ -8,6 +8,7 @@ import type {
   BackgroundAgentRun,
 } from "../backgroundAgents/BackgroundAgentStore";
 import type { Episode } from "../memory/EpisodicMemory";
+import type { WorkspaceRule } from "../memory/WorkspaceRuleStore";
 
 export type WorkspaceSearchDocumentKind =
   | "schema_table"
@@ -23,7 +24,8 @@ export type WorkspaceSearchDocumentKind =
   | "background_agent_run"
   | "background_agent_approval"
   | "query_history"
-  | "memory_episode";
+  | "memory_episode"
+  | "workspace_rule";
 
 export interface WorkspaceSearchDocument {
   id: string;
@@ -63,6 +65,7 @@ export interface WorkspaceSearchIndexInput {
   backgroundAgentApprovals?: BackgroundAgentApprovalItem[];
   queryHistory: QueryHistoryRecord[];
   memoryEpisodes: Episode[];
+  workspaceRules?: WorkspaceRule[];
 }
 
 export interface WorkspaceSearchMatch {
@@ -146,6 +149,10 @@ function inferIntentBoost(
     boost += 34;
   }
 
+  if (/\b(rule|preference|guideline|convention|always|never)\b/.test(q) && document.kind === "workspace_rule") {
+    boost += 38;
+  }
+
   if (/\b(agent|monitor|scheduled|cadence|background)\b/.test(q) && document.kind === "background_agent") {
     boost += 34;
   }
@@ -184,6 +191,10 @@ function inferIntentReasons(
 
   if (/\b(memory|incident|investigation|outcome|learned)\b/.test(q) && document.kind === "memory_episode") {
     reasons.push("matches investigation memory");
+  }
+
+  if (/\b(rule|preference|guideline|convention|always|never)\b/.test(q) && document.kind === "workspace_rule") {
+    reasons.push("matches workspace rules");
   }
 
   if (/\b(agent|monitor|scheduled|cadence|background)\b/.test(q) && document.kind.startsWith("background_agent")) {
@@ -409,6 +420,8 @@ function inferRelationshipReason(document: WorkspaceSearchDocument): string {
       return "related approval";
     case "memory_episode":
       return "related investigation memory";
+    case "workspace_rule":
+      return "related workspace rule";
     case "query_history":
       return "related query history";
     default:
@@ -854,6 +867,37 @@ export function buildMemoryDocuments(episodes: Episode[]): WorkspaceSearchDocume
   }));
 }
 
+export function buildWorkspaceRuleDocuments(rules: WorkspaceRule[]): WorkspaceSearchDocument[] {
+  return rules
+    .filter((rule) => rule.status === "approved" || rule.status === "suggested")
+    .map((rule) => ({
+      id: `workspace-rule:${rule.id}`,
+      kind: "workspace_rule" as const,
+      title: rule.title,
+      subtitle: `${rule.kind} · ${rule.scope === "connection" ? (rule.connectionId ?? "connection") : "workspace"} · ${rule.status}`,
+      body: [rule.instruction, rule.rationale ?? "", rule.evidence.join(" ")].join(" ").trim(),
+      keywords: uniqueTokens([
+        rule.title,
+        rule.instruction,
+        rule.kind,
+        rule.scope,
+        rule.status,
+        rule.connectionId ?? "",
+        rule.evidence.join(" "),
+      ]),
+      connectionId: rule.scope === "connection" ? rule.connectionId ?? null : null,
+      updatedAt: rule.updatedAt,
+      action: {
+        type: "open_panel",
+        panel: "memory",
+      },
+      metadata: {
+        ruleId: rule.id,
+        status: rule.status,
+      },
+    }));
+}
+
 export function buildWorkspaceSearchDocuments(
   input: WorkspaceSearchIndexInput,
 ): WorkspaceSearchDocument[] {
@@ -868,6 +912,7 @@ export function buildWorkspaceSearchDocuments(
     ...buildBackgroundAgentApprovalDocuments(input.backgroundAgentApprovals ?? []),
     ...buildHistoryDocuments(input.queryHistory),
     ...buildMemoryDocuments(input.memoryEpisodes),
+    ...buildWorkspaceRuleDocuments(input.workspaceRules ?? []),
   ];
 }
 
@@ -891,7 +936,10 @@ export function buildWorkspaceSearchSegments(
       ...buildBackgroundAgentApprovalDocuments(input.backgroundAgentApprovals ?? []),
     ],
     history: buildHistoryDocuments(input.queryHistory),
-    memory: buildMemoryDocuments(input.memoryEpisodes),
+    memory: [
+      ...buildMemoryDocuments(input.memoryEpisodes),
+      ...buildWorkspaceRuleDocuments(input.workspaceRules ?? []),
+    ],
   };
 }
 

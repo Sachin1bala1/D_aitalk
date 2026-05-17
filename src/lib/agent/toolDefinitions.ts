@@ -335,7 +335,7 @@ export const AGENT_TOOLS: UnifiedTool[] = [
   {
     name: "search_workspace",
     description:
-      "Search the full Daitalk workspace across schema objects, artifacts, pipelines, background agents, query history, and memory.",
+      "Search the full Daitalk workspace across schema objects, artifacts, pipelines, background agents, query history, memory, and approved workspace rules.",
     parameters: {
       type: "object",
       properties: {
@@ -356,6 +356,42 @@ export const AGENT_TOOLS: UnifiedTool[] = [
         },
       },
       required: ["query"],
+    },
+  },
+  {
+    name: "propose_workspace_rule",
+    description:
+      "Suggest a durable workspace rule or operating preference for future sessions. Use this when the user expresses a stable preference, governance constraint, or reporting convention that should be explicitly approved and remembered.",
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Short human-readable rule title" },
+        instruction: { type: "string", description: "Concrete guidance the agent should follow in future sessions" },
+        kind: {
+          type: "string",
+          enum: ["analysis", "sql", "safety", "reporting"],
+          description: "Rule category",
+        },
+        scope: {
+          type: "string",
+          enum: ["workspace", "connection"],
+          description: "Whether the rule applies globally or only to the active connection",
+        },
+        connectionId: {
+          type: "string",
+          description: "Connection id for connection-scoped rules",
+        },
+        rationale: {
+          type: "string",
+          description: "Why this rule should be proposed",
+        },
+        evidence: {
+          type: "array",
+          items: { type: "string" } as any,
+          description: "Optional supporting evidence or quoted user preferences",
+        } as any,
+      },
+      required: ["title", "instruction", "kind", "scope"],
     },
   },
 

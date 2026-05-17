@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   BarChart3,
+  Brain,
   Bot,
   Clock3,
   Columns,
@@ -29,6 +30,7 @@ import {
   listPipelines,
   subscribePipelines,
 } from "../../lib/pipelines/PipelineStore";
+import { useWorkspaceRuleStore } from "../../lib/memory/WorkspaceRuleStore";
 import { useWorkspaceStore, type WorkspacePanel } from "../../lib/stores/WorkspaceStore";
 import {
   searchWorkspaceDocuments,
@@ -62,6 +64,7 @@ const KIND_ICON: Record<WorkspaceSearchDocument["kind"], React.ReactNode> = {
   background_agent_approval: <Bot className="w-3 h-3 text-amber-300/70 shrink-0" />,
   query_history: <Clock3 className="w-3 h-3 text-white/35 shrink-0" />,
   memory_episode: <Search className="w-3 h-3 text-lime-300/70 shrink-0" />,
+  workspace_rule: <Brain className="w-3 h-3 text-amber-300/70 shrink-0" />,
   pipeline_run: <Workflow className="w-3 h-3 text-amber-200/70 shrink-0" />,
 };
 
@@ -93,7 +96,7 @@ function relatedGroupLabel(kind: WorkspaceSearchDocument["kind"]) {
   ) {
     return "Agents";
   }
-  if (kind === "memory_episode") return "Memory";
+  if (kind === "memory_episode" || kind === "workspace_rule") return "Memory";
   if (kind === "query_history") return "History";
   return "Workspace";
 }
@@ -122,6 +125,8 @@ export function WorkspaceSearchPanel({ schemas, connections, onNavigate, onSelec
     createArtifactQueryTab,
     createArtifactReportTab,
   } = useWorkspaceStore();
+  const ensureRulesLoaded = useWorkspaceRuleStore((state) => state.ensureLoaded);
+  const workspaceRules = useWorkspaceRuleStore((state) => state.rules);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -146,7 +151,12 @@ export function WorkspaceSearchPanel({ schemas, connections, onNavigate, onSelec
     const rebuild = async () => {
       setIsLoading(true);
       try {
-        await Promise.all([ensureHistoryLoaded(), ensurePipelinesLoaded(), ensureBackgroundAgentsLoaded()]);
+        await Promise.all([
+          ensureHistoryLoaded(),
+          ensurePipelinesLoaded(),
+          ensureBackgroundAgentsLoaded(),
+          ensureRulesLoaded(),
+        ]);
         const [memoryEpisodes] = await Promise.all([
           EpisodicMemory.getRecent(100).catch(() => [] as Episode[]),
         ]);
@@ -162,6 +172,7 @@ export function WorkspaceSearchPanel({ schemas, connections, onNavigate, onSelec
           backgroundAgentApprovals: listBackgroundAgentApprovals(),
           queryHistory: mapLegacyHistoryToQueryHistory(loadHistory()),
           memoryEpisodes,
+          workspaceRules,
         });
         if (cancelled) return;
         setDocuments(docs);
@@ -188,7 +199,7 @@ export function WorkspaceSearchPanel({ schemas, connections, onNavigate, onSelec
       unsubscribeAgents();
       unsubscribeHistory();
     };
-  }, [schemas, connections, artifacts]);
+  }, [schemas, connections, artifacts, ensureRulesLoaded, workspaceRules]);
 
   const results = useMemo<WorkspaceSearchMatch[]>(() => {
     if (query.trim().length < 2) return [];
@@ -207,7 +218,9 @@ export function WorkspaceSearchPanel({ schemas, connections, onNavigate, onSelec
                     "background_agent_run",
                     "background_agent_approval",
                   ] as WorkspaceSearchDocumentKind[])
-            : [kindFilter];
+            : kindFilter === "memory_episode"
+              ? (["memory_episode", "workspace_rule"] as WorkspaceSearchDocumentKind[])
+              : [kindFilter];
     return searchWorkspaceDocuments(documents, query, {
       limit: 80,
       kinds,
@@ -455,7 +468,7 @@ export function WorkspaceSearchPanel({ schemas, connections, onNavigate, onSelec
               <li>· Tables, views, columns, and indexes</li>
               <li>· Saved query, chart, and report artifacts</li>
               <li>· Pipelines and background agents</li>
-              <li>· Query history and prior memory episodes</li>
+              <li>· Query history, prior memory episodes, and workspace rules</li>
             </ul>
           </div>
         )}

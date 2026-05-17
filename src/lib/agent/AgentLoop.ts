@@ -13,6 +13,7 @@ import { userToolToUnifiedTool } from "../tools/user.tools";
 import { statToolToKernelKey } from "../tools/stat.tools";
 import type { CommandResult } from "./CommandBus";
 import { useWorkspaceStore } from "../stores/WorkspaceStore";
+import type { WorkspaceRule } from "../memory/WorkspaceRuleStore";
 import type { FullSchema } from "../db/DbClient";
 import type { QueryResults } from "../stores/WorkspaceStore";
 import type { AIProvider, ConversationTurn, ToolCall } from "../ai/types";
@@ -24,6 +25,7 @@ export interface MemoryContext {
   recentEpisodes: import("../memory/EpisodicMemory").Episode[];
   priorityParams: string[];
   expertiseLevel: string;
+  workspaceRules?: WorkspaceRule[];
   customerBrief?: Array<{
     name: string;
     company?: string | null;
@@ -352,6 +354,7 @@ For any question about anomalies, quality issues, process upsets, or unexplained
 - Use set_editor_content when the user wants to review SQL before running
 - Quote all SQL identifiers: "schema"."table"."column"
 - Never call delete_rows or drop_column without explicit user confirmation
+- When the user states a durable preference, governance rule, or reporting convention that should persist across sessions, call propose_workspace_rule so it can be explicitly reviewed and approved
 
 ## Visualization Execution Rules
 - If the user asks for a plot/chart and the request is underspecified, ask a clarifying question instead of guessing.
@@ -378,6 +381,18 @@ For any question about anomalies, quality issues, process upsets, or unexplained
     if (memoryContext.priorityParams.length > 0) {
       parts.push(
         `## User Priority Parameters\nBased on past sessions, this user frequently analyzes: ${memoryContext.priorityParams.join(", ")}\nCalibrated expertise level: ${memoryContext.expertiseLevel}`
+      );
+    }
+    if (memoryContext.workspaceRules && memoryContext.workspaceRules.length > 0) {
+      const lines = memoryContext.workspaceRules
+        .slice(0, 8)
+        .map((rule) => {
+          const scope = rule.scope === "connection" && rule.connectionId ? `connection=${rule.connectionId}` : "workspace";
+          return `- [${rule.kind} · ${scope}] ${rule.title}: ${rule.instruction}`;
+        })
+        .join("\n");
+      parts.push(
+        `## Approved Workspace Rules\nThese are explicitly approved user or team preferences and must be followed unless the user overrides them in the current session.\n${lines}`
       );
     }
     if (memoryContext.customerBrief && memoryContext.customerBrief.length > 0) {
@@ -579,6 +594,18 @@ function toolCallToCommand(
         kind: i.kind as "schema" | "artifacts" | "pipelines" | "background_agents" | "history" | "memory" | undefined,
         connectionId: i.connectionId as string | undefined,
         recentDays: i.recentDays as number | undefined,
+        risk: "safe",
+      };
+    case "propose_workspace_rule":
+      return {
+        type: "propose_workspace_rule",
+        title: i.title as string,
+        instruction: i.instruction as string,
+        kind: i.kind as "analysis" | "sql" | "safety" | "reporting",
+        scope: i.scope as "workspace" | "connection",
+        connectionId: i.connectionId as string | null | undefined,
+        rationale: i.rationale as string | undefined,
+        evidence: i.evidence as string[] | undefined,
         risk: "safe",
       };
     case "notify_user":

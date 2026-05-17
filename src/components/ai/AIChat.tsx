@@ -24,6 +24,7 @@ import { HypothesisPanel } from "./HypothesisPanel";
 import { ConfidenceBar } from "./ConfidenceBar";
 import { EpisodicMemory } from "../../lib/memory/EpisodicMemory";
 import { UserCalibrationProfile } from "../../lib/memory/UserCalibrationProfile";
+import { useWorkspaceRuleStore } from "../../lib/memory/WorkspaceRuleStore";
 import type { MemoryContext } from "../../lib/agent/AgentLoop";
 import type { AnalysisSection } from "../../lib/reports/ReportBuilder";
 import { ReportPanel } from "../reports/ReportPanel";
@@ -298,6 +299,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
         EpisodicMemory.search(userMsg, 5, connectionId ?? undefined),
         UserCalibrationProfile.getProfile(),
       ]);
+      const workspaceRules = useWorkspaceRuleStore.getState().getApprovedRules(connectionId ?? null);
       const [customerBrief, pendingOutcomes] = await Promise.all([
         BusinessClient.getCustomerBrief().catch(() => []),
         BusinessClient.getPendingOutcomes(5).catch(() => []),
@@ -306,6 +308,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
         recentEpisodes: episodes,
         priorityParams: profile.parameterPriorities,
         expertiseLevel: profile.expertiseLevel,
+        workspaceRules,
         customerBrief,
         pendingOutcomes,
       };

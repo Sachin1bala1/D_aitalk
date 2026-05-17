@@ -49,6 +49,7 @@ import {
   persistWorkspaceSession,
 } from "./lib/workspace/WorkspaceSessionStore";
 import { useUserToolStore } from "./lib/stores/UserToolStore";
+import { useWorkspaceRuleStore } from "./lib/memory/WorkspaceRuleStore";
 import { ensureBackgroundAgentsLoaded } from "./lib/backgroundAgents/BackgroundAgentStore";
 import { runDueBackgroundAnalysisAgents } from "./lib/backgroundAgents/BackgroundAgentRunner";
 
@@ -108,6 +109,7 @@ export default function App() {
   useEffect(() => {
     registerHandlers();
     void useUserToolStore.getState().ensureLoaded();
+    void useWorkspaceRuleStore.getState().ensureLoaded();
     void ensureBackgroundAgentsLoaded();
     BusinessClient.initMemoryDb().catch(() => {});
     BusinessClient.trackUsageEvent({ event_type: "session", feature: "app_open" }).catch(() => {});

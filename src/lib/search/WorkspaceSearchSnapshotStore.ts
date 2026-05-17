@@ -160,12 +160,22 @@ function computeFingerprints(input: WorkspaceSearchIndexInput): Record<SearchSeg
       })),
     ),
     memory: stableStringify(
-      input.memoryEpisodes.map((episode) => ({
-        id: episode.id,
-        problem: episode.problem,
-        outcome: episode.outcome ?? null,
-        createdAt: episode.createdAt,
-      })),
+      {
+        episodes: input.memoryEpisodes.map((episode) => ({
+          id: episode.id,
+          problem: episode.problem,
+          outcome: episode.outcome ?? null,
+          createdAt: episode.createdAt,
+        })),
+        rules: (input.workspaceRules ?? []).map((rule) => ({
+          id: rule.id,
+          title: rule.title,
+          instruction: rule.instruction,
+          status: rule.status,
+          updatedAt: rule.updatedAt,
+          connectionId: rule.connectionId ?? null,
+        })),
+      },
     ),
   };
 }

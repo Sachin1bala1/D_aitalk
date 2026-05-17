@@ -47,6 +47,7 @@ import type {
   ListPipelinesCmd,
   RunPipelineCmd,
   SearchWorkspaceCmd,
+  ProposeWorkspaceRuleCmd,
   NotifyUserCmd,
   DeclareHypothesesCmd,
   DeclareConfidenceCmd,
@@ -74,6 +75,7 @@ import {
   listBackgroundAgentApprovals,
 } from "../backgroundAgents/BackgroundAgentStore";
 import { EpisodicMemory } from "../memory/EpisodicMemory";
+import { useWorkspaceRuleStore } from "../memory/WorkspaceRuleStore";
 import {
   buildWorkspaceSearchDocuments,
   searchWorkspaceDocuments,
@@ -825,7 +827,12 @@ export function registerHandlers() {
 
   commandBus.register<SearchWorkspaceCmd>("search_workspace", async (cmd) => {
     try {
-      await Promise.all([ensurePipelinesLoaded(), ensureBackgroundAgentsLoaded(), ensureHistoryLoaded()]);
+      await Promise.all([
+        ensurePipelinesLoaded(),
+        ensureBackgroundAgentsLoaded(),
+        ensureHistoryLoaded(),
+        useWorkspaceRuleStore.getState().ensureLoaded(),
+      ]);
       const workspace = useWorkspaceStore.getState();
       const docs = buildWorkspaceSearchDocuments({
         schemas: workspace.schemas,
@@ -848,6 +855,7 @@ export function registerHandlers() {
           executed_at: new Date(entry.timestamp).toISOString(),
         })),
         memoryEpisodes: await EpisodicMemory.getRecent(50).catch(() => []),
+        workspaceRules: useWorkspaceRuleStore.getState().rules,
       });
 
       const kindsByScope: Record<
@@ -859,7 +867,7 @@ export function registerHandlers() {
         pipelines: ["pipeline", "pipeline_run"],
         background_agents: ["background_agent", "background_agent_run", "background_agent_approval"],
         history: ["query_history"],
-        memory: ["memory_episode"],
+        memory: ["memory_episode", "workspace_rule"],
       };
       return {
         success: true,
@@ -882,6 +890,36 @@ export function registerHandlers() {
       };
     } catch (error: any) {
       return { success: false, error: error?.message ?? "Failed to search workspace" };
+    }
+  });
+
+  commandBus.register<ProposeWorkspaceRuleCmd>("propose_workspace_rule", async (cmd) => {
+    try {
+      await useWorkspaceRuleStore.getState().ensureLoaded();
+      const rule = useWorkspaceRuleStore.getState().createRule({
+        title: cmd.title,
+        instruction: cmd.instruction,
+        kind: cmd.kind,
+        scope: cmd.scope,
+        connectionId: cmd.scope === "connection" ? cmd.connectionId ?? useWorkspaceStore.getState().activeConnectionId ?? null : null,
+        source: "agent",
+        status: "suggested",
+        rationale: cmd.rationale ?? null,
+        evidence: cmd.evidence ?? [],
+      });
+      toast.info("AI suggested a workspace rule", {
+        description: `${rule.title} is waiting for review in Memory.`,
+      });
+      return {
+        success: true,
+        result: {
+          id: rule.id,
+          title: rule.title,
+          status: rule.status,
+        },
+      };
+    } catch (error: any) {
+      return { success: false, error: error?.message ?? "Failed to suggest workspace rule" };
     }
   });
 

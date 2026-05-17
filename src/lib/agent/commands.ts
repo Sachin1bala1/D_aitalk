@@ -247,6 +247,18 @@ export interface SearchWorkspaceCmd {
   risk: "safe";
 }
 
+export interface ProposeWorkspaceRuleCmd {
+  type: "propose_workspace_rule";
+  title: string;
+  instruction: string;
+  kind: "analysis" | "sql" | "safety" | "reporting";
+  scope: "workspace" | "connection";
+  connectionId?: string | null;
+  rationale?: string;
+  evidence?: string[];
+  risk: "safe";
+}
+
 // ── Confidence Scoring ────────────────────────────────────────────────────────
 
 export interface ConfidenceDeclaration {
@@ -330,6 +342,7 @@ export type AgentCommand =
   | ListPipelinesCmd
   | RunPipelineCmd
   | SearchWorkspaceCmd
+  | ProposeWorkspaceRuleCmd
   | NotifyUserCmd
   | DeclareHypothesesCmd
   | DeclareConfidenceCmd
@@ -378,6 +391,7 @@ export function describeCommand(cmd: AgentCommand): string {
     case "list_pipelines": return `List saved pipelines`;
     case "run_pipeline": return `Run pipeline ${cmd.pipelineId}`;
     case "search_workspace": return `Search workspace for "${cmd.query}"`;
+    case "propose_workspace_rule": return `Propose workspace rule "${cmd.title}"`;
     case "close_tab": return cmd.tabId ? `Close tab ${cmd.tabId}` : `Close active tab`;
     case "notify_user": return `Notify: ${cmd.message}`;
     case "declare_hypotheses": return `Declare ${cmd.hypotheses.length} hypothesis${cmd.hypotheses.length !== 1 ? "es" : ""}: ${cmd.problemFrame.slice(0, 60)}`;

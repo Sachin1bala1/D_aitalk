@@ -10,6 +10,7 @@ import type {
   BackgroundAgentRun,
 } from "../backgroundAgents/BackgroundAgentStore";
 import type { Episode } from "../memory/EpisodicMemory";
+import type { WorkspaceRule } from "../memory/WorkspaceRuleStore";
 
 function createSchema(): FullSchema {
   return {
@@ -219,6 +220,23 @@ describe("workspaceSemanticIndex", () => {
         createdAt: Date.now() - 3000,
       },
     ];
+    const rules: WorkspaceRule[] = [
+      {
+        id: "rule-1",
+        title: "Always include row counts",
+        instruction: "When summarizing query results, always state the row count.",
+        kind: "reporting",
+        scope: "workspace",
+        connectionId: null,
+        status: "approved",
+        source: "user",
+        rationale: null,
+        evidence: [],
+        createdAt: Date.now() - 2000,
+        updatedAt: Date.now() - 1000,
+        approvedAt: Date.now() - 1000,
+      },
+    ];
 
     const docs = buildWorkspaceSearchDocuments({
       schemas: { "conn-1": createSchema() },
@@ -241,6 +259,7 @@ describe("workspaceSemanticIndex", () => {
       backgroundAgentApprovals: [approval],
       queryHistory: history,
       memoryEpisodes: memory,
+      workspaceRules: rules,
     });
 
     expect(docs.some((doc) => doc.kind === "schema_table")).toBe(true);
@@ -253,6 +272,7 @@ describe("workspaceSemanticIndex", () => {
     expect(docs.some((doc) => doc.kind === "background_agent_approval")).toBe(true);
     expect(docs.some((doc) => doc.kind === "query_history")).toBe(true);
     expect(docs.some((doc) => doc.kind === "memory_episode")).toBe(true);
+    expect(docs.some((doc) => doc.kind === "workspace_rule")).toBe(true);
   });
 
   it("returns ranked cross-workspace matches", () => {
@@ -276,6 +296,7 @@ describe("workspaceSemanticIndex", () => {
       backgroundAgentApprovals: [],
       queryHistory: [],
       memoryEpisodes: [],
+      workspaceRules: [],
     });
 
     const matches = searchWorkspaceDocuments(docs, "sales trend", 5);
@@ -312,6 +333,7 @@ describe("workspaceSemanticIndex", () => {
       backgroundAgentApprovals: [],
       queryHistory: [],
       memoryEpisodes: [],
+      workspaceRules: [],
     });
 
     const chartFirst = searchWorkspaceDocuments(docs, "sales trend chart", {
@@ -431,6 +453,7 @@ describe("workspaceSemanticIndex", () => {
       backgroundAgentApprovals: [approval],
       queryHistory: [],
       memoryEpisodes: [],
+      workspaceRules: [],
     });
 
     const matches = searchWorkspaceDocuments(docs, "weekend dip report", { limit: 10 });
@@ -475,6 +498,7 @@ describe("workspaceSemanticIndex", () => {
           createdAt: Date.now() - 1000,
         },
       ],
+      workspaceRules: [],
     });
 
     const matches = searchWorkspaceDocuments(docs, "investigate sales trend dip", { limit: 10 });
@@ -504,6 +528,7 @@ describe("workspaceSemanticIndex", () => {
       backgroundAgentApprovals: [],
       queryHistory: [] as QueryHistoryRecord[],
       memoryEpisodes: [] as Episode[],
+      workspaceRules: [] as WorkspaceRule[],
     };
 
     const first = await rebuildWorkspaceSearchSnapshot(baseInput);
