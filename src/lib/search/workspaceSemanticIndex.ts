@@ -1,8 +1,12 @@
 import type { FullSchema, QueryHistoryRecord } from "../db/DbClient";
 import type { ConnectionConfig } from "../db/DbClient";
 import type { AnalysisArtifact } from "../stores/WorkspaceStore";
-import type { PipelineDefinition } from "../pipelines/PipelineStore";
-import type { BackgroundAgentDefinition } from "../backgroundAgents/BackgroundAgentStore";
+import type { PipelineDefinition, PipelineRunRecord } from "../pipelines/PipelineStore";
+import type {
+  BackgroundAgentApprovalItem,
+  BackgroundAgentDefinition,
+  BackgroundAgentRun,
+} from "../backgroundAgents/BackgroundAgentStore";
 import type { Episode } from "../memory/EpisodicMemory";
 
 export type WorkspaceSearchDocumentKind =
@@ -14,7 +18,10 @@ export type WorkspaceSearchDocumentKind =
   | "artifact_chart"
   | "artifact_report"
   | "pipeline"
+  | "pipeline_run"
   | "background_agent"
+  | "background_agent_run"
+  | "background_agent_approval"
   | "query_history"
   | "memory_episode";
 
@@ -50,7 +57,10 @@ export interface WorkspaceSearchIndexInput {
   connections: ConnectionConfig[];
   artifacts: Record<string, AnalysisArtifact>;
   pipelines: PipelineDefinition[];
+  pipelineRuns?: PipelineRunRecord[];
   backgroundAgents: BackgroundAgentDefinition[];
+  backgroundAgentRuns?: BackgroundAgentRun[];
+  backgroundAgentApprovals?: BackgroundAgentApprovalItem[];
   queryHistory: QueryHistoryRecord[];
   memoryEpisodes: Episode[];
 }
@@ -59,6 +69,9 @@ export interface WorkspaceSearchMatch {
   document: WorkspaceSearchDocument;
   score: number;
   snippet: string;
+  reasons: string[];
+  relatedDocumentIds: string[];
+  relatedDocuments: Array<Pick<WorkspaceSearchDocument, "id" | "kind" | "title">>;
 }
 
 export interface WorkspaceSearchOptions {
@@ -144,6 +157,72 @@ function inferIntentBoost(
   return boost;
 }
 
+function inferIntentReasons(
+  document: WorkspaceSearchDocument,
+  queryTokens: string[],
+): string[] {
+  const q = queryTokens.join(" ");
+  const reasons: string[] = [];
+
+  if (/\b(chart|plot|graph|visual|trend|dashboard)\b/.test(q)) {
+    if (document.kind === "artifact_chart" || document.kind === "artifact_report") {
+      reasons.push("matches visualization intent");
+    }
+  }
+
+  if (/\b(report|summary|brief)\b/.test(q) && document.kind === "artifact_report") {
+    reasons.push("matches report intent");
+  }
+
+  if (/\b(table|column|schema|index|view)\b/.test(q) && document.kind.startsWith("schema_")) {
+    reasons.push("matches schema intent");
+  }
+
+  if (/\b(history|previous|earlier)\b/.test(q) && document.kind === "query_history") {
+    reasons.push("matches history intent");
+  }
+
+  if (/\b(memory|incident|investigation|outcome|learned)\b/.test(q) && document.kind === "memory_episode") {
+    reasons.push("matches investigation memory");
+  }
+
+  if (/\b(agent|monitor|scheduled|cadence|background)\b/.test(q) && document.kind.startsWith("background_agent")) {
+    reasons.push("matches agent intent");
+  }
+
+  if (/\b(pipeline|materialize|sync|etl|load)\b/.test(q) && document.kind.startsWith("pipeline")) {
+    reasons.push("matches pipeline intent");
+  }
+
+  return reasons;
+}
+
+function inferDirectReasons(
+  document: WorkspaceSearchDocument,
+  queryTokens: string[],
+): string[] {
+  const title = normalizeText(document.title);
+  const subtitle = normalizeText(document.subtitle);
+  const body = normalizeText(document.body);
+  const keywords = document.keywords.map(normalizeText);
+  const reasons = new Set<string>();
+
+  for (const token of queryTokens) {
+    if (title === token || title.includes(token)) reasons.add("direct title match");
+    else if (subtitle.includes(token)) reasons.add("direct context match");
+    else if (body.includes(token)) reasons.add("direct content match");
+    if (keywords.some((keyword) => keyword === token || keyword.includes(token))) {
+      reasons.add("keyword match");
+    }
+  }
+
+  for (const reason of inferIntentReasons(document, queryTokens)) {
+    reasons.add(reason);
+  }
+
+  return [...reasons];
+}
+
 function buildSnippet(document: WorkspaceSearchDocument, queryTokens: string[]): string {
   const source = `${document.subtitle} ${document.body}`.replace(/\s+/g, " ").trim();
   if (!source) return document.subtitle;
@@ -164,6 +243,216 @@ function buildSnippet(document: WorkspaceSearchDocument, queryTokens: string[]):
   const start = Math.max(0, bestIndex - 40);
   const end = Math.min(source.length, bestIndex + 120);
   return `${start > 0 ? "â€¦" : ""}${source.slice(start, end).trim()}${end < source.length ? "â€¦" : ""}`;
+}
+
+function stringArrayMetadata(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function overlapCount(left: string[], right: string[]): number {
+  if (left.length === 0 || right.length === 0) return 0;
+  const rightSet = new Set(right);
+  let count = 0;
+  for (const token of left) {
+    if (rightSet.has(token)) count += 1;
+  }
+  return count;
+}
+
+function buildRelationshipGraph(
+  documents: WorkspaceSearchDocument[],
+): Map<string, Set<string>> {
+  const byId = new Map(documents.map((document) => [document.id, document]));
+  const graph = new Map<string, Set<string>>();
+
+  const link = (left: string, right: string) => {
+    if (left === right || !byId.has(left) || !byId.has(right)) return;
+    if (!graph.has(left)) graph.set(left, new Set());
+    if (!graph.has(right)) graph.set(right, new Set());
+    graph.get(left)!.add(right);
+    graph.get(right)!.add(left);
+  };
+
+  const artifactDocIdByArtifactId = new Map<string, string>();
+  const pipelineDocIdByPipelineId = new Map<string, string>();
+  const pipelineRunDocIdByRunId = new Map<string, string>();
+  const agentDocIdByAgentId = new Map<string, string>();
+  const agentRunDocIdByRunId = new Map<string, string>();
+  const sourceTableIndex = new Map<string, string[]>();
+  const memoryDocs: WorkspaceSearchDocument[] = [];
+
+  for (const document of documents) {
+    const metadata = document.metadata ?? {};
+    const artifactId = typeof metadata.artifactId === "string" ? metadata.artifactId : null;
+    const pipelineId = typeof metadata.pipelineId === "string" ? metadata.pipelineId : null;
+    const runId = typeof metadata.runId === "string" ? metadata.runId : null;
+    const agentId = typeof metadata.agentId === "string" ? metadata.agentId : null;
+
+    if (artifactId && document.kind.startsWith("artifact_")) {
+      artifactDocIdByArtifactId.set(artifactId, document.id);
+    }
+    if (pipelineId && document.kind === "pipeline") {
+      pipelineDocIdByPipelineId.set(pipelineId, document.id);
+    }
+    if (runId && document.kind === "pipeline_run") {
+      pipelineRunDocIdByRunId.set(runId, document.id);
+    }
+    if (agentId && document.kind === "background_agent") {
+      agentDocIdByAgentId.set(agentId, document.id);
+    }
+    if (runId && document.kind === "background_agent_run") {
+      agentRunDocIdByRunId.set(runId, document.id);
+    }
+
+    for (const tableName of stringArrayMetadata(metadata.sourceTables)) {
+      const existing = sourceTableIndex.get(tableName) ?? [];
+      existing.push(document.id);
+      sourceTableIndex.set(tableName, existing);
+    }
+
+    if (document.kind === "memory_episode") {
+      memoryDocs.push(document);
+    }
+  }
+
+  for (const document of documents) {
+    const metadata = document.metadata ?? {};
+
+    for (const artifactId of stringArrayMetadata(metadata.sourceArtifactIds)) {
+      const relatedId = artifactDocIdByArtifactId.get(artifactId);
+      if (relatedId) link(document.id, relatedId);
+    }
+
+    const artifactId = typeof metadata.artifactId === "string" ? metadata.artifactId : null;
+    if (artifactId) {
+      const relatedId = artifactDocIdByArtifactId.get(artifactId);
+      if (relatedId) link(document.id, relatedId);
+    }
+
+    const lastRunArtifactId =
+      typeof metadata.lastRunArtifactId === "string" ? metadata.lastRunArtifactId : null;
+    if (lastRunArtifactId) {
+      const relatedId = artifactDocIdByArtifactId.get(lastRunArtifactId);
+      if (relatedId) link(document.id, relatedId);
+    }
+
+    const reportArtifactId =
+      typeof metadata.reportArtifactId === "string" ? metadata.reportArtifactId : null;
+    if (reportArtifactId) {
+      const relatedId = artifactDocIdByArtifactId.get(reportArtifactId);
+      if (relatedId) link(document.id, relatedId);
+    }
+
+    for (const queryArtifactId of stringArrayMetadata(metadata.queryArtifactIds)) {
+      const relatedId = artifactDocIdByArtifactId.get(queryArtifactId);
+      if (relatedId) link(document.id, relatedId);
+    }
+
+    const pipelineId = typeof metadata.pipelineId === "string" ? metadata.pipelineId : null;
+    if (pipelineId) {
+      const relatedId = pipelineDocIdByPipelineId.get(pipelineId);
+      if (relatedId) link(document.id, relatedId);
+    }
+
+    const agentId = typeof metadata.agentId === "string" ? metadata.agentId : null;
+    if (agentId) {
+      const relatedId = agentDocIdByAgentId.get(agentId);
+      if (relatedId) link(document.id, relatedId);
+    }
+
+    const runId = typeof metadata.runId === "string" ? metadata.runId : null;
+    if (runId) {
+      const pipelineRunDocId = pipelineRunDocIdByRunId.get(runId);
+      if (pipelineRunDocId) link(document.id, pipelineRunDocId);
+      const agentRunDocId = agentRunDocIdByRunId.get(runId);
+      if (agentRunDocId) link(document.id, agentRunDocId);
+    }
+
+    for (const tableName of stringArrayMetadata(metadata.sourceTables)) {
+      for (const relatedId of sourceTableIndex.get(tableName) ?? []) {
+        link(document.id, relatedId);
+      }
+    }
+  }
+
+  for (const memoryDocument of memoryDocs) {
+    const memoryKeywords = memoryDocument.keywords;
+    for (const document of documents) {
+      if (document.id === memoryDocument.id) continue;
+      if (memoryDocument.connectionId && document.connectionId && memoryDocument.connectionId !== document.connectionId) {
+        continue;
+      }
+      if (overlapCount(memoryKeywords, document.keywords) >= 2) {
+        link(memoryDocument.id, document.id);
+      }
+    }
+  }
+
+  return graph;
+}
+
+function inferRelationshipReason(document: WorkspaceSearchDocument): string {
+  switch (document.kind) {
+    case "artifact_query":
+    case "artifact_chart":
+    case "artifact_report":
+      return "linked artifact";
+    case "pipeline_run":
+      return "related pipeline run";
+    case "pipeline":
+      return "related pipeline";
+    case "background_agent":
+      return "related background agent";
+    case "background_agent_run":
+      return "related agent run";
+    case "background_agent_approval":
+      return "related approval";
+    case "memory_episode":
+      return "related investigation memory";
+    case "query_history":
+      return "related query history";
+    default:
+      return "related workspace object";
+  }
+}
+
+function applyRelationshipBoosts(matches: WorkspaceSearchMatch[]): WorkspaceSearchMatch[] {
+  const graph = buildRelationshipGraph(matches.map((match) => match.document));
+  const directMatches = matches.filter((match) => match.score > 0);
+  const boostedScores = new Map(matches.map((match) => [match.document.id, match.score]));
+  const relatedReasons = new Map<string, Set<string>>();
+  const relatedIds = new Map<string, Set<string>>();
+  const byId = new Map(matches.map((match) => [match.document.id, match.document]));
+
+  for (const match of directMatches) {
+    const neighbors = graph.get(match.document.id);
+    if (!neighbors || neighbors.size === 0) continue;
+    const propagation = Math.min(28, match.score * 0.18);
+    for (const neighborId of neighbors) {
+      boostedScores.set(neighborId, (boostedScores.get(neighborId) ?? 0) + propagation);
+      const neighbor = matches.find((candidate) => candidate.document.id === neighborId)?.document;
+      if (!neighbor) continue;
+      if (!relatedReasons.has(neighborId)) relatedReasons.set(neighborId, new Set());
+      if (!relatedIds.has(neighborId)) relatedIds.set(neighborId, new Set());
+      relatedReasons.get(neighborId)!.add(inferRelationshipReason(match.document));
+      relatedIds.get(neighborId)!.add(match.document.id);
+    }
+  }
+
+  return matches.map((match) => ({
+    ...match,
+    score: boostedScores.get(match.document.id) ?? match.score,
+    reasons: [...new Set([...(match.reasons ?? []), ...(relatedReasons.get(match.document.id) ?? [])])],
+    relatedDocumentIds: [...(relatedIds.get(match.document.id) ?? new Set<string>())],
+    relatedDocuments: [...(relatedIds.get(match.document.id) ?? new Set<string>())]
+      .map((id) => byId.get(id))
+      .filter((document): document is WorkspaceSearchDocument => !!document)
+      .map((document) => ({
+        id: document.id,
+        kind: document.kind,
+        title: document.title,
+      })),
+  }));
 }
 
 function scoreDocument(document: WorkspaceSearchDocument, queryTokens: string[]): number {
@@ -235,6 +524,7 @@ export function buildSchemaDocuments(
           schema: table.schema,
           table: table.name,
           objectType: table.object_type,
+          sourceTables: [fullName],
         },
       });
 
@@ -265,6 +555,7 @@ export function buildSchemaDocuments(
             schema: table.schema,
             table: table.name,
             column: column.name,
+            sourceTables: [fullName],
           },
         });
       }
@@ -288,6 +579,7 @@ export function buildSchemaDocuments(
         metadata: {
           tableName: index.table_name,
           columns: index.columns,
+          sourceTables: [index.table_name],
         },
       });
     }
@@ -336,6 +628,8 @@ export function buildArtifactDocuments(
       },
       metadata: {
         artifactId: artifact.id,
+        sourceTables: artifact.kind === "report" ? [] : artifact.lineage.sourceTables,
+        sourceArtifactIds: artifact.kind === "report" ? artifact.sourceArtifactIds : [],
       },
     };
   });
@@ -366,6 +660,46 @@ export function buildPipelineDocuments(
     metadata: {
       pipelineId: pipeline.id,
       targetTable: pipeline.targetTable,
+      lastRunArtifactId: pipeline.lastRunArtifactId ?? null,
+    },
+  }));
+}
+
+export function buildPipelineRunDocuments(
+  runs: PipelineRunRecord[],
+): WorkspaceSearchDocument[] {
+  return runs.map((run) => ({
+    id: `pipeline-run:${run.id}`,
+    kind: "pipeline_run",
+    title: `Pipeline run ${run.pipelineId}`,
+    subtitle: `${run.status} · ${run.targetTable}`,
+    body: [
+      run.pipelineId,
+      run.targetTable,
+      run.error ?? "",
+      run.artifactId ?? "",
+      run.sourceConnectionId,
+      run.targetConnectionId,
+    ].join(" "),
+    keywords: uniqueTokens([
+      run.pipelineId,
+      run.status,
+      run.targetTable,
+      run.artifactId ?? "",
+      run.sourceConnectionId,
+      run.targetConnectionId,
+    ]),
+    connectionId: run.sourceConnectionId,
+    updatedAt: run.finishedAt ?? run.startedAt,
+    action: {
+      type: "open_panel",
+      panel: "pipelines",
+    },
+    metadata: {
+      pipelineId: run.pipelineId,
+      runId: run.id,
+      artifactId: run.artifactId ?? null,
+      sourceTables: [run.targetTable],
     },
   }));
 }
@@ -394,6 +728,75 @@ export function buildBackgroundAgentDocuments(
     metadata: {
       agentId: agent.id,
       cadenceMinutes: agent.cadenceMinutes,
+      lastRunArtifactId: agent.lastRunArtifactId ?? null,
+    },
+  }));
+}
+
+export function buildBackgroundAgentRunDocuments(
+  runs: BackgroundAgentRun[],
+): WorkspaceSearchDocument[] {
+  return runs.map((run) => ({
+    id: `background-agent-run:${run.id}`,
+    kind: "background_agent_run",
+    title: `Agent run ${run.agentId}`,
+    subtitle: `${run.status} · ${run.reportArtifactId ?? "no report artifact"}`,
+    body: [
+      run.agentId,
+      run.summary ?? "",
+      run.error ?? "",
+      run.reportArtifactId ?? "",
+      run.queryArtifactIds.join(" "),
+      run.approvalIds.join(" "),
+    ].join(" "),
+    keywords: uniqueTokens([
+      run.agentId,
+      run.status,
+      run.reportArtifactId ?? "",
+      run.queryArtifactIds.join(" "),
+    ]),
+    connectionId: null,
+    updatedAt: run.finishedAt ?? run.startedAt,
+    action: {
+      type: "open_panel",
+      panel: "background_agents",
+    },
+    metadata: {
+      agentId: run.agentId,
+      runId: run.id,
+      reportArtifactId: run.reportArtifactId ?? null,
+      queryArtifactIds: run.queryArtifactIds,
+      approvalIds: run.approvalIds,
+    },
+  }));
+}
+
+export function buildBackgroundAgentApprovalDocuments(
+  approvals: BackgroundAgentApprovalItem[],
+): WorkspaceSearchDocument[] {
+  return approvals.map((approval) => ({
+    id: `background-agent-approval:${approval.id}`,
+    kind: "background_agent_approval",
+    title: approval.title,
+    subtitle: `${approval.status} · ${approval.risk}`,
+    body: [approval.agentId, approval.runId, approval.rationale, approval.suggestedSql ?? ""].join(" "),
+    keywords: uniqueTokens([
+      approval.title,
+      approval.status,
+      approval.risk,
+      approval.agentId,
+      approval.runId,
+    ]),
+    connectionId: null,
+    updatedAt: approval.resolvedAt ?? approval.createdAt,
+    action: {
+      type: "open_panel",
+      panel: "background_agents",
+    },
+    metadata: {
+      agentId: approval.agentId,
+      runId: approval.runId,
+      approvalId: approval.id,
     },
   }));
 }
@@ -420,6 +823,7 @@ export function buildHistoryDocuments(history: QueryHistoryRecord[]): WorkspaceS
       queryId: entry.query_id,
       sql: entry.sql,
       success: entry.success,
+      sourceTables: entry.source_tables,
     },
   }));
 }
@@ -458,7 +862,10 @@ export function buildWorkspaceSearchDocuments(
     ...buildSchemaDocuments(input.schemas, connectionNames),
     ...buildArtifactDocuments(input.artifacts),
     ...buildPipelineDocuments(input.pipelines),
+    ...buildPipelineRunDocuments(input.pipelineRuns ?? []),
     ...buildBackgroundAgentDocuments(input.backgroundAgents),
+    ...buildBackgroundAgentRunDocuments(input.backgroundAgentRuns ?? []),
+    ...buildBackgroundAgentApprovalDocuments(input.backgroundAgentApprovals ?? []),
     ...buildHistoryDocuments(input.queryHistory),
     ...buildMemoryDocuments(input.memoryEpisodes),
   ];
@@ -474,8 +881,15 @@ export function buildWorkspaceSearchSegments(
   return {
     schema: buildSchemaDocuments(input.schemas, connectionNames),
     artifacts: buildArtifactDocuments(input.artifacts),
-    pipelines: buildPipelineDocuments(input.pipelines),
-    backgroundAgents: buildBackgroundAgentDocuments(input.backgroundAgents),
+    pipelines: [
+      ...buildPipelineDocuments(input.pipelines),
+      ...buildPipelineRunDocuments(input.pipelineRuns ?? []),
+    ],
+    backgroundAgents: [
+      ...buildBackgroundAgentDocuments(input.backgroundAgents),
+      ...buildBackgroundAgentRunDocuments(input.backgroundAgentRuns ?? []),
+      ...buildBackgroundAgentApprovalDocuments(input.backgroundAgentApprovals ?? []),
+    ],
     history: buildHistoryDocuments(input.queryHistory),
     memory: buildMemoryDocuments(input.memoryEpisodes),
   };
@@ -496,7 +910,7 @@ export function searchWorkspaceDocuments(
       ? Date.now() - normalizedOptions.recentDays * 86_400_000
       : null;
 
-  return documents
+  const candidateMatches = documents
     .filter((document) => {
       if (
         normalizedOptions.kinds &&
@@ -521,7 +935,12 @@ export function searchWorkspaceDocuments(
       document,
       score: scoreDocument(document, queryTokens),
       snippet: buildSnippet(document, queryTokens),
-    }))
+      reasons: inferDirectReasons(document, queryTokens),
+      relatedDocumentIds: [],
+      relatedDocuments: [],
+    }));
+
+  return applyRelationshipBoosts(candidateMatches)
     .filter((match) => match.score > 0)
     .sort((left, right) => right.score - left.score || right.document.updatedAt - left.document.updatedAt)
     .slice(0, limit);

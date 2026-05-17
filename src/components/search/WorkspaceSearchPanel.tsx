@@ -17,11 +17,18 @@ import type { ConnectionConfig, FullSchema, QueryHistoryRecord } from "../../lib
 import { ensureHistoryLoaded, loadHistory, subscribeHistoryStore } from "../history/QueryHistory";
 import {
   ensureBackgroundAgentsLoaded,
+  getBackgroundAgentRuns,
   listBackgroundAgents,
+  listBackgroundAgentApprovals,
   subscribeBackgroundAgents,
 } from "../../lib/backgroundAgents/BackgroundAgentStore";
 import { EpisodicMemory, type Episode } from "../../lib/memory/EpisodicMemory";
-import { ensurePipelinesLoaded, listPipelines, subscribePipelines } from "../../lib/pipelines/PipelineStore";
+import {
+  ensurePipelinesLoaded,
+  getPipelineRuns,
+  listPipelines,
+  subscribePipelines,
+} from "../../lib/pipelines/PipelineStore";
 import { useWorkspaceStore, type WorkspacePanel } from "../../lib/stores/WorkspaceStore";
 import {
   searchWorkspaceDocuments,
@@ -51,8 +58,11 @@ const KIND_ICON: Record<WorkspaceSearchDocument["kind"], React.ReactNode> = {
   artifact_report: <FolderSearch className="w-3 h-3 text-fuchsia-400/70 shrink-0" />,
   pipeline: <Workflow className="w-3 h-3 text-amber-300/70 shrink-0" />,
   background_agent: <Bot className="w-3 h-3 text-cyan-300/70 shrink-0" />,
+  background_agent_run: <Bot className="w-3 h-3 text-cyan-200/70 shrink-0" />,
+  background_agent_approval: <Bot className="w-3 h-3 text-amber-300/70 shrink-0" />,
   query_history: <Clock3 className="w-3 h-3 text-white/35 shrink-0" />,
   memory_episode: <Search className="w-3 h-3 text-lime-300/70 shrink-0" />,
+  pipeline_run: <Workflow className="w-3 h-3 text-amber-200/70 shrink-0" />,
 };
 
 function mapLegacyHistoryToQueryHistory(entries: ReturnType<typeof loadHistory>): QueryHistoryRecord[] {
@@ -71,6 +81,21 @@ function mapLegacyHistoryToQueryHistory(entries: ReturnType<typeof loadHistory>)
 
 function formatKind(kind: WorkspaceSearchDocument["kind"]) {
   return kind.replace(/_/g, " ");
+}
+
+function relatedGroupLabel(kind: WorkspaceSearchDocument["kind"]) {
+  if (kind.startsWith("artifact_")) return "Artifacts";
+  if (kind === "pipeline" || kind === "pipeline_run") return "Pipelines";
+  if (
+    kind === "background_agent" ||
+    kind === "background_agent_run" ||
+    kind === "background_agent_approval"
+  ) {
+    return "Agents";
+  }
+  if (kind === "memory_episode") return "Memory";
+  if (kind === "query_history") return "History";
+  return "Workspace";
 }
 
 const FILTER_KIND_OPTIONS: Array<{ label: string; value: WorkspaceSearchDocumentKind | "all" }> = [
@@ -131,7 +156,10 @@ export function WorkspaceSearchPanel({ schemas, connections, onNavigate, onSelec
           connections,
           artifacts,
           pipelines: listPipelines(),
+          pipelineRuns: listPipelines().flatMap((pipeline) => getPipelineRuns(pipeline.id)),
           backgroundAgents: listBackgroundAgents(),
+          backgroundAgentRuns: listBackgroundAgents().flatMap((agent) => getBackgroundAgentRuns(agent.id)),
+          backgroundAgentApprovals: listBackgroundAgentApprovals(),
           queryHistory: mapLegacyHistoryToQueryHistory(loadHistory()),
           memoryEpisodes,
         });
@@ -171,6 +199,14 @@ export function WorkspaceSearchPanel({ schemas, connections, onNavigate, onSelec
           ? (["schema_table", "schema_view", "schema_column", "schema_index"] as WorkspaceSearchDocumentKind[])
           : kindFilter === "artifact_report"
             ? (["artifact_query", "artifact_chart", "artifact_report"] as WorkspaceSearchDocumentKind[])
+            : kindFilter === "pipeline"
+              ? (["pipeline", "pipeline_run"] as WorkspaceSearchDocumentKind[])
+              : kindFilter === "background_agent"
+                ? ([
+                    "background_agent",
+                    "background_agent_run",
+                    "background_agent_approval",
+                  ] as WorkspaceSearchDocumentKind[])
             : [kindFilter];
     return searchWorkspaceDocuments(documents, query, {
       limit: 80,
@@ -246,6 +282,15 @@ export function WorkspaceSearchPanel({ schemas, connections, onNavigate, onSelec
         onSelectPanel(document.action.panel);
         return;
     }
+  };
+
+  const openDocument = (documentId: string) => {
+    const related = documents.find((candidate) => candidate.id === documentId);
+    if (!related) {
+      toast.error("Related object is no longer available");
+      return;
+    }
+    handleSelect(related);
   };
 
   return (
@@ -328,7 +373,14 @@ export function WorkspaceSearchPanel({ schemas, connections, onNavigate, onSelec
           </div>
         )}
 
-        {results.map(({ document, score, snippet }) => (
+        {results.map(({ document, score, snippet, reasons, relatedDocumentIds, relatedDocuments }) => {
+          const groupedRelated = relatedDocuments.reduce<Record<string, typeof relatedDocuments>>((acc, related) => {
+            const label = relatedGroupLabel(related.kind);
+            acc[label] = [...(acc[label] ?? []), related];
+            return acc;
+          }, {});
+
+          return (
           <button
             key={document.id}
             onClick={() => handleSelect(document)}
@@ -345,13 +397,56 @@ export function WorkspaceSearchPanel({ schemas, connections, onNavigate, onSelec
               <span className="text-[9px] text-white/20 line-clamp-2 block mt-1">
                 {snippet}
               </span>
+              {reasons.length > 0 && (
+                <div className="mt-1">
+                  <div className="text-[8px] uppercase tracking-widest text-white/18">Why This Matched</div>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {reasons.slice(0, 3).map((reason) => (
+                      <span
+                        key={reason}
+                        className="rounded border border-[#2a2a2a] bg-white/[0.02] px-1.5 py-0.5 text-[8px] uppercase tracking-widest text-white/35"
+                      >
+                        {reason}
+                      </span>
+                    ))}
+                    {relatedDocumentIds.length > 0 && (
+                      <span className="rounded border border-cyan-500/20 bg-cyan-500/5 px-1.5 py-0.5 text-[8px] uppercase tracking-widest text-cyan-300/50">
+                        {relatedDocumentIds.length} related
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+              {relatedDocuments.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  <div className="text-[8px] uppercase tracking-widest text-white/18">Connected To</div>
+                  {Object.entries(groupedRelated).slice(0, 3).map(([label, items]) => (
+                    <div key={label} className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[8px] uppercase tracking-widest text-cyan-300/40">{label}</span>
+                      {items.slice(0, 3).map((related) => (
+                        <button
+                          key={related.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openDocument(related.id);
+                          }}
+                          className="rounded border border-[#2a2a2a] bg-[#111] px-1.5 py-0.5 text-[8px] text-white/45 hover:text-cyan-300/70 transition-colors"
+                          title={related.kind}
+                        >
+                          {related.title}
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="shrink-0 flex flex-col items-end gap-1">
               <span className="text-[8px] text-white/15 uppercase">{formatKind(document.kind)}</span>
               <span className="text-[8px] text-cyan-300/35 font-mono">{Math.round(score)}</span>
             </div>
           </button>
-        ))}
+        )})}
 
         {!isLoading && query.length < 2 && (
           <div className="p-4 space-y-3 text-xs text-white/30">

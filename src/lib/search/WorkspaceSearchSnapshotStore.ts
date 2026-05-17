@@ -108,22 +108,48 @@ function computeFingerprints(input: WorkspaceSearchIndexInput): Record<SearchSeg
       })),
     ),
     pipelines: stableStringify(
-      input.pipelines.map((pipeline) => ({
-        id: pipeline.id,
-        name: pipeline.name,
-        updatedAt: pipeline.updatedAt,
-        targetTable: pipeline.targetTable,
-        lastRunStatus: pipeline.lastRunStatus ?? null,
-      })),
+      {
+        pipelines: input.pipelines.map((pipeline) => ({
+          id: pipeline.id,
+          name: pipeline.name,
+          updatedAt: pipeline.updatedAt,
+          targetTable: pipeline.targetTable,
+          lastRunStatus: pipeline.lastRunStatus ?? null,
+        })),
+        runs: (input.pipelineRuns ?? []).map((run) => ({
+          id: run.id,
+          pipelineId: run.pipelineId,
+          status: run.status,
+          finishedAt: run.finishedAt ?? null,
+          artifactId: run.artifactId ?? null,
+        })),
+      },
     ),
     backgroundAgents: stableStringify(
-      input.backgroundAgents.map((agent) => ({
-        id: agent.id,
-        name: agent.name,
-        updatedAt: agent.updatedAt,
-        lastRunStatus: agent.lastRunStatus,
-        lastRunSummary: agent.lastRunSummary,
-      })),
+      {
+        agents: input.backgroundAgents.map((agent) => ({
+          id: agent.id,
+          name: agent.name,
+          updatedAt: agent.updatedAt,
+          lastRunStatus: agent.lastRunStatus,
+          lastRunSummary: agent.lastRunSummary,
+        })),
+        runs: (input.backgroundAgentRuns ?? []).map((run) => ({
+          id: run.id,
+          agentId: run.agentId,
+          status: run.status,
+          finishedAt: run.finishedAt ?? null,
+          reportArtifactId: run.reportArtifactId ?? null,
+        })),
+        approvals: (input.backgroundAgentApprovals ?? []).map((approval) => ({
+          id: approval.id,
+          agentId: approval.agentId,
+          runId: approval.runId,
+          status: approval.status,
+          risk: approval.risk,
+          resolvedAt: approval.resolvedAt ?? null,
+        })),
+      },
     ),
     history: stableStringify(
       input.queryHistory.map((entry) => ({

@@ -62,13 +62,16 @@ import { STAT_KERNELS } from "../pyodide/stat_kernels";
 import {
   createPipelineDefinition,
   ensurePipelinesLoaded,
+  getPipelineRuns,
   inspectPipelines,
   runPipelineDefinition,
 } from "../pipelines/PipelineStore";
 import { ensureHistoryLoaded, loadHistory } from "../../components/history/QueryHistory";
 import {
   ensureBackgroundAgentsLoaded,
+  getBackgroundAgentRuns,
   listBackgroundAgents,
+  listBackgroundAgentApprovals,
 } from "../backgroundAgents/BackgroundAgentStore";
 import { EpisodicMemory } from "../memory/EpisodicMemory";
 import {
@@ -829,7 +832,10 @@ export function registerHandlers() {
         connections: workspace.connections,
         artifacts: workspace.artifacts,
         pipelines: inspectPipelines().pipelines,
+        pipelineRuns: inspectPipelines().pipelines.flatMap((pipeline) => getPipelineRuns(pipeline.id)),
         backgroundAgents: listBackgroundAgents(),
+        backgroundAgentRuns: listBackgroundAgents().flatMap((agent) => getBackgroundAgentRuns(agent.id)),
+        backgroundAgentApprovals: listBackgroundAgentApprovals(),
         queryHistory: loadHistory().map((entry) => ({
           query_id: entry.id,
           sql: entry.sql,
@@ -850,8 +856,8 @@ export function registerHandlers() {
       > = {
         schema: ["schema_table", "schema_view", "schema_column", "schema_index"],
         artifacts: ["artifact_query", "artifact_chart", "artifact_report"],
-        pipelines: ["pipeline"],
-        background_agents: ["background_agent"],
+        pipelines: ["pipeline", "pipeline_run"],
+        background_agents: ["background_agent", "background_agent_run", "background_agent_approval"],
         history: ["query_history"],
         memory: ["memory_episode"],
       };
@@ -870,6 +876,8 @@ export function registerHandlers() {
           score: Math.round(match.score),
           action: match.document.action.type,
           snippet: match.snippet,
+          reasons: match.reasons,
+          related: match.relatedDocuments.slice(0, 3),
         })),
       };
     } catch (error: any) {

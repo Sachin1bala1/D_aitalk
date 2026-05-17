@@ -1,6 +1,6 @@
 # Workspace Semantic Index Plan
 
-Status: Phase 3 complete
+Status: All phases complete
 Owner: Codex
 Date: 2026-05-17
 
@@ -52,7 +52,10 @@ Add a shared module under `src/lib/search/` that:
 - `artifact_chart`
 - `artifact_report`
 - `pipeline`
+- `pipeline_run`
 - `background_agent`
+- `background_agent_run`
+- `background_agent_approval`
 - `query_history`
 - `memory_episode`
 
@@ -141,11 +144,16 @@ Action items:
    - pipelines
    - agents
    - memory episodes
-4. Add optional embedding-backed retrieval only if we can do it locally or with explicit provider configuration.
+4. Add explainable graph-aware search UX:
+   - why-this-matched reasons
+   - related-object previews
+   - one-click opening of connected workspace objects
+5. Add optional embedding-backed retrieval only if we can do it locally or with explicit provider configuration.
 
 Exit criteria:
 
 - The workspace behaves like a searchable investigation graph, not just a file picker.
+- Explanation and related-object context are visible in both UI and agent search results.
 
 ## Guardrails
 
@@ -172,4 +180,17 @@ Minimum validation for Phase 1:
 1. Phase 1 complete: shared workspace index, UI search, and agent search tool.
 2. Phase 2 complete: native persisted snapshots and segment-level incremental rebuilds.
 3. Phase 3 complete: structured filters, intent-aware ranking, and richer snippets.
-4. Next: Phase 4 deeper retrieval joins across artifacts, pipelines, agents, and memory.
+4. Phase 4 complete: investigation-graph retrieval across artifacts, runs, agents, approvals, and memory, with explainable ranking and related-object navigation.
+
+## Completion Notes
+
+- The semantic index is now shared by the UI and agent runtime.
+- Native snapshots support warm-start and partial rebuilds.
+- Retrieval covers static objects and operational evidence:
+  - artifacts
+  - pipelines and runs
+  - background agents, runs, and approvals
+  - query history
+  - episodic memory
+- Ranking is explainable through reasons and connected-object context.
+- Optional embedding-backed retrieval remains intentionally out of scope. The lexical and graph-aware local system is the completed MVP and production-ready baseline for this plan.
