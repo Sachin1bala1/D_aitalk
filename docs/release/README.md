@@ -8,6 +8,8 @@ Use these documents together with the higher-level audit in [../store-readiness-
 
 - [release-blocker-triage-guide.md](./release-blocker-triage-guide.md)
   - concise failure triage for packaging, validation, and signoff blockers such as `os error 4551`, OneDrive paths, missing `signtool`, missing bundle output, and privacy mismatches
+- [support-collection-workflow.md](./support-collection-workflow.md)
+  - exact support-bundle and screenshot collection workflow for restore failures, connection restore issues, and pipeline failures
 - [release-roles-and-ownership.md](./release-roles-and-ownership.md)
   - concise small-team ownership map for packaging, validation, security signoff, Store submission, and post-release incident triage
 - [microsoft-store-signoff-checklist.md](./microsoft-store-signoff-checklist.md)
@@ -82,7 +84,7 @@ The release scripts under [../../scripts](../../scripts) are intended to make re
 - `init-store-metadata.ps1`
   - copies the Store metadata template into `docs/release/store-metadata.json` so final support/privacy/contact values can be filled in
 - `validate-release-config.ps1`
-  - validates Tauri/package release settings, production CSP rules, and Store-facing release doc readiness before packaging
+  - validates Tauri/package release settings, production CSP rules, workflow/script coherence, and Store-facing release doc readiness before packaging
 - `new-release-validation-report.ps1`
   - creates a dated markdown evidence report from the validation template
 - `collect-packaging-machine-manifest.ps1`

@@ -685,12 +685,20 @@ export function VirtualTable({ isLoading }: VirtualTableProps = {}) {
   const setChartRequest = useWorkspaceStore((s) => s.setChartRequest);
   const activeConnectionId = useWorkspaceStore((s) => s.activeConnectionId);
   const activeTabId = useWorkspaceStore((s) => s.activeTabId);
+  const connections = useWorkspaceStore((s) => s.connections);
+  const activeTab = useWorkspaceStore((s) =>
+    s.tabs.find((tab) => tab.id === s.activeTabId) ?? null
+  );
   const currentQueryResult = useWorkspaceStore((s) =>
     s.tabs.find((tab) => tab.id === s.activeTabId)?.queryResults ?? null
   );
   const queryView = useWorkspaceStore((s) =>
     s.tabs.find((tab) => tab.id === s.activeTabId)?.queryView ?? null
   );
+  const restoredSnapshotAt = activeTab?.restoredSnapshotAt ?? null;
+  const isDisconnectedTab =
+    !!activeTab?.connectionId &&
+    !connections.some((connection) => connection.id === activeTab.connectionId);
   const singleSourceTableName = getSingleSourceTableName(currentQueryResult?.source_tables ?? []);
 
   const [filterText, setFilterText] = useState(queryView?.globalFilter ?? "");
@@ -1292,6 +1300,21 @@ export function VirtualTable({ isLoading }: VirtualTableProps = {}) {
       </div>
 
       {/* ── Filter bar ───────────────────────────────────────────────── */}
+      {(restoredSnapshotAt || isDisconnectedTab) && (
+        <div className="shrink-0 border-b border-[#1a1a1a] bg-[#111111] px-3 py-2">
+          {restoredSnapshotAt && (
+            <div className="text-[10px] font-mono text-amber-300/75">
+              Restored snapshot from {new Date(restoredSnapshotAt).toLocaleString()}. Re-run the query to refresh live data.
+            </div>
+          )}
+          {isDisconnectedTab && (
+            <div className="text-[10px] font-mono text-red-300/75">
+              This tab&apos;s connection is currently unavailable. Reconnect it before running or refreshing queries.
+            </div>
+          )}
+        </div>
+      )}
+
       {filterVisible && (
         <div
           className="shrink-0 flex items-center gap-2 px-3 border-b border-[#1a1a1a] bg-[#0d0d0d]"

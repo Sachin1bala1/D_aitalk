@@ -31,13 +31,14 @@ interface ReportPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   session: AnalysisSession | null;
+  onSaveArtifact?: (spec: ReportSpec) => void;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function ReportPanel({ open, onOpenChange, session }: ReportPanelProps) {
+export function ReportPanel({ open, onOpenChange, session, onSaveArtifact }: ReportPanelProps) {
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
   const [format, setFormat] = useState<ExportFormat>("PDF");
@@ -95,6 +96,13 @@ export function ReportPanel({ open, onOpenChange, session }: ReportPanelProps) {
     const spec = buildSpec();
     setPreviewSpec(spec);
     setShowPreview(true);
+  };
+
+  const handleSaveArtifact = () => {
+    if (!session || !onSaveArtifact) return;
+    const spec = buildSpec();
+    onSaveArtifact(spec);
+    toast.success("Report saved to artifacts");
   };
 
   const handleExport = async () => {
@@ -241,6 +249,13 @@ export function ReportPanel({ open, onOpenChange, session }: ReportPanelProps) {
 
             {/* Action buttons */}
             <div className="flex gap-2 mt-auto pt-2">
+              <button
+                onClick={handleSaveArtifact}
+                disabled={!onSaveArtifact}
+                className="flex-1 py-2 rounded-md text-xs font-semibold bg-[#1a1a1a] border border-[#2a2a2a] text-white/60 hover:text-white/80 hover:border-[#444] transition-colors disabled:opacity-40"
+              >
+                Save Artifact
+              </button>
               <button
                 onClick={handlePreview}
                 className="flex-1 py-2 rounded-md text-xs font-semibold bg-[#1a1a1a] border border-[#2a2a2a] text-white/60 hover:text-white/80 hover:border-[#444] transition-colors"

@@ -31,7 +31,7 @@ Do not combine signing, packaging, and submission into one unrestricted operator
 
 | Stage | Suggested environment name | Runs from | Primary scripts | Secrets allowed | Who should have access | Decision gate |
 | --- | --- | --- | --- | --- | --- | --- |
-| Dev verification | `dev-checks` | developer machine or normal CI | `npm exec tsc -- --noEmit`, `cargo check`, optional `cargo test --lib` | none | all engineers | code is buildable and type-safe |
+| Dev verification | `dev-checks` | developer machine or normal CI | `npm run lint`, `npm test`, `cargo check`, `cargo test --lib` | none | all engineers | code is buildable, type-safe, and covered by the minimum automated gates |
 | Release preflight | `release-preflight` | approved Windows packaging workspace, non-OneDrive | `windows-release-preflight.ps1 -WriteReport` | none | release owner, backup release owner | workspace, docs, tools, and artifact paths are acceptable |
 | Unsigned packaging | `release-build` | approved Windows packaging machine or protected Windows runner | `windows-secure-build.ps1` | none by default | release owner, release engineering | release artifact builds successfully and matches intended version |
 | Signing | `release-signing` | protected Windows environment only | `windows-secure-build.ps1 -Sign` or `sign-windows-artifacts.ps1` | signing certificate reference, timestamp access | minimum number of release managers; no general developer access | only approved release candidates can be signed |

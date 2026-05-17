@@ -8,6 +8,8 @@ use crate::intelligence::store::{record_security_audit_event, IntelligenceStore}
 use crate::security::validate_secret_service;
 
 const CONNECTIONS_FILE: &str = "connections.json";
+const WORKSPACE_SESSION_FILE: &str = "workspace_session.json";
+const APP_DOCS_DIR: &str = "app_docs";
 const CONNECTION_SECRET_PREFIX: &str = "connection_config:";
 const LEGACY_PASSWORD_PREFIX: &str = "conn_";
 const LEGACY_PASSWORD_SUFFIX: &str = "_password";
@@ -18,6 +20,40 @@ fn connections_path(app: &AppHandle) -> std::path::PathBuf {
         .app_local_data_dir()
         .unwrap_or_else(|_| std::path::PathBuf::from("."))
         .join(CONNECTIONS_FILE)
+}
+
+fn workspace_session_path(app: &AppHandle) -> std::path::PathBuf {
+    app.path()
+        .app_local_data_dir()
+        .unwrap_or_else(|_| std::path::PathBuf::from("."))
+        .join(WORKSPACE_SESSION_FILE)
+}
+
+fn app_document_dir(app: &AppHandle) -> std::path::PathBuf {
+    app.path()
+        .app_local_data_dir()
+        .unwrap_or_else(|_| std::path::PathBuf::from("."))
+        .join(APP_DOCS_DIR)
+}
+
+fn sanitize_document_key(key: &str) -> Result<String, String> {
+    if key.is_empty() {
+        return Err("document key is required".to_string());
+    }
+
+    if !key
+        .chars()
+        .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_' || ch == '-')
+    {
+        return Err("document key contains invalid characters".to_string());
+    }
+
+    Ok(key.to_string())
+}
+
+fn app_document_path(app: &AppHandle, key: &str) -> Result<std::path::PathBuf, String> {
+    let sanitized = sanitize_document_key(key)?;
+    Ok(app_document_dir(app).join(format!("{sanitized}.json")))
 }
 
 fn connection_secret_service(connection_id: &str) -> String {
@@ -330,6 +366,62 @@ pub fn load_connections(app: AppHandle) -> Result<Vec<crate::db::types::Connecti
     let sanitized: Vec<ConnectionConfig> =
         serde_json::from_str(&raw).map_err(|e| e.to_string())?;
     Ok(sanitized)
+}
+
+#[tauri::command]
+pub fn save_workspace_session(session_json: String, app: AppHandle) -> Result<(), String> {
+    let path = workspace_session_path(&app);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&path, session_json).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn load_workspace_session(app: AppHandle) -> Result<Option<String>, String> {
+    let path = workspace_session_path(&app);
+    if !path.exists() {
+        return Ok(None);
+    }
+    let raw = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    Ok(Some(raw))
+}
+
+#[tauri::command]
+pub fn clear_workspace_session(app: AppHandle) -> Result<(), String> {
+    let path = workspace_session_path(&app);
+    if !path.exists() {
+        return Ok(());
+    }
+    std::fs::remove_file(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn save_app_document(key: String, json: String, app: AppHandle) -> Result<(), String> {
+    let path = app_document_path(&app, &key)?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&path, json).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn load_app_document(key: String, app: AppHandle) -> Result<Option<String>, String> {
+    let path = app_document_path(&app, &key)?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let raw = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    Ok(Some(raw))
+}
+
+#[tauri::command]
+pub fn delete_app_document(key: String, app: AppHandle) -> Result<(), String> {
+    let path = app_document_path(&app, &key)?;
+    if !path.exists() {
+        return Ok(());
+    }
+    std::fs::remove_file(&path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

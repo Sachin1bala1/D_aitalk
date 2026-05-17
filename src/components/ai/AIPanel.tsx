@@ -3,6 +3,7 @@ import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
 import { PlanQueue } from "./PlanQueue";
 import { AIChat } from "./AIChat";
 import { QueryHistory } from "../history/QueryHistory";
+import { ArtifactsPanel } from "../artifacts/ArtifactsPanel";
 import { FullSchema } from "../../lib/db/DbClient";
 import { QueryResults } from "../../lib/stores/WorkspaceStore";
 
@@ -31,10 +32,14 @@ export function AIPanel({
     return <QueryHistory />;
   }
 
+  if (activePanel === "artifacts") {
+    return <ArtifactsPanel />;
+  }
+
   return (
     <div className="flex flex-col h-full">
-      {/* Plan Queue — shown in plan mode when there are pending steps */}
-      {agentMode === "plan" && planQueue.length > 0 && (
+      {/* Approval queue remains visible whenever actions are pending, even in auto mode. */}
+      {planQueue.length > 0 && (
         <PlanQueue />
       )}
 

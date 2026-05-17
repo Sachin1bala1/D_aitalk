@@ -153,6 +153,48 @@ export function SafetyDataDialog({ open, onClose }: Props) {
     }
   };
 
+  const handleExportSupportBundle = async () => {
+    setExporting(true);
+    try {
+      const [health, localDataStats, securityAudit, workspaceSession, queryConcurrency] =
+        await Promise.all([
+          DbClient.healthCheck().catch(() => null),
+          DbClient.getLocalDataStats().catch(() => null),
+          DbClient.getSecurityAudit({ limit: 100 }).catch(() => []),
+          DbClient.loadWorkspaceSession().catch(() => null),
+          DbClient.getQueryConcurrencyStatus().catch(() => null),
+        ]);
+
+      const payload = {
+        exported_at: new Date().toISOString(),
+        app_health: health,
+        local_data_stats: localDataStats,
+        query_concurrency: queryConcurrency,
+        workspace_session_present: Boolean(workspaceSession),
+        workspace_session_preview: workspaceSession ? JSON.parse(workspaceSession) : null,
+        recent_security_audit: securityAudit,
+      };
+
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      anchor.href = url;
+      anchor.download = `daitalk-support-bundle-${stamp}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Exported support bundle");
+    } catch (error: any) {
+      toast.error(error?.message ?? "Failed to export support bundle");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (!open) return null;
 
   return (
@@ -266,6 +308,14 @@ export function SafetyDataDialog({ open, onClose }: Props) {
                 >
                   <Download className="w-3 h-3" />
                   {exporting ? "Exporting..." : "Export JSON"}
+                </button>
+                <button
+                  onClick={handleExportSupportBundle}
+                  disabled={exporting || loading}
+                  className="inline-flex items-center gap-1 rounded border border-[#2a2a2a] bg-black/20 px-2 py-1 text-[10px] font-bold text-cyan-300/80 hover:bg-white/5 disabled:opacity-40 transition-colors"
+                >
+                  <Download className="w-3 h-3" />
+                  {exporting ? "Exporting..." : "Support Bundle"}
                 </button>
               </div>
             </div>

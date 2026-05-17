@@ -1,14 +1,12 @@
-import React, { useEffect, useRef, useState } from "react";
-import { listen } from "@tauri-apps/api/event";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Toaster, toast } from "sonner";
-import { Database, Play, Save, FolderOpen, Plus, Settings, GitCommitVertical, RotateCcw, Square, Zap, Upload, AlignLeft } from "lucide-react";
+import { Database, Play, Save, FolderOpen, Plus, Settings, GitCommitVertical, RotateCcw, Square, Zap, Upload, AlignLeft, Rows3 } from "lucide-react";
 
 import { format as formatSql } from "sql-formatter";
 import { useWorkspaceStore } from "./lib/stores/WorkspaceStore";
-import { DbClient, QueryBatch } from "./lib/db/DbClient";
-import { rowStore } from "./lib/table/RowStore";
+import type { WorkspacePanel } from "./lib/stores/WorkspaceStore";
+import { DbClient } from "./lib/db/DbClient";
 import { QueryManager } from "./lib/table/QueryManager";
-import { pushHistory } from "./components/history/QueryHistory";
 
 import { SQLEditor } from "./components/editor/SQLEditor";
 import { TabBar } from "./components/editor/TabBar";
@@ -24,7 +22,7 @@ import { KeyboardShortcutsDialog } from "./components/dialogs/KeyboardShortcutsD
 import { FileImportDialog } from "./components/dialogs/FileImportDialog";
 import { DDLModal } from "./components/dialogs/DDLModal";
 import { SnippetsPanel } from "./components/editor/SnippetsPanel";
-import { SchemaSearch } from "./components/schema/SchemaSearch";
+import { WorkspaceSearchPanel } from "./components/search/WorkspaceSearchPanel";
 import { BindParamsDialog, detectParams } from "./components/dialogs/BindParamsDialog";
 import { SessionMonitor } from "./components/panels/SessionMonitor";
 import { DatabaseOverview } from "./components/panels/DatabaseOverview";
@@ -34,8 +32,25 @@ import { QuickOpenDialog } from "./components/dialogs/QuickOpenDialog";
 import { WelcomeScreen } from "./components/onboarding/WelcomeScreen";
 import { OnboardingTour } from "./components/onboarding/OnboardingTour";
 import { MemoryPanel } from "./components/ai/MemoryPanel";
+import { ArtifactsPanel } from "./components/artifacts/ArtifactsPanel";
+import { ArtifactChartViewer } from "./components/artifacts/ArtifactChartViewer";
+import { ArtifactQueryViewer } from "./components/artifacts/ArtifactQueryViewer";
+import { ArtifactReportViewer } from "./components/artifacts/ArtifactReportViewer";
+import { PipelinePanel } from "./components/pipelines/PipelinePanel";
+import { BackgroundAgentsPanel } from "./components/agents/BackgroundAgentsPanel";
 import { BusinessClient, type ProactiveSuggestion } from "./lib/business/BusinessClient";
 import { ChartPanel } from "./components/dashboard/ChartPanel";
+import { useAppQueryController } from "./lib/query/useAppQueryController";
+import { useAppQueryFeedback } from "./lib/app/useAppQueryFeedback";
+import { createQueryArtifact } from "./lib/artifacts/queryArtifacts";
+import {
+  buildWorkspaceSessionSnapshot,
+  loadWorkspaceSession,
+  persistWorkspaceSession,
+} from "./lib/workspace/WorkspaceSessionStore";
+import { useUserToolStore } from "./lib/stores/UserToolStore";
+import { ensureBackgroundAgentsLoaded } from "./lib/backgroundAgents/BackgroundAgentStore";
+import { runDueBackgroundAnalysisAgents } from "./lib/backgroundAgents/BackgroundAgentRunner";
 
 export default function App() {
   const {
@@ -61,12 +76,14 @@ export default function App() {
     updateTab,
     popUndo,
     undoStack,
+    commitArtifactRevision,
+    hydrateWorkspaceSession,
   } = useWorkspaceStore();
 
   const [isConnecting, setIsConnecting] = useState(false);
   const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem("daitalk_onboarding_dismissed"));
   const [showTour, setShowTour] = useState(false);
-  const [activePanel, setActivePanel] = useState<"history" | "agent" | "erd" | "snippets" | "search" | "sessions" | "overview" | "founder" | "memory">("agent");
+  const [activePanel, setActivePanel] = useState<WorkspacePanel>("agent");
   const [inTransaction, setInTransaction] = useState(false);
   const [autoCommit, setAutoCommit] = useState(true);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -78,18 +95,80 @@ export default function App() {
   const [bindParams, setBindParams] = useState<{ open: boolean; sql: string } | null>(null);
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
   const [proactiveSuggestions, setProactiveSuggestions] = useState<ProactiveSuggestion[]>([]);
+  const [workspaceSessionReady, setWorkspaceSessionReady] = useState(false);
+  const persistedArtifacts = useWorkspaceStore((state) => state.artifacts);
+  const persistedArtifactRevisions = useWorkspaceStore((state) => state.artifactRevisions);
+  const persistedArtifactHeads = useWorkspaceStore((state) => state.artifactHeads);
+  const persistedGraphBuilderRequest = useWorkspaceStore((state) => state.graphBuilderRequest);
+  const persistedAiSession = useWorkspaceStore((state) => state.aiSession);
+  const persistedTaskCheckpoint = useWorkspaceStore((state) => state.taskCheckpoint);
 
   // Cancel query refs — survive re-renders without state
-  const currentQueryIdRef = useRef<string | null>(null);
-  const currentUnlistenRef = useRef<(() => void) | null>(null);
-
   // Register CommandBus handlers once on mount + restore saved connections
   useEffect(() => {
     registerHandlers();
+    void useUserToolStore.getState().ensureLoaded();
+    void ensureBackgroundAgentsLoaded();
     BusinessClient.initMemoryDb().catch(() => {});
     BusinessClient.trackUsageEvent({ event_type: "session", feature: "app_open" }).catch(() => {});
     restoreSavedConnections();
+    loadWorkspaceSession()
+      .then((snapshot) => {
+        if (!snapshot) return;
+        hydrateWorkspaceSession(snapshot);
+        setActivePanel(snapshot.activePanel);
+        toast.success("Workspace restored", {
+          description: `Recovered ${snapshot.tabs.length} tab${snapshot.tabs.length === 1 ? "" : "s"} and ${Object.keys(snapshot.artifacts).length} artifact${Object.keys(snapshot.artifacts).length === 1 ? "" : "s"}. Restored query tabs may still be snapshots, and some connections may need reconnection.`,
+        });
+        if (snapshot.taskCheckpoint) {
+          toast.info("Interrupted AI task recovered", {
+            description: "The prior agent run was restored as resumable context, not live execution.",
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        setWorkspaceSessionReady(true);
+      });
   }, []);
+
+  useEffect(() => {
+    if (!workspaceSessionReady) return;
+
+    void runDueBackgroundAnalysisAgents();
+    const interval = window.setInterval(() => {
+      void runDueBackgroundAnalysisAgents();
+    }, 60_000);
+
+    return () => window.clearInterval(interval);
+  }, [workspaceSessionReady]);
+
+  useEffect(() => {
+    if (!workspaceSessionReady) return;
+
+    const timeout = window.setTimeout(() => {
+      const snapshot = buildWorkspaceSessionSnapshot({
+        workspace: useWorkspaceStore.getState(),
+        activePanel,
+      });
+      persistWorkspaceSession(snapshot).catch(() => {});
+    }, 600);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    activePanel,
+    activeConnectionId,
+    activeTabId,
+    tabs,
+    persistedArtifacts,
+    persistedArtifactRevisions,
+    persistedArtifactHeads,
+    persistedGraphBuilderRequest,
+    persistedAiSession,
+    persistedTaskCheckpoint,
+    selectedTableNode,
+    workspaceSessionReady,
+  ]);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -209,7 +288,11 @@ export default function App() {
 
     if (firstRestoredId) {
       setActiveConnection(firstRestoredId);
-      updateTab(activeTabId, { connectionId: firstRestoredId });
+      const state = useWorkspaceStore.getState();
+      const restoredActiveTab = state.tabs.find((tab) => tab.id === state.activeTabId) ?? null;
+      if (restoredActiveTab && !restoredActiveTab.connectionId) {
+        state.updateTab(restoredActiveTab.id, { connectionId: firstRestoredId });
+      }
       toast.success(
         saved.length === 1
           ? `Reconnected to ${saved[0].display_name}`
@@ -219,7 +302,13 @@ export default function App() {
   };
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
+  const isArtifactChartTab = activeTab?.type === "artifact_chart";
+  const isArtifactQueryTab = activeTab?.type === "artifact_query";
+  const isArtifactReportTab = activeTab?.type === "artifact_report";
+  const isArtifactTab = isArtifactChartTab || isArtifactQueryTab || isArtifactReportTab;
   const activeSchema = activeConnectionId ? schemas[activeConnectionId] : null;
+  const activeDriver =
+    connections.find((connection) => connection.id === activeConnectionId)?.driver ?? null;
 
   useEffect(() => {
     BusinessClient.trackUsageEvent({
@@ -292,48 +381,105 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
+  const { handleQuerySuccess, handleQueryError } = useAppQueryFeedback({
+    setQueryResults: (results) => setQueryResults(results),
+  });
+
+  const onQuerySuccess = useCallback((
+    kind: "run" | "explain",
+    results: {
+      rows: Record<string, unknown>[];
+      fields: { name: string }[];
+      elapsedMs: number;
+      queryId: string;
+      source_tables: string[];
+    },
+    sql: string,
+  ) => {
+    if (kind === "run") {
+      BusinessClient.trackUsageEvent({
+        event_type: "result",
+        feature: "query_completed",
+        connection_id: activeConnectionId,
+        driver: activeDriver,
+        metadata_json: { row_count: results.rows.length, elapsed_ms: results.elapsedMs },
+      }).catch(() => {});
+    }
+
+    handleQuerySuccess(kind, results, sql);
+  }, [activeConnectionId, activeDriver, handleQuerySuccess]);
+
+  const onQueryError = useCallback((kind: "run" | "explain", message: string, sql: string) => {
+    BusinessClient.trackUsageEvent({
+      event_type: "error",
+      feature: kind === "run" ? "execute_sql" : "explain",
+      connection_id: activeConnectionId,
+      driver: activeDriver,
+      metadata_json: { message },
+    }).catch(() => {});
+
+    handleQueryError(kind, message, sql);
+  }, [activeConnectionId, activeDriver, handleQueryError]);
+
+  const handleSnapshotQueryArtifact = useCallback(() => {
+    if (!activeTab?.queryResults || !activeTab.sql.trim()) {
+      toast.error("Run a query first, then snapshot the result.");
+      return;
+    }
+
+    const baseName =
+      activeTab.queryResults.source_tables[0] ??
+      `Query snapshot ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+
+    const artifact = createQueryArtifact({
+      name: baseName,
+      results: activeTab.queryResults,
+      sql: activeTab.sql,
+      connectionId: activeTab.connectionId,
+      sourceTabId: activeTab.id,
+    });
+    commitArtifactRevision(artifact);
+    toast.success("Query result snapshot saved to artifacts");
+  }, [activeTab, commitArtifactRevision]);
+
+  const { handleExecute, handleExplain, handleStop } = useAppQueryController({
+    activeConnectionId,
+    activeTab,
+    hasBindParams: (sql) => detectParams(sql).length > 0,
+    onRequireBindParams: (sql) => setBindParams({ open: true, sql }),
+    onColumns: (columns) => QueryManager.setColumns(columns),
+    onStatementsExecuted: (count) => {
+      toast.success(`${count} statement${count > 1 ? "s" : ""} executed`);
+    },
+    onSuccess: (kind, results, sql) => {
+      if (kind === "run") {
+        BusinessClient.trackUsageEvent({
+          event_type: "query",
+          feature: "execute_sql",
+          connection_id: activeConnectionId,
+          driver: activeDriver,
+          metadata_json: { sql_preview: sql.slice(0, 160) },
+        }).catch(() => {});
+      } else {
+        BusinessClient.trackUsageEvent({
+          event_type: "query",
+          feature: "explain",
+          connection_id: activeConnectionId,
+          driver: activeDriver,
+        }).catch(() => {});
+      }
+
+      onQuerySuccess(kind, results, sql);
+    },
+    onError: onQueryError,
+    setExecuting: (executing) => setTabExecuting(executing),
+  });
+
   // ── Execute query ─────────────────────────────────────────────────────────
 
-  /** Split SQL on statement boundaries, ignoring semicolons inside strings/comments. */
-  function splitStatements(sql: string): string[] {
-    const stmts: string[] = [];
-    let current = "";
-    let inSingle = false;
-    let inDouble = false;
-    let inLineComment = false;
-    let inBlockComment = false;
-
-    for (let i = 0; i < sql.length; i++) {
-      const ch = sql[i];
-      const next = sql[i + 1];
-
-      if (inLineComment) {
-        if (ch === "\n") inLineComment = false;
-        current += ch;
-        continue;
-      }
-      if (inBlockComment) {
-        if (ch === "*" && next === "/") { inBlockComment = false; current += "*/"; i++; } else current += ch;
-        continue;
-      }
-      if (!inSingle && !inDouble && ch === "-" && next === "-") { inLineComment = true; current += "--"; i++; continue; }
-      if (!inSingle && !inDouble && ch === "/" && next === "*") { inBlockComment = true; current += "/*"; i++; continue; }
-      if (ch === "'" && !inDouble) { inSingle = !inSingle; current += ch; continue; }
-      if (ch === '"' && !inSingle) { inDouble = !inDouble; current += ch; continue; }
-
-      if (ch === ";" && !inSingle && !inDouble) {
-        const trimmed = current.trim();
-        if (trimmed) stmts.push(trimmed);
-        current = "";
-      } else {
-        current += ch;
-      }
-    }
-    const last = current.trim();
-    if (last) stmts.push(last);
-    return stmts;
-  }
-
+  /* Legacy inline query path kept only as a temporary fallback while the shared
+     query controller is being adopted. The live toolbar/editor actions now use
+     the shared controller/hooks above.
   const handleExecute = async (sqlOverride?: string) => {
     if (activeTab?.isExecuting) return;
     if (!activeConnectionId) {
@@ -496,6 +642,7 @@ export default function App() {
 
     toast.info("Query cancelled");
   };
+  */
 
   // ── Format SQL ────────────────────────────────────────────────────────────
 
@@ -643,6 +790,8 @@ export default function App() {
 
   // ── EXPLAIN plan ──────────────────────────────────────────────────────────
 
+  /* Legacy inline EXPLAIN path retained temporarily during the runtime
+     handoff to the shared query controller.
   const handleExplain = async () => {
     if (!activeTab?.sql || !activeConnectionId) {
       toast.error("No SQL or connection active");
@@ -706,6 +855,7 @@ export default function App() {
       setTabExecuting(false);
     }
   };
+  */
 
   // ── Context menu handlers ─────────────────────────────────────────────────
 
@@ -859,7 +1009,7 @@ export default function App() {
             ) : (
               <button
                 onClick={() => handleExecute()}
-                disabled={!activeConnectionId}
+                disabled={!activeConnectionId || isArtifactTab}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#00d2ff] text-black text-xs font-bold hover:opacity-90 disabled:opacity-40 transition-opacity"
               >
                 <Play className="w-3 h-3 fill-current" />
@@ -868,12 +1018,21 @@ export default function App() {
             )}
             <button
               onClick={handleExplain}
-              disabled={activeTab?.isExecuting || !activeConnectionId || !activeTab?.sql}
+              disabled={activeTab?.isExecuting || !activeConnectionId || !activeTab?.sql || isArtifactTab}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-[#262626] text-white/40 text-xs hover:text-amber-400 hover:border-amber-500/30 disabled:opacity-20 transition-colors"
               title="EXPLAIN ANALYZE current query (Shift+F5)"
             >
               <Zap className="w-3 h-3" />
               Explain
+            </button>
+            <button
+              onClick={handleSnapshotQueryArtifact}
+              disabled={!activeTab?.queryResults || isArtifactTab}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-[#262626] text-white/40 text-xs hover:text-emerald-400 hover:border-emerald-500/30 disabled:opacity-20 transition-colors"
+              title="Save current query results as an artifact"
+            >
+              <Rows3 className="w-3 h-3" />
+              Snapshot
             </button>
             <div className="h-4 w-px bg-[#262626]" />
             {/* File open/save */}
@@ -957,6 +1116,8 @@ export default function App() {
         <TabBar />
 
         {/* SQL Editor — resizable top pane */}
+        {!isArtifactTab && (
+          <>
         <div data-tour="sql-editor" style={{ height: `${editorPct}%` }} className="border-b border-[#262626] shrink-0">
           {proactiveSuggestions.length > 0 && (
             <div className="border-b border-[#1a1a1a] bg-[#0d1117] px-3 py-2 flex flex-wrap gap-2">
@@ -994,8 +1155,30 @@ export default function App() {
           onDoubleClick={() => setEditorPct(45)}
           title="Drag to resize · Double-click to reset"
         />
+          </>
+        )}
 
         {/* Results — remaining space */}
+        {isArtifactChartTab && (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ArtifactChartViewer artifactId={(activeTab as { artifactId: string }).artifactId} />
+          </div>
+        )}
+
+        {isArtifactQueryTab && (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ArtifactQueryViewer artifactId={(activeTab as { artifactId: string }).artifactId} />
+          </div>
+        )}
+
+        {isArtifactReportTab && (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ArtifactReportViewer artifactId={(activeTab as { artifactId: string }).artifactId} />
+          </div>
+        )}
+
+        {!isArtifactTab && (
+          <>
         <div data-tour="graph-builder" className={`overflow-hidden min-h-0 ${gogChartRequest ? "flex-none" : "flex-1"}`} style={gogChartRequest ? { height: "40%" } : {}}>
           <VirtualTable />
         </div>
@@ -1006,12 +1189,14 @@ export default function App() {
             <ChartPanel />
           </div>
         )}
+          </>
+        )}
       </div>
 
       {/* Right: AI Panel */}
       <div data-tour="ai-panel" className="w-96 border-l border-[#262626] flex flex-col bg-[#0d0d0d] shrink-0">
         <div className="h-12 border-b border-[#262626] flex items-center px-4 gap-4 shrink-0">
-          {(["agent", "history", "memory", "founder", "snippets", "erd", "search", "sessions", "overview"] as const).map((p) => (
+          {(["agent", "background_agents", "artifacts", "pipelines", "history", "memory", "founder", "snippets", "erd", "search", "sessions", "overview"] as const).map((p) => (
             <button
               key={p}
               onClick={() => setActivePanel(p)}
@@ -1019,7 +1204,7 @@ export default function App() {
                 activePanel === p ? "text-[#00d2ff]" : "text-white/30 hover:text-white/50"
               }`}
             >
-              {p === "erd" ? "ERD" : p === "agent" ? "AI" : p === "snippets" ? "Snippets" : p === "search" ? "Search" : p === "sessions" ? "Sessions" : p === "overview" ? "DB" : p === "founder" ? "Founder" : p === "memory" ? "Memory" : "History"}
+              {p === "erd" ? "ERD" : p === "agent" ? "AI" : p === "background_agents" ? "Agents" : p === "artifacts" ? "Artifacts" : p === "pipelines" ? "Pipes" : p === "snippets" ? "Snippets" : p === "search" ? "Search" : p === "sessions" ? "Sessions" : p === "overview" ? "DB" : p === "founder" ? "Founder" : p === "memory" ? "Memory" : "History"}
             </button>
           ))}
           {planQueue.length > 0 && (
@@ -1031,6 +1216,12 @@ export default function App() {
         <div className="flex-1 overflow-hidden">
           {activePanel === "erd" ? (
             <ERDiagram schema={activeSchema} />
+          ) : activePanel === "background_agents" ? (
+            <BackgroundAgentsPanel />
+          ) : activePanel === "artifacts" ? (
+            <ArtifactsPanel />
+          ) : activePanel === "pipelines" ? (
+            <PipelinePanel />
           ) : activePanel === "snippets" ? (
             <SnippetsPanel
               currentSQL={activeTab?.sql ?? null}
@@ -1038,7 +1229,7 @@ export default function App() {
               driver={activeSchema?.driver}
             />
           ) : activePanel === "search" ? (
-            <SchemaSearch
+            <WorkspaceSearchPanel
               schemas={schemas}
               connections={connections}
               onNavigate={(connId, sql) => {
@@ -1047,6 +1238,7 @@ export default function App() {
                 setEditorSql(sql);
                 setActivePanel("agent");
               }}
+              onSelectPanel={(panel) => setActivePanel(panel)}
             />
           ) : activePanel === "sessions" ? (
             <SessionMonitor />

@@ -5,6 +5,56 @@
 import type { UnifiedTool } from "../ai/types";
 import { STAT_TOOLS } from "../tools/stat.tools";
 
+export const CREATE_TASK_PLAN_TOOL: UnifiedTool = {
+  name: "create_task_plan",
+  description:
+    "Declare a short ordered read-only plan for a user goal that requires multiple analysis or lookup steps. Use only for safe investigative work.",
+  parameters: {
+    type: "object",
+    properties: {
+      subtasks: {
+        type: "array",
+        items: { type: "string" } as any,
+        description: "Ordered list of focused read-only subtasks",
+      } as any,
+    },
+    required: ["subtasks"],
+  },
+};
+
+export const VERIFY_RESULT_TOOL: UnifiedTool = {
+  name: "verify_result",
+  description:
+    "Declare the minimum deterministic checks needed to confirm a read-only subtask produced usable tabular evidence.",
+  parameters: {
+    type: "object",
+    properties: {
+      description: {
+        type: "string",
+        description: "What this verification is checking",
+      },
+      sql: {
+        type: "string",
+        description: "Optional SQL that produced the result being verified",
+      },
+      expectedMinRows: {
+        type: "number",
+        description: "Minimum acceptable row count for this result",
+      },
+      expectedColumns: {
+        type: "array",
+        items: { type: "string" } as any,
+        description: "Columns that must be present for the result to be useful",
+      } as any,
+      requireResults: {
+        type: "boolean",
+        description: "Whether a tabular result is required to consider the subtask complete",
+      },
+    },
+    required: ["description"],
+  },
+};
+
 export const AGENT_TOOLS: UnifiedTool[] = [
   // ── SQL ───────────────────────────────────────────────────────────────────
   {
@@ -260,6 +310,52 @@ export const AGENT_TOOLS: UnifiedTool[] = [
         targetTable: { type: "string", description: "Target table name (fully qualified)" },
       },
       required: ["name", "sourceConnectionId", "sourceQuery", "targetConnectionId", "targetTable"],
+    },
+  },
+  {
+    name: "list_pipelines",
+    description: "List saved pipelines with their latest run status and output artifact linkage.",
+    parameters: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "run_pipeline",
+    description:
+      "Execute a saved pipeline. This replaces the target table contents with the current source query output and should be treated as a write operation.",
+    parameters: {
+      type: "object",
+      properties: {
+        pipelineId: { type: "string", description: "Saved pipeline id to execute" },
+      },
+      required: ["pipelineId"],
+    },
+  },
+  {
+    name: "search_workspace",
+    description:
+      "Search the full Daitalk workspace across schema objects, artifacts, pipelines, background agents, query history, and memory.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "What to find in the workspace" },
+        limit: { type: "number", description: "Optional max results to return" },
+        kind: {
+          type: "string",
+          enum: ["schema", "artifacts", "pipelines", "background_agents", "history", "memory"],
+          description: "Optional workspace slice to search first",
+        },
+        connectionId: {
+          type: "string",
+          description: "Optional connection id to scope the search",
+        },
+        recentDays: {
+          type: "number",
+          description: "Optional recency window in days",
+        },
+      },
+      required: ["query"],
     },
   },
 

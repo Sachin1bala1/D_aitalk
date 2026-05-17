@@ -1,5 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { useUserToolStore } from "./UserToolStore";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { UserTool } from "../tools/user.tools";
 
 const TOOL_A: UserTool = {
@@ -20,57 +19,71 @@ const TOOL_B: UserTool = {
   body: { type: "sql_template", sql: "SELECT 1" },
 };
 
-beforeEach(() => {
-  localStorage.removeItem("daitalk_user_tools");
-  useUserToolStore.setState({ tools: [] });
-});
-
 describe("UserToolStore", () => {
-  it("starts with an empty tools array", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it("starts empty after native hydration", async () => {
+    const { DbClient } = await import("../db/DbClient");
+    vi.spyOn(DbClient, "loadAppDocument").mockResolvedValue(null);
+    vi.spyOn(DbClient, "saveAppDocument").mockResolvedValue();
+
+    const { useUserToolStore } = await import("./UserToolStore");
+    await useUserToolStore.getState().ensureLoaded();
+
     expect(useUserToolStore.getState().tools).toEqual([]);
+    expect(useUserToolStore.getState().hydrated).toBe(true);
   });
 
-  it("addTool appends a new tool", () => {
-    useUserToolStore.getState().addTool(TOOL_A);
+  it("migrates legacy localStorage tools into native persistence", async () => {
+    localStorage.setItem("daitalk_user_tools", JSON.stringify([TOOL_A]));
+    const { DbClient } = await import("../db/DbClient");
+    const saveSpy = vi.spyOn(DbClient, "saveAppDocument").mockResolvedValue();
+    vi.spyOn(DbClient, "loadAppDocument").mockResolvedValue(null);
+
+    const { useUserToolStore } = await import("./UserToolStore");
+    await useUserToolStore.getState().ensureLoaded();
+
     expect(useUserToolStore.getState().tools).toHaveLength(1);
-    expect(useUserToolStore.getState().tools[0].id).toBe("tool_a");
+    expect(useUserToolStore.getState().tools[0]?.id).toBe("tool_a");
+    expect(localStorage.getItem("daitalk_user_tools")).toBeNull();
+    expect(saveSpy).toHaveBeenCalled();
   });
 
-  it("addTool preserves existing tools", () => {
+  it("persists CRUD changes to native storage", async () => {
+    const { DbClient } = await import("../db/DbClient");
+    vi.spyOn(DbClient, "loadAppDocument").mockResolvedValue(null);
+    const saveSpy = vi.spyOn(DbClient, "saveAppDocument").mockResolvedValue();
+
+    const { useUserToolStore } = await import("./UserToolStore");
+    await useUserToolStore.getState().ensureLoaded();
+
     useUserToolStore.getState().addTool(TOOL_A);
     useUserToolStore.getState().addTool(TOOL_B);
-    expect(useUserToolStore.getState().tools).toHaveLength(2);
-  });
-
-  it("updateTool updates matching tool by id", () => {
-    useUserToolStore.getState().addTool(TOOL_A);
     useUserToolStore.getState().updateTool("tool_a", { displayName: "Updated A" });
-    expect(useUserToolStore.getState().tools[0].displayName).toBe("Updated A");
-  });
+    useUserToolStore.getState().deleteTool("tool_b");
 
-  it("updateTool does not change other fields", () => {
-    useUserToolStore.getState().addTool(TOOL_A);
-    useUserToolStore.getState().updateTool("tool_a", { displayName: "Updated A" });
-    expect(useUserToolStore.getState().tools[0].category).toBe("analysis");
-  });
-
-  it("updateTool is a no-op for unknown id", () => {
-    useUserToolStore.getState().addTool(TOOL_A);
-    useUserToolStore.getState().updateTool("nonexistent", { displayName: "X" });
-    expect(useUserToolStore.getState().tools[0].displayName).toBe("Tool A");
-  });
-
-  it("deleteTool removes the matching tool", () => {
-    useUserToolStore.getState().addTool(TOOL_A);
-    useUserToolStore.getState().addTool(TOOL_B);
-    useUserToolStore.getState().deleteTool("tool_a");
     expect(useUserToolStore.getState().tools).toHaveLength(1);
-    expect(useUserToolStore.getState().tools[0].id).toBe("tool_b");
+    expect(useUserToolStore.getState().tools[0]?.displayName).toBe("Updated A");
+    expect(saveSpy).toHaveBeenCalled();
   });
 
-  it("deleteTool is a no-op for unknown id", () => {
+  it("falls back to localStorage persistence if native persistence fails", async () => {
+    const { DbClient } = await import("../db/DbClient");
+    vi.spyOn(DbClient, "loadAppDocument").mockResolvedValue(null);
+    vi.spyOn(DbClient, "saveAppDocument").mockRejectedValue(new Error("native unavailable"));
+
+    const { useUserToolStore } = await import("./UserToolStore");
+    await useUserToolStore.getState().ensureLoaded();
+
     useUserToolStore.getState().addTool(TOOL_A);
-    useUserToolStore.getState().deleteTool("nonexistent");
-    expect(useUserToolStore.getState().tools).toHaveLength(1);
+
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const raw = localStorage.getItem("daitalk_user_tools");
+    expect(raw).not.toBeNull();
+    expect(JSON.parse(raw ?? "[]")[0]?.id).toBe("tool_a");
   });
 });

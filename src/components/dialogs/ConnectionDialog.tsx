@@ -287,9 +287,9 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
       const msg = error instanceof Error ? error.message : String(error);
       // Launch Connection Doctor instead of just toasting
       setDoctorRunning(true);
-      // Prefer OS keychain key (set via Provider Settings), fall back to seeded localStorage key
+      // Prefer the OS keychain key configured via Provider Settings
       const keychainKeys = await loadApiKeysFromKeychain().catch(() => ({} as Record<string, string>));
-      const nvidiaKey = (keychainKeys as Record<string, string>)["nvidia"] || localStorage.getItem("nvidia_api_key") || undefined;
+      const nvidiaKey = (keychainKeys as Record<string, string>)["nvidia"] || undefined;
       try {
         const result = await diagnoseConnection(
           config,

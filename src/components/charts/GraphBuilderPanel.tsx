@@ -9,7 +9,7 @@
  * - Auto chart type selection via autoSelectChart()
  * - Manual chart type override via right panel buttons
  * - Chart options: show data points, trend line, log scale, reference line, CI
- * - Save/restore chart configs to localStorage
+ * - Save/restore chart presets through the native persistence layer
  * - Export: PNG (html2canvas TODO), TSV copy
  * - Selection via shift+click; right-click context menu → "Analyze with APEX"
  */
@@ -18,7 +18,15 @@ import { X, ChevronDown, ChevronRight, BarChart2, TrendingUp, Download, Save, Li
 import type { ColumnMeta } from '../../lib/db/DbClient';
 import { GraphBuilder } from './GraphBuilder';
 import { autoSelectChart, type ChartType } from '../../lib/charts/chartAutoSelect';
+import {
+  ensureChartPresetsLoaded,
+  loadChartPresets,
+  saveChartPresets,
+  subscribeChartPresets,
+  type SavedChartConfig,
+} from '../../lib/charts/ChartPresetStore';
 import { useWorkspaceStore } from '../../lib/stores/WorkspaceStore';
+import { toast } from 'sonner';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -48,16 +56,6 @@ interface ChartOptions {
   confidenceInterval: 'none' | '95' | '99';
 }
 
-interface SavedChartConfig {
-  id: string;
-  name: string;
-  assignments: AxisAssignments;
-  chartType: ChartType | 'auto';
-  options: ChartOptions;
-  savedAt: number;
-}
-
-const STORAGE_KEY = 'daitalk_saved_charts';
 const CHART_TYPES: { type: ChartType; label: string; icon: React.ReactNode }[] = [
   { type: 'scatter', label: 'Scatter', icon: <span className="text-[10px]">⟡</span> },
   { type: 'line', label: 'Line', icon: <TrendingUp className="w-3 h-3" /> },
@@ -215,6 +213,7 @@ export interface GraphBuilderPanelProps {
   columns: ColumnMeta[];
   data: Record<string, unknown>[];
   initialRequest?: {
+    artifactId?: string | null;
     chartType: string;
     xColumn: string;
     yColumn: string;
@@ -228,6 +227,18 @@ export interface GraphBuilderPanelProps {
 
 export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilderPanelProps) {
   const setGraphBuilderRequest = useWorkspaceStore((s) => s.setGraphBuilderRequest);
+  const updateArtifactDraft = useWorkspaceStore((s) => s.updateArtifactDraft);
+  const commitArtifactRevision = useWorkspaceStore((s) => s.commitArtifactRevision);
+  const discardArtifactDraftChanges = useWorkspaceStore((s) => s.discardArtifactDraftChanges);
+  const activeConnectionId = useWorkspaceStore((s) => s.activeConnectionId);
+  const activeTabId = useWorkspaceStore((s) => s.activeTabId);
+  const activeTab = useWorkspaceStore((s) => s.tabs.find((tab) => tab.id === s.activeTabId) ?? null);
+  const artifact = useWorkspaceStore((s) =>
+    initialRequest?.artifactId ? s.artifacts[initialRequest.artifactId] ?? null : null
+  );
+  const artifactHead = useWorkspaceStore((s) =>
+    initialRequest?.artifactId ? s.artifactHeads[initialRequest.artifactId] ?? null : null
+  );
   const lastConsumedRequestKeyRef = useRef<string | null>(null);
   const [assignments, setAssignments] = useState<AxisAssignments>({
     x: null, y: null, color: null, size: null, facet: null,
@@ -254,13 +265,7 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [optionsCollapsed, setOptionsCollapsed] = useState(false);
   const [savedChartsCollapsed, setSavedChartsCollapsed] = useState(true);
-  const [savedCharts, setSavedCharts] = useState<SavedChartConfig[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]') as SavedChartConfig[];
-    } catch {
-      return [];
-    }
-  });
+  const [savedCharts, setSavedCharts] = useState<SavedChartConfig[]>(loadChartPresets);
 
   // Find ColumnMeta by name
   const colMeta = useCallback(
@@ -326,6 +331,14 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
     facet: false,
   }), [chartTypeOverride, resolvedChartType]);
 
+  useEffect(() => {
+    const unsubscribe = subscribeChartPresets(() => {
+      setSavedCharts(loadChartPresets());
+    });
+    void ensureChartPresetsLoaded().then(setSavedCharts);
+    return unsubscribe;
+  }, []);
+
   // Assign a column to the next empty zone
   const assignToNextEmpty = useCallback((colName: string) => {
     setAssignments((prev) => {
@@ -389,8 +402,8 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
       savedAt: Date.now(),
     };
     const updated = [...savedCharts, config];
+    saveChartPresets(updated);
     setSavedCharts(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   };
 
   const handleRestoreChart = (config: SavedChartConfig) => {
@@ -401,9 +414,30 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
 
   const handleDeleteSavedChart = (id: string) => {
     const updated = savedCharts.filter((c) => c.id !== id);
+    saveChartPresets(updated);
     setSavedCharts(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   };
+
+  const handleSaveArtifactRevision = useCallback(() => {
+    if (!artifact || artifact.kind !== 'chart') return;
+    commitArtifactRevision({
+      ...artifact,
+      updatedAt: Date.now(),
+      name: title || artifact.name,
+      chart: {
+        chartType: chartTypeOverride,
+        assignments,
+        options,
+      },
+    });
+    toast.success('Chart revision saved');
+  }, [artifact, assignments, chartTypeOverride, commitArtifactRevision, options, title]);
+
+  const handleDiscardArtifactDraft = useCallback(() => {
+    if (!initialRequest?.artifactId) return;
+    discardArtifactDraftChanges(initialRequest.artifactId);
+    toast.success('Draft changes discarded');
+  }, [discardArtifactDraftChanges, initialRequest?.artifactId]);
 
   // Export: TSV copy
   const handleCopyTsv = () => {
@@ -436,6 +470,71 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
     const parsed = parseFloat(value);
     return Number.isFinite(parsed) ? parsed : null;
   };
+
+  useEffect(() => {
+    if (!artifact || artifact.kind !== 'chart') return;
+
+    setAssignments(artifact.chart.assignments);
+    setChartTypeOverride(
+      CHART_TYPES.some((entry) => entry.type === artifact.chart.chartType)
+        ? (artifact.chart.chartType as ChartType)
+        : 'auto'
+    );
+    setTitle(artifact.name);
+    setOptions(artifact.chart.options);
+  }, [artifact]);
+
+  useEffect(() => {
+    if (!initialRequest?.artifactId || !activeTab?.queryResults) return;
+
+    const nextArtifact = {
+      ...(artifact ?? {
+        id: initialRequest.artifactId,
+        kind: 'chart' as const,
+        createdAt: Date.now(),
+        lineage: {
+          connectionId: activeConnectionId,
+          sql: activeTab.sql,
+          queryId: activeTab.queryResults.queryId,
+          sourceTables: activeTab.queryResults.source_tables,
+          sourceTabId: activeTabId,
+        },
+        snapshot: {
+          id: `dashboard-source-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          name: title || `${assignments.y ?? 'Chart'} by ${assignments.x ?? 'X'}`,
+          connectionId: activeConnectionId,
+          sql: activeTab.sql,
+          capturedAt: Date.now(),
+          rowCount: activeTab.queryResults.rowCount,
+          elapsedMs: activeTab.queryResults.elapsedMs,
+          queryId: activeTab.queryResults.queryId,
+          fields: activeTab.queryResults.fields,
+          rows: activeTab.queryResults.rows,
+          sourceTables: activeTab.queryResults.source_tables,
+        },
+      }),
+      updatedAt: Date.now(),
+      name: title || artifact?.name || `${assignments.y ?? 'Chart'} by ${assignments.x ?? 'X'}`,
+      chart: {
+        chartType: chartTypeOverride,
+        assignments,
+        options,
+      },
+    };
+
+    updateArtifactDraft(nextArtifact);
+  }, [
+    activeConnectionId,
+    activeTab,
+    activeTabId,
+    artifact,
+    assignments,
+    chartTypeOverride,
+    initialRequest?.artifactId,
+    options,
+    title,
+    updateArtifactDraft,
+  ]);
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-[#0a0a0a]">
@@ -485,6 +584,26 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
             <span className="text-[9px] text-white/15 font-mono">{data.length.toLocaleString()} rows</span>
           )}
           <div className="ml-auto flex items-center gap-1.5">
+            {initialRequest?.artifactId && (
+              <>
+                <button
+                  onClick={handleDiscardArtifactDraft}
+                  disabled={!artifactHead?.hasUncommittedChanges}
+                  className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] text-white/25 hover:text-white/60 font-mono uppercase tracking-wider transition-colors disabled:opacity-25"
+                  title="Discard unsaved chart draft changes"
+                >
+                  <X className="w-2.5 h-2.5" /> Discard
+                </button>
+                <button
+                  onClick={handleSaveArtifactRevision}
+                  disabled={!artifactHead?.hasUncommittedChanges}
+                  className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] text-cyan-300/60 hover:text-cyan-200 font-mono uppercase tracking-wider transition-colors disabled:opacity-25"
+                  title="Commit the current chart draft as a new revision"
+                >
+                  <Save className="w-2.5 h-2.5" /> Save Rev
+                </button>
+              </>
+            )}
             {/* TODO: html2canvas export */}
             <button
               disabled
@@ -503,9 +622,9 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
             <button
               onClick={handleSaveChart}
               className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] text-emerald-400/50 hover:text-emerald-400 font-mono uppercase tracking-wider transition-colors"
-              title="Save current chart configuration"
+              title="Save current chart preset"
             >
-              <Save className="w-2.5 h-2.5" /> Save
+              <Save className="w-2.5 h-2.5" /> Preset
             </button>
           </div>
         </div>

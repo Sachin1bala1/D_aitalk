@@ -2,7 +2,7 @@
  * AgentLoop — provider-agnostic agentic loop.
  *
  * Works with any AIProvider (Claude, Gemini, OpenAI, NVIDIA NIM).
- * Dispatches tool calls through CommandBus, handles Plan Mode queuing.
+ * Dispatches tool calls through CommandBus and enforces approval gating.
  */
 import { commandBus } from "./CommandBus";
 import { AGENT_TOOLS } from "./toolDefinitions";
@@ -192,7 +192,7 @@ You operate in ${agentMode.toUpperCase()} MODE.
 ${
   agentMode === "plan"
     ? "PLAN MODE: Destructive commands (delete_rows, drop_column, rename_table, bulk_transform) are queued for user approval before executing. Safe commands run immediately."
-    : "AUTO MODE: All commands execute immediately. Always explain destructive operations in your text response before calling those tools."
+    : "AUTO MODE: Safe and caution-level commands can execute immediately. Destructive commands (delete_rows, drop_column, rename_table, bulk_transform) are still queued for explicit user approval before executing."
 }`
   );
 
@@ -560,6 +560,27 @@ function toolCallToCommand(
         targetTable: i.targetTable as string,
         risk: "caution",
       };
+    case "list_pipelines":
+      return {
+        type: "list_pipelines",
+        risk: "safe",
+      };
+    case "run_pipeline":
+      return {
+        type: "run_pipeline",
+        pipelineId: i.pipelineId as string,
+        risk: "destructive",
+      };
+    case "search_workspace":
+      return {
+        type: "search_workspace",
+        query: i.query as string,
+        limit: i.limit as number | undefined,
+        kind: i.kind as "schema" | "artifacts" | "pipelines" | "background_agents" | "history" | "memory" | undefined,
+        connectionId: i.connectionId as string | undefined,
+        recentDays: i.recentDays as number | undefined,
+        risk: "safe",
+      };
     case "notify_user":
       return {
         type: "notify_user",
@@ -623,7 +644,7 @@ export async function runAgentLoop(
   userMessage: string,
   history: ConversationTurn[],
   options: AgentLoopOptions
-): Promise<{ finalText: string; updatedHistory: ConversationTurn[]; queryDepth: 'fast' | 'deep' }> {
+): Promise<{ finalText: string; updatedHistory: ConversationTurn[]; queryDepth: 'fast' | 'deep'; pendingApprovalSteps: string[] }> {
   const {
     provider,
     model,
@@ -637,7 +658,8 @@ export async function runAgentLoop(
     onPlanQueued,
   } = options;
 
-  const { agentMode, addPlanStep } = useWorkspaceStore.getState();
+  const { agentMode, addPlanStep, currentTask } = useWorkspaceStore.getState();
+  const currentSubtask = currentTask?.subtasks[currentTask.currentIndex] ?? null;
   const queryDepth = classifyQueryDepth(userMessage);
   const clarifier = buildVisualizationClarifier(userMessage, currentResults);
   if (clarifier) {
@@ -646,7 +668,7 @@ export async function runAgentLoop(
       { role: "user", text: userMessage },
       { role: "assistant", text: clarifier },
     ];
-    return { finalText: clarifier, updatedHistory: updatedHistory.slice(-40), queryDepth };
+    return { finalText: clarifier, updatedHistory: updatedHistory.slice(-40), queryDepth, pendingApprovalSteps: [] };
   }
   const system = buildSystemPrompt(schema, currentSQL, currentResults, agentMode, options.memoryContext, queryDepth);
 
@@ -660,6 +682,7 @@ export async function runAgentLoop(
   const allTools = [...AGENT_TOOLS, ...userToolDefs];
 
   let finalText = "";
+  const pendingApprovalSteps: string[] = [];
   const MAX_ROUNDS = 10;
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
@@ -709,7 +732,7 @@ export async function runAgentLoop(
 
       let result: CommandResult;
 
-      if (agentMode === "plan" && isDestructive(cmd)) {
+      if (isDestructive(cmd)) {
         const stepId = `plan-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         const description = describeCommand(cmd);
 
@@ -717,12 +740,15 @@ export async function runAgentLoop(
           id: stepId,
           commandType: cmd.type,
           humanReadable: description,
+          taskId: currentTask?.id,
+          subtaskId: currentSubtask?.id,
           riskLevel: cmd.risk,
           status: "pending",
           command: cmd, // stored so PlanQueue can dispatch on approval
         });
 
         onPlanQueued(stepId, description);
+        pendingApprovalSteps.push(stepId);
 
         result = {
           success: true,
@@ -759,5 +785,5 @@ export async function runAgentLoop(
   }
 
   // Trim to last 40 turns to keep context manageable
-  return { finalText, updatedHistory: working.slice(-40), queryDepth };
+  return { finalText, updatedHistory: working.slice(-40), queryDepth, pendingApprovalSteps };
 }

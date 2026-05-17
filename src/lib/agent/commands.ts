@@ -226,6 +226,27 @@ export interface CreatePipelineCmd {
   risk: "caution";
 }
 
+export interface ListPipelinesCmd {
+  type: "list_pipelines";
+  risk: "safe";
+}
+
+export interface RunPipelineCmd {
+  type: "run_pipeline";
+  pipelineId: string;
+  risk: "destructive";
+}
+
+export interface SearchWorkspaceCmd {
+  type: "search_workspace";
+  query: string;
+  limit?: number;
+  kind?: "schema" | "artifacts" | "pipelines" | "background_agents" | "history" | "memory";
+  connectionId?: string;
+  recentDays?: number;
+  risk: "safe";
+}
+
 // ── Confidence Scoring ────────────────────────────────────────────────────────
 
 export interface ConfidenceDeclaration {
@@ -306,6 +327,9 @@ export type AgentCommand =
   | CreateChartCmd
   | CreateGoGChartCmd
   | CreatePipelineCmd
+  | ListPipelinesCmd
+  | RunPipelineCmd
+  | SearchWorkspaceCmd
   | NotifyUserCmd
   | DeclareHypothesesCmd
   | DeclareConfidenceCmd
@@ -321,6 +345,7 @@ export const DESTRUCTIVE_COMMANDS = new Set<CommandType>([
   "rename_table",
   "delete_rows",
   "bulk_transform",
+  "run_pipeline",
 ]);
 
 export function isDestructive(cmd: AgentCommand): boolean {
@@ -350,6 +375,9 @@ export function describeCommand(cmd: AgentCommand): string {
     case "create_chart": return `Open ${cmd.chartType} graph in Graph Builder: ${cmd.xColumn} vs ${cmd.yColumn}`;
     case "create_gog_chart": return `Create GoG ${cmd.geom} chart: ${cmd.x}${cmd.y ? ` vs ${cmd.y}` : ""} from ${cmd.schema ?? "public"}.${cmd.table}`;
     case "create_pipeline": return `Create pipeline "${cmd.name}" → ${cmd.targetTable}`;
+    case "list_pipelines": return `List saved pipelines`;
+    case "run_pipeline": return `Run pipeline ${cmd.pipelineId}`;
+    case "search_workspace": return `Search workspace for "${cmd.query}"`;
     case "close_tab": return cmd.tabId ? `Close tab ${cmd.tabId}` : `Close active tab`;
     case "notify_user": return `Notify: ${cmd.message}`;
     case "declare_hypotheses": return `Declare ${cmd.hypotheses.length} hypothesis${cmd.hypotheses.length !== 1 ? "es" : ""}: ${cmd.problemFrame.slice(0, 60)}`;

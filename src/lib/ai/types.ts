@@ -244,6 +244,7 @@ export async function loadApiKeysFromKeychain(): Promise<Partial<Record<Provider
             key = legacyKey;
             try {
               await DbClient.storeApiKey(KEYCHAIN_PREFIX + id, legacyKey);
+              localStorage.removeItem(legacyStorageKey!);
             } catch {
               // best-effort migration
             }

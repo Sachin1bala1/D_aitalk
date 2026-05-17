@@ -91,7 +91,7 @@ jobs:
 
       - name: Build unsigned bundle
         shell: powershell
-        run: npm run tauri:build:ci
+        run: powershell -ExecutionPolicy Bypass -File .\scripts\windows-secure-build.ps1 -SkipNpmInstall -SkipLint
 
       - name: Check signing secret availability
         id: signing_check

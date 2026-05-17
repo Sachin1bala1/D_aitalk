@@ -17,6 +17,10 @@ import { useWorkspaceStore } from "../stores/WorkspaceStore";
 import { ScaleRouter } from "../dashboard/ScaleRouter";
 import { BinQueryBuilder } from "../dashboard/BinQueryBuilder";
 import type { GoGSpec } from "../dashboard/GoGSpec";
+import {
+  createChartArtifact,
+  createDefaultChartArtifactOptions,
+} from "../artifacts/chartArtifacts";
 import type { QueryBatch } from "../db/DbClient";
 import type {
   SetEditorContentCmd,
@@ -40,6 +44,9 @@ import type {
   CreateChartCmd,
   CreateGoGChartCmd,
   CreatePipelineCmd,
+  ListPipelinesCmd,
+  RunPipelineCmd,
+  SearchWorkspaceCmd,
   NotifyUserCmd,
   DeclareHypothesesCmd,
   DeclareConfidenceCmd,
@@ -52,6 +59,23 @@ import { useUserToolStore } from "../stores/UserToolStore";
 import { fillTemplate } from "../tools/user.tools";
 import { PyodideRuntime } from "../pyodide/PyodideRuntime";
 import { STAT_KERNELS } from "../pyodide/stat_kernels";
+import {
+  createPipelineDefinition,
+  ensurePipelinesLoaded,
+  inspectPipelines,
+  runPipelineDefinition,
+} from "../pipelines/PipelineStore";
+import { ensureHistoryLoaded, loadHistory } from "../../components/history/QueryHistory";
+import {
+  ensureBackgroundAgentsLoaded,
+  listBackgroundAgents,
+} from "../backgroundAgents/BackgroundAgentStore";
+import { EpisodicMemory } from "../memory/EpisodicMemory";
+import {
+  buildWorkspaceSearchDocuments,
+  searchWorkspaceDocuments,
+  type WorkspaceSearchDocumentKind,
+} from "../search/workspaceSemanticIndex";
 
 export function registerHandlers() {
   // ── SQL ───────────────────────────────────────────────────────────────────
@@ -493,7 +517,7 @@ export function registerHandlers() {
   // ── Charts (stub — renders in future ChartPanel) ──────────────────────────
 
   commandBus.register<CreateChartCmd>("create_chart", async (cmd) => {
-    const { activeTabId, tabs } = useWorkspaceStore.getState();
+    const { activeTabId, tabs, commitArtifactRevision } = useWorkspaceStore.getState();
     const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
     const currentResults = activeTab?.queryResults ?? null;
 
@@ -513,8 +537,30 @@ export function registerHandlers() {
       };
     }
 
+    const artifact = createChartArtifact({
+      name: cmd.title ?? `${cmd.yColumn} by ${cmd.xColumn}`,
+      chartType: cmd.chartType,
+      assignments: {
+        x: cmd.xColumn,
+        y: cmd.yColumn,
+        color: null,
+        size: null,
+        facet: null,
+      },
+      options: createDefaultChartArtifactOptions({
+        xLabel: cmd.xLabel ?? cmd.xColumn,
+        yLabel: cmd.yLabel ?? cmd.yColumn,
+      }),
+      results: currentResults,
+      sql: activeTab?.sql ?? "",
+      connectionId: activeTab?.connectionId ?? null,
+      sourceTabId: activeTab?.id ?? null,
+    });
+    commitArtifactRevision(artifact);
+
     useWorkspaceStore.getState().setGraphBuilderRequest({
       requestId: `gb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      artifactId: artifact.id,
       chartType: cmd.chartType,
       xColumn: cmd.xColumn,
       yColumn: cmd.yColumn,
@@ -527,6 +573,7 @@ export function registerHandlers() {
       success: true,
       result: {
         target: "graph_builder",
+        artifactId: artifact.id,
         chartType: cmd.chartType,
         rowCount: currentResults.rowCount,
         columns: [cmd.xColumn, cmd.yColumn],
@@ -715,6 +762,120 @@ export function registerHandlers() {
   });
 
   // ── UI ────────────────────────────────────────────────────────────────────
+
+  commandBus.register<CreatePipelineCmd>("create_pipeline", async (cmd) => {
+    try {
+      await ensurePipelinesLoaded();
+      const pipeline = await createPipelineDefinition({
+        name: cmd.name,
+        sourceConnectionId: cmd.sourceConnectionId,
+        sourceQuery: cmd.sourceQuery,
+        targetConnectionId: cmd.targetConnectionId,
+        targetTable: cmd.targetTable,
+      });
+      toast.success(`Pipeline "${pipeline.name}" saved`);
+      return {
+        success: true,
+        result: {
+          id: pipeline.id,
+          name: pipeline.name,
+          targetTable: pipeline.targetTable,
+          sourceConnectionId: pipeline.sourceConnectionId,
+          targetConnectionId: pipeline.targetConnectionId,
+        },
+      };
+    } catch (error: any) {
+      return { success: false, error: error?.message ?? "Failed to save pipeline" };
+    }
+  });
+
+  commandBus.register<ListPipelinesCmd>("list_pipelines", async () => {
+    try {
+      await ensurePipelinesLoaded();
+      return {
+        success: true,
+        result: inspectPipelines(),
+      };
+    } catch (error: any) {
+      return { success: false, error: error?.message ?? "Failed to list pipelines" };
+    }
+  });
+
+  commandBus.register<RunPipelineCmd>("run_pipeline", async (cmd) => {
+    try {
+      await ensurePipelinesLoaded();
+      const run = await runPipelineDefinition(cmd.pipelineId);
+      toast.success("Pipeline run completed", {
+        description: `${run.rowCount ?? 0} row${run.rowCount === 1 ? "" : "s"} materialized to ${run.targetTable}.`,
+      });
+      return {
+        success: true,
+        result: run,
+      };
+    } catch (error: any) {
+      toast.error("Pipeline run failed", {
+        description: error?.message ?? "Unable to complete pipeline run.",
+      });
+      return { success: false, error: error?.message ?? "Failed to run pipeline" };
+    }
+  });
+
+  commandBus.register<SearchWorkspaceCmd>("search_workspace", async (cmd) => {
+    try {
+      await Promise.all([ensurePipelinesLoaded(), ensureBackgroundAgentsLoaded(), ensureHistoryLoaded()]);
+      const workspace = useWorkspaceStore.getState();
+      const docs = buildWorkspaceSearchDocuments({
+        schemas: workspace.schemas,
+        connections: workspace.connections,
+        artifacts: workspace.artifacts,
+        pipelines: inspectPipelines().pipelines,
+        backgroundAgents: listBackgroundAgents(),
+        queryHistory: loadHistory().map((entry) => ({
+          query_id: entry.id,
+          sql: entry.sql,
+          source_table: null,
+          source_tables: [],
+          row_count: entry.rowCount,
+          duration_ms: entry.elapsedMs,
+          success: !entry.error,
+          error_message: entry.error ?? null,
+          executed_at: new Date(entry.timestamp).toISOString(),
+        })),
+        memoryEpisodes: await EpisodicMemory.getRecent(50).catch(() => []),
+      });
+
+      const kindsByScope: Record<
+        NonNullable<SearchWorkspaceCmd["kind"]>,
+        WorkspaceSearchDocumentKind[]
+      > = {
+        schema: ["schema_table", "schema_view", "schema_column", "schema_index"],
+        artifacts: ["artifact_query", "artifact_chart", "artifact_report"],
+        pipelines: ["pipeline"],
+        background_agents: ["background_agent"],
+        history: ["query_history"],
+        memory: ["memory_episode"],
+      };
+      return {
+        success: true,
+        result: searchWorkspaceDocuments(docs, cmd.query, {
+          limit: cmd.limit ?? 8,
+          kinds: cmd.kind ? kindsByScope[cmd.kind] : undefined,
+          connectionId: cmd.connectionId ?? null,
+          recentDays: cmd.recentDays ?? null,
+        }).map((match) => ({
+          id: match.document.id,
+          kind: match.document.kind,
+          title: match.document.title,
+          subtitle: match.document.subtitle,
+          score: Math.round(match.score),
+          action: match.document.action.type,
+          snippet: match.snippet,
+        })),
+      };
+    } catch (error: any) {
+      return { success: false, error: error?.message ?? "Failed to search workspace" };
+    }
+  });
 
   commandBus.register<NotifyUserCmd>("notify_user", async (cmd) => {
     const fn = {
