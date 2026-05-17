@@ -52,6 +52,7 @@ import { useUserToolStore } from "./lib/stores/UserToolStore";
 import { useWorkspaceRuleStore } from "./lib/memory/WorkspaceRuleStore";
 import { ensureBackgroundAgentsLoaded } from "./lib/backgroundAgents/BackgroundAgentStore";
 import { runDueBackgroundAnalysisAgents } from "./lib/backgroundAgents/BackgroundAgentRunner";
+import { runDuePipelineDefinitions } from "./lib/pipelines/PipelineStore";
 
 export default function App() {
   const {
@@ -139,8 +140,10 @@ export default function App() {
     if (!workspaceSessionReady) return;
 
     void runDueBackgroundAnalysisAgents();
+    void runDuePipelineDefinitions();
     const interval = window.setInterval(() => {
       void runDueBackgroundAnalysisAgents();
+      void runDuePipelineDefinitions();
     }, 60_000);
 
     return () => window.clearInterval(interval);

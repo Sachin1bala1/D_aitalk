@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, FolderOpen, Play, RefreshCw, Trash2, Workflow } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FolderOpen, Play, RefreshCw, ShieldCheck, Trash2, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
 import { DataChangeReviewDialog } from "../review/DataChangeReviewDialog";
@@ -161,6 +161,11 @@ export function PipelinePanel() {
                   <div className="mt-1 text-[10px] font-mono text-white/30">
                     {connectionName(selectedPipeline.sourceConnectionId)} → {connectionName(selectedPipeline.targetConnectionId)}
                   </div>
+                  <div className="mt-1 text-[9px] font-mono uppercase tracking-widest text-white/25">
+                    {selectedPipeline.isEnabled && selectedPipeline.cadenceMinutes
+                      ? `Scheduled every ${selectedPipeline.cadenceMinutes}m`
+                      : "Manual schedule"}
+                  </div>
                 </div>
                 <div className="flex items-center gap-1">
                   <button
@@ -210,6 +215,12 @@ export function PipelinePanel() {
                       {selectedPipeline.lastRunStatus ?? "idle"} · {formatTimestamp(selectedPipeline.lastRunAt)}
                     </div>
                   </div>
+                  <div>
+                    <div className="font-mono uppercase tracking-widest text-white/20">Workflow</div>
+                    <div className="mt-1 font-mono">
+                      {selectedPipeline.steps.length} step{selectedPipeline.steps.length === 1 ? "" : "s"}
+                    </div>
+                  </div>
                   {selectedPipeline.lastRunError && (
                     <div className="rounded border border-red-500/20 bg-red-500/5 px-2 py-2 text-red-300/80">
                       <div className="flex items-center gap-1.5 font-mono uppercase tracking-widest text-[9px]">
@@ -221,6 +232,37 @@ export function PipelinePanel() {
                       </div>
                     </div>
                   )}
+                </section>
+
+                <section>
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-3.5 w-3.5 text-white/20" />
+                    <div className="text-[9px] font-mono uppercase tracking-widest text-white/20">
+                      Workflow Steps
+                    </div>
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {selectedPipeline.steps.map((step, index) => (
+                      <div
+                        key={step.id}
+                        className="rounded border border-[#1f1f1f] bg-black/20 px-3 py-2 text-[10px] text-white/45"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="font-mono uppercase tracking-widest text-white/30">
+                            Step {index + 1} · {step.type}
+                          </div>
+                          <div className="font-mono text-white/25">{step.name}</div>
+                        </div>
+                        <div className="mt-1 font-mono text-white/50">
+                          {step.type === "query"
+                            ? `${connectionName(step.connectionId)} · ${step.sql}`
+                            : step.type === "assert_row_count"
+                              ? `source ${step.sourceStepId} · min ${step.minRows ?? "-"} · max ${step.maxRows ?? "-"}${step.failOnEmpty ? " · fail on empty" : ""}`
+                              : `source ${step.sourceStepId} · ${connectionName(step.targetConnectionId)} -> ${step.targetTable}`}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </section>
 
                 <section>
@@ -248,6 +290,34 @@ export function PipelinePanel() {
                           <div className="mt-1 font-mono">
                             {run.rowCount ?? 0} row{run.rowCount === 1 ? "" : "s"} → {run.targetTable}
                           </div>
+                          {run.summary && (
+                            <div className="mt-1 font-mono text-white/35">{run.summary}</div>
+                          )}
+                          {run.stepRuns.length > 0 && (
+                            <div className="mt-2 space-y-1.5 rounded border border-[#1f1f1f] bg-[#080808] p-2">
+                              {run.stepRuns.map((stepRun) => (
+                                <div key={stepRun.stepId} className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-widest text-white/30">
+                                      {stepRun.status === "success" ? (
+                                        <CheckCircle2 className="h-3 w-3 text-emerald-300/70" />
+                                      ) : (
+                                        <AlertTriangle className="h-3 w-3 text-amber-300/70" />
+                                      )}
+                                      {stepRun.stepType}
+                                    </div>
+                                    <div className="mt-0.5 text-[10px] text-white/55">{stepRun.name}</div>
+                                    <div className="mt-0.5 text-[10px] font-mono text-white/35">
+                                      {stepRun.message ?? stepRun.error ?? `${stepRun.rowCount ?? 0} rows`}
+                                    </div>
+                                  </div>
+                                  <div className="shrink-0 font-mono text-[9px] text-white/20">
+                                    {stepRun.status}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           {run.error && (
                             <div className="mt-1 font-mono text-red-300/80">{run.error}</div>
                           )}

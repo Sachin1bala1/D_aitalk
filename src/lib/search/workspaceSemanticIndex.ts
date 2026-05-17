@@ -654,70 +654,129 @@ export function buildArtifactDocuments(
 export function buildPipelineDocuments(
   pipelines: PipelineDefinition[],
 ): WorkspaceSearchDocument[] {
-  return pipelines.map((pipeline) => ({
-    id: `pipeline:${pipeline.id}`,
-    kind: "pipeline",
-    title: pipeline.name,
-    subtitle: `${pipeline.targetTable} · ${pipeline.sourceConnectionId} → ${pipeline.targetConnectionId}`,
-    body: `${summarizeSql(pipeline.sourceQuery)} Latest status ${pipeline.lastRunStatus ?? "never_run"} Target table ${pipeline.targetTable}.`,
-    keywords: uniqueTokens([
-      pipeline.name,
-      pipeline.targetTable,
-      pipeline.sourceConnectionId,
-      pipeline.targetConnectionId,
-      pipeline.lastRunStatus ?? "",
-    ]),
-    connectionId: pipeline.sourceConnectionId,
-    updatedAt: pipeline.updatedAt,
-    action: {
-      type: "open_panel",
-      panel: "pipelines",
-    },
-    metadata: {
-      pipelineId: pipeline.id,
-      targetTable: pipeline.targetTable,
-      lastRunArtifactId: pipeline.lastRunArtifactId ?? null,
-    },
-  }));
+  return pipelines.map((pipeline) => {
+    const steps = pipeline.steps ?? [];
+    const description = pipeline.description ?? "";
+    const targetTable = pipeline.targetTable ?? "";
+    const sourceConnectionId = pipeline.sourceConnectionId ?? "";
+    const targetConnectionId = pipeline.targetConnectionId ?? "";
+    const sourceQuery = pipeline.sourceQuery ?? "";
+    const scheduleSummary =
+      pipeline.isEnabled && pipeline.cadenceMinutes
+        ? `Scheduled every ${pipeline.cadenceMinutes} minutes`
+        : "Manual pipeline";
+    const stepSummary = steps
+      .map((step, index) => {
+        if (step.type === "query") {
+          return `${index + 1}:${step.type}:${step.connectionId}:${summarizeSql(step.sql, 80)}`;
+        }
+        if (step.type === "assert_row_count") {
+          return `${index + 1}:${step.type}:${step.sourceStepId}:min=${step.minRows ?? "-"}:max=${step.maxRows ?? "-"}${step.failOnEmpty ? ":fail_on_empty" : ""}`;
+        }
+        return `${index + 1}:${step.type}:${step.sourceStepId}:${step.targetConnectionId}:${step.targetTable}`;
+      })
+      .join(" ");
+
+    return {
+      id: `pipeline:${pipeline.id}`,
+      kind: "pipeline",
+      title: pipeline.name,
+      subtitle: `${targetTable} · ${sourceConnectionId} → ${targetConnectionId}`,
+      body: [
+        description,
+        scheduleSummary,
+        summarizeSql(sourceQuery),
+        `Latest status ${pipeline.lastRunStatus ?? "never_run"}`,
+        `Target table ${targetTable}`,
+        stepSummary,
+      ]
+        .filter(Boolean)
+        .join(" "),
+      keywords: uniqueTokens([
+        pipeline.name,
+        description,
+        targetTable,
+        sourceConnectionId,
+        targetConnectionId,
+        pipeline.lastRunStatus ?? "",
+        pipeline.isEnabled ? "scheduled" : "manual",
+        pipeline.cadenceMinutes ? `${pipeline.cadenceMinutes} minutes` : "",
+        ...steps.map((step) => step.type),
+        ...steps.map((step) => step.name),
+      ]),
+      connectionId: sourceConnectionId,
+      updatedAt: pipeline.updatedAt,
+      action: {
+        type: "open_panel",
+        panel: "pipelines",
+      },
+      metadata: {
+        pipelineId: pipeline.id,
+        targetTable,
+        lastRunArtifactId: pipeline.lastRunArtifactId ?? null,
+        stepTypes: steps.map((step) => step.type),
+        cadenceMinutes: pipeline.cadenceMinutes,
+        isEnabled: pipeline.isEnabled,
+        sourceTables: targetTable ? [targetTable] : [],
+      },
+    };
+  });
 }
 
 export function buildPipelineRunDocuments(
   runs: PipelineRunRecord[],
 ): WorkspaceSearchDocument[] {
-  return runs.map((run) => ({
-    id: `pipeline-run:${run.id}`,
-    kind: "pipeline_run",
-    title: `Pipeline run ${run.pipelineId}`,
-    subtitle: `${run.status} · ${run.targetTable}`,
-    body: [
-      run.pipelineId,
-      run.targetTable,
-      run.error ?? "",
-      run.artifactId ?? "",
-      run.sourceConnectionId,
-      run.targetConnectionId,
-    ].join(" "),
-    keywords: uniqueTokens([
-      run.pipelineId,
-      run.status,
-      run.targetTable,
-      run.artifactId ?? "",
-      run.sourceConnectionId,
-      run.targetConnectionId,
-    ]),
-    connectionId: run.sourceConnectionId,
-    updatedAt: run.finishedAt ?? run.startedAt,
-    action: {
-      type: "open_panel",
-      panel: "pipelines",
-    },
-    metadata: {
-      pipelineId: run.pipelineId,
-      runId: run.id,
-      artifactId: run.artifactId ?? null,
-      sourceTables: [run.targetTable],
-    },
-  }));
+  return runs.map((run) => {
+    const stepRuns = run.stepRuns ?? [];
+    const trigger = run.trigger ?? "manual";
+    const targetTable = run.targetTable ?? "";
+    const sourceConnectionId = run.sourceConnectionId ?? "";
+    const targetConnectionId = run.targetConnectionId ?? "";
+    return {
+      id: `pipeline-run:${run.id}`,
+      kind: "pipeline_run",
+      title: `Pipeline run ${run.pipelineId}`,
+      subtitle: `${run.status} · ${trigger} · ${targetTable}`,
+      body: [
+        run.pipelineId,
+        targetTable,
+        trigger,
+        run.summary ?? "",
+        run.error ?? "",
+        run.artifactId ?? "",
+        sourceConnectionId,
+        targetConnectionId,
+        stepRuns
+          .map((stepRun) => `${stepRun.stepType} ${stepRun.status} ${stepRun.name} ${stepRun.message ?? ""} ${stepRun.error ?? ""}`)
+          .join(" "),
+      ].join(" "),
+      keywords: uniqueTokens([
+        run.pipelineId,
+        run.status,
+        trigger,
+        targetTable,
+        run.artifactId ?? "",
+        sourceConnectionId,
+        targetConnectionId,
+        ...stepRuns.map((stepRun) => stepRun.stepType),
+        ...stepRuns.map((stepRun) => stepRun.status),
+      ]),
+      connectionId: sourceConnectionId,
+      updatedAt: run.finishedAt ?? run.startedAt,
+      action: {
+        type: "open_panel",
+        panel: "pipelines",
+      },
+      metadata: {
+        pipelineId: run.pipelineId,
+        runId: run.id,
+        artifactId: run.artifactId ?? null,
+        sourceTables: targetTable ? [targetTable] : [],
+        trigger,
+        stepTypes: stepRuns.map((stepRun) => stepRun.stepType),
+      },
+    };
+  });
 }
 
 export function buildBackgroundAgentDocuments(

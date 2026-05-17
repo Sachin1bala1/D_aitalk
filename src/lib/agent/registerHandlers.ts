@@ -759,14 +759,6 @@ export function registerHandlers() {
     };
   });
 
-  // ── Pipeline (stub — wires to future PipelinePanel) ──────────────────────
-
-  commandBus.register<CreatePipelineCmd>("create_pipeline", async (cmd) => {
-    // TODO: wire to PipelinePanel when implemented
-    toast.info(`Pipeline "${cmd.name}": ${cmd.sourceQuery} → ${cmd.targetTable}`);
-    return { success: true, result: `Pipeline "${cmd.name}" registered` };
-  });
-
   // ── UI ────────────────────────────────────────────────────────────────────
 
   commandBus.register<CreatePipelineCmd>("create_pipeline", async (cmd) => {

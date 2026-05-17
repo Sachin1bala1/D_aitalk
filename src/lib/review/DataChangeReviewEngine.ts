@@ -343,6 +343,32 @@ export function buildPipelineRunReview(
     });
   }
 
+  const steps = pipeline.steps ?? [];
+  const assertionSteps = steps.filter((step) => step.type === "assert_row_count");
+  if (assertionSteps.length === 0) {
+    findings.push({
+      severity: "warning",
+      category: "verification",
+      title: "No validation step",
+      detail: "This pipeline writes data without an explicit row-count assertion step.",
+    });
+  } else {
+    findings.push({
+      severity: "info",
+      category: "verification",
+      title: "Validation steps present",
+      detail: `${assertionSteps.length} assertion step(s) will validate source results before materialization.`,
+    });
+  }
+
+  findings.push({
+    severity: "info",
+    category: "impact",
+    title: "Workflow depth",
+    detail: `${steps.length} step(s) are defined in this pipeline.`,
+    evidence: steps.map((step) => `${step.type}: ${step.name}`),
+  });
+
   if (pipeline.lastRunArtifactId && artifacts[pipeline.lastRunArtifactId]) {
     findings.push({
       severity: "info",
