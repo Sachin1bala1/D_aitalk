@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Bot, CheckCircle2, Clock3, FolderOpen, Play, ShieldAlert, Trash2 } from "lucide-react";
+import { Bot, CheckCircle2, Clock3, FolderOpen, Play, RotateCcw, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
 import {
@@ -16,7 +16,7 @@ import {
   type BackgroundAgentDefinition,
   type BackgroundAgentRun,
 } from "../../lib/backgroundAgents/BackgroundAgentStore";
-import { runBackgroundAnalysisAgent } from "../../lib/backgroundAgents/BackgroundAgentRunner";
+import { queueBackgroundRunTakeover, runBackgroundAnalysisAgent } from "../../lib/backgroundAgents/BackgroundAgentRunner";
 
 function formatTimestamp(timestamp?: number | null) {
   if (!timestamp) return "Never";
@@ -45,7 +45,11 @@ function StatusPill({ status }: { status: BackgroundAgentRun["status"] | null })
   );
 }
 
-export function BackgroundAgentsPanel() {
+interface BackgroundAgentsPanelProps {
+  onTakeoverPrompt?: (prompt: string) => void;
+}
+
+export function BackgroundAgentsPanel({ onTakeoverPrompt }: BackgroundAgentsPanelProps) {
   const { connections, createArtifactReportTab } = useWorkspaceStore();
   const [agents, setAgents] = useState<BackgroundAgentDefinition[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
@@ -61,6 +65,7 @@ export function BackgroundAgentsPanel() {
   const [editPrompt, setEditPrompt] = useState("");
   const [editConnectionId, setEditConnectionId] = useState("");
   const [editCadenceMinutes, setEditCadenceMinutes] = useState("");
+  const [busyRunId, setBusyRunId] = useState<string | null>(null);
 
   useEffect(() => {
     const refresh = async () => {
@@ -128,6 +133,33 @@ export function BackgroundAgentsPanel() {
       await runBackgroundAnalysisAgent(agent.id);
     } finally {
       setRunningAgentId(null);
+    }
+  };
+
+  const handleRetryRun = async (agent: BackgroundAgentDefinition, run: BackgroundAgentRun) => {
+    setBusyRunId(run.id);
+    try {
+      await runBackgroundAnalysisAgent(agent.id, {
+        trigger: "retry",
+        retryOfRunId: run.id,
+      });
+    } finally {
+      setBusyRunId(null);
+    }
+  };
+
+  const handleTakeoverRun = async (agent: BackgroundAgentDefinition, run: BackgroundAgentRun) => {
+    setBusyRunId(run.id);
+    try {
+      const prompt = await queueBackgroundRunTakeover(agent.id, run.id);
+      if (!prompt) {
+        toast.error("Unable to build takeover context for this run.");
+        return;
+      }
+      onTakeoverPrompt?.(prompt);
+      toast.success(`Investigation for "${agent.name}" moved to AI panel`);
+    } finally {
+      setBusyRunId(null);
     }
   };
 
@@ -324,13 +356,41 @@ export function BackgroundAgentsPanel() {
                           <StatusPill status={run.status} />
                           <span className="font-mono">{formatTimestamp(run.finishedAt ?? run.startedAt)}</span>
                         </div>
+                        <div className="mt-2 flex flex-wrap gap-2 font-mono text-[9px] uppercase tracking-widest text-white/30">
+                          <span>{run.trigger}</span>
+                          <span>attempt {run.attemptCount}/{run.maxAttempts}</span>
+                          {run.retryOfRunId && <span>retry of prior run</span>}
+                        </div>
                         <div className="mt-2 font-mono">
                           {run.summary ?? run.error ?? "No summary recorded."}
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2">
                           <span>{run.queryArtifactIds.length} query artifacts</span>
                           <span>{run.approvalIds.length} approvals</span>
+                          <span>{run.events.length} events</span>
                         </div>
+                        {run.events.length > 0 && (
+                          <div className="mt-3 rounded border border-[#1f1f1f] bg-[#080808] p-2">
+                            <div className="text-[9px] font-mono uppercase tracking-widest text-white/25">
+                              Run Evidence
+                            </div>
+                            <div className="mt-2 space-y-1.5">
+                              {run.events.slice(-6).map((event) => (
+                                <div key={event.id} className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <div className="font-mono text-[9px] uppercase tracking-widest text-white/30">
+                                      {event.type}
+                                    </div>
+                                    <div className="truncate text-[10px] text-white/55">{event.message}</div>
+                                  </div>
+                                  <div className="shrink-0 font-mono text-[9px] text-white/20">
+                                    {formatTimestamp(event.at)}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         {run.reportArtifactId && (
                           <button
                             onClick={() =>
@@ -350,6 +410,28 @@ export function BackgroundAgentsPanel() {
                             Open report artifact
                           </button>
                         )}
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {(run.status === "failed" || run.status === "approval_required") && (
+                            <button
+                              onClick={() => void handleRetryRun(selectedAgent, run)}
+                              disabled={busyRunId === run.id}
+                              className="inline-flex items-center gap-1.5 rounded border border-[#2a2a2a] bg-[#111] px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-white/55 hover:text-white/80 disabled:opacity-40"
+                            >
+                              <RotateCcw className="h-3 w-3" />
+                              Retry
+                            </button>
+                          )}
+                          {run.status !== "running" && (
+                            <button
+                              onClick={() => void handleTakeoverRun(selectedAgent, run)}
+                              disabled={busyRunId === run.id}
+                              className="inline-flex items-center gap-1.5 rounded border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-cyan-300 hover:bg-cyan-500/20 disabled:opacity-40"
+                            >
+                              <Sparkles className="h-3 w-3" />
+                              Take Over In AI
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))
                   )}

@@ -2,10 +2,13 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   __resetBackgroundAgentStoreForTests,
   addBackgroundAgentApprovalItems,
+  appendBackgroundAgentRunEvent,
   createBackgroundAgent,
   getBackgroundAgent,
   getBackgroundAgentRuns,
+  markBackgroundAgentRunRunning,
   recordBackgroundAgentRunStart,
+  requestBackgroundAgentRunTakeover,
   resolveBackgroundAgentApproval,
   shouldRunBackgroundAgentNow,
   finishBackgroundAgentRun,
@@ -48,7 +51,22 @@ describe("BackgroundAgentStore", () => {
       isEnabled: true,
     });
 
-    const run = await recordBackgroundAgentRunStart(agent.id);
+    const run = await recordBackgroundAgentRunStart(agent.id, {
+      trigger: "scheduled",
+      maxAttempts: 2,
+    });
+    await markBackgroundAgentRunRunning({
+      agentId: agent.id,
+      runId: run.id,
+      attemptCount: 1,
+    });
+    await appendBackgroundAgentRunEvent({
+      agentId: agent.id,
+      runId: run.id,
+      type: "sql_executed",
+      message: "Executed drift check query",
+      metadata: { rowCount: 12 },
+    });
     const approvals = await addBackgroundAgentApprovalItems([
       {
         agentId: agent.id,
@@ -69,6 +87,11 @@ describe("BackgroundAgentStore", () => {
       queryArtifactIds: ["artifact-query-1"],
       reportArtifactId: "artifact-report-1",
     });
+    await requestBackgroundAgentRunTakeover({
+      agentId: agent.id,
+      runId: run.id,
+      prompt: "Resume this detached investigation in AI chat.",
+    });
     await resolveBackgroundAgentApproval(approvals[0].id, "approved");
 
     const savedAgent = getBackgroundAgent(agent.id);
@@ -77,8 +100,12 @@ describe("BackgroundAgentStore", () => {
 
     expect(savedAgent?.lastRunStatus).toBe("approval_required");
     expect(savedAgent?.lastRunArtifactId).toBe("artifact-report-1");
+    expect(savedRuns[0]?.trigger).toBe("scheduled");
+    expect(savedRuns[0]?.attemptCount).toBe(1);
     expect(savedRuns[0]?.approvalIds).toEqual([approvals[0].id]);
     expect(savedRuns[0]?.queryArtifactIds).toEqual(["artifact-query-1"]);
+    expect(savedRuns[0]?.events.some((event) => event.type === "sql_executed")).toBe(true);
+    expect(savedRuns[0]?.takeoverPrompt).toContain("detached investigation");
     expect(savedApproval?.status).toBe("approved");
   });
 });

@@ -1,28 +1,29 @@
 import { toast } from "sonner";
 import { DbClient, type FullSchema } from "../db/DbClient";
 import { getProvider } from "../ai/ProviderRegistry";
-import { getActiveModel, loadApiKeysFromKeychain, loadSettings, type ConversationTurn, type ToolCall, type UnifiedTool } from "../ai/types";
+import { getActiveModel, loadApiKeysFromKeychain, loadSettings, type ConversationTurn, type UnifiedTool } from "../ai/types";
 import {
   addBackgroundAgentApprovalItems,
+  appendBackgroundAgentRunEvent,
   ensureBackgroundAgentsLoaded,
   finishBackgroundAgentRun,
   getBackgroundAgent,
+  getBackgroundAgentRuns,
   listBackgroundAgents,
+  listBackgroundAgentApprovals,
+  markBackgroundAgentRunRunning,
   recordBackgroundAgentRunStart,
+  requestBackgroundAgentRunTakeover,
   shouldRunBackgroundAgentNow,
   type BackgroundAgentApprovalItem,
   type BackgroundAgentDefinition,
+  type BackgroundAgentRun,
+  type BackgroundAgentRunTrigger,
 } from "./BackgroundAgentStore";
 import { createQueryArtifact } from "../artifacts/queryArtifacts";
 import { createReportArtifact } from "../artifacts/reportArtifacts";
 import { useWorkspaceStore } from "../stores/WorkspaceStore";
 import { getLatestArtifactRevisionId } from "../stores/WorkspaceStore";
-
-interface BackgroundSqlExecutionRecord {
-  sql: string;
-  rowCount: number;
-  artifactId: string;
-}
 
 const BACKGROUND_AGENT_TOOLS: UnifiedTool[] = [
   {
@@ -70,6 +71,7 @@ const BACKGROUND_AGENT_TOOLS: UnifiedTool[] = [
 ];
 
 const inFlightAgents = new Set<string>();
+const MAX_BACKGROUND_AGENT_ATTEMPTS = 2;
 
 function isReadOnlySql(sql: string): boolean {
   const normalized = sql.trim().replace(/^\(+/, "").toLowerCase();
@@ -167,14 +169,61 @@ function buildToolResultTurn(toolCallId: string, name: string, content: string, 
   };
 }
 
-export async function runBackgroundAnalysisAgent(agentId: string): Promise<void> {
+function isRetryableBackgroundError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /connection|timeout|temporar|429|rate limit|fetch|network/i.test(message);
+}
+
+function buildBackgroundAgentTakeoverPrompt(args: {
+  agent: BackgroundAgentDefinition;
+  run: BackgroundAgentRun;
+  approvals: BackgroundAgentApprovalItem[];
+}): string {
+  const eventSummary = args.run.events
+    .slice(-6)
+    .map((event) => `- [${event.type}] ${event.message}`)
+    .join("\n");
+
+  const approvalSummary = args.approvals.length
+    ? args.approvals
+        .map((approval) => `- ${approval.title}: ${approval.rationale}${approval.suggestedSql ? ` SQL: ${approval.suggestedSql}` : ""}`)
+        .join("\n")
+    : "- No queued follow-up approvals.";
+
+  return [
+    `Continue the detached background investigation for "${args.agent.name}".`,
+    `Original prompt: ${args.agent.prompt}`,
+    `Run status: ${args.run.status}`,
+    `Run summary: ${args.run.summary ?? args.run.error ?? "No final summary recorded."}`,
+    args.run.reportArtifactId ? `Linked report artifact: ${args.run.reportArtifactId}` : null,
+    args.run.queryArtifactIds.length > 0
+      ? `Linked query artifacts: ${args.run.queryArtifactIds.join(", ")}`
+      : null,
+    "Recent detached run events:",
+    eventSummary || "- No events recorded.",
+    "Queued review items:",
+    approvalSummary,
+    "Treat detached outputs as current evidence, re-check live state before recommending any write action, and continue the investigation.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+export async function runBackgroundAnalysisAgent(
+  agentId: string,
+  options?: { trigger?: BackgroundAgentRunTrigger; retryOfRunId?: string | null },
+): Promise<BackgroundAgentRun | null> {
   await ensureBackgroundAgentsLoaded();
   const agent = getBackgroundAgent(agentId);
   if (!agent) throw new Error("Background agent not found");
-  if (inFlightAgents.has(agent.id)) return;
+  if (inFlightAgents.has(agent.id)) return null;
   inFlightAgents.add(agent.id);
 
-  const run = await recordBackgroundAgentRunStart(agent.id);
+  const run = await recordBackgroundAgentRunStart(agent.id, {
+    trigger: options?.trigger ?? "manual",
+    maxAttempts: MAX_BACKGROUND_AGENT_ATTEMPTS,
+    retryOfRunId: options?.retryOfRunId ?? null,
+  });
   const queryArtifactIds: string[] = [];
   const queuedApprovals: Array<Omit<BackgroundAgentApprovalItem, "id" | "createdAt" | "resolvedAt" | "status">> = [];
 
@@ -188,96 +237,153 @@ export async function runBackgroundAnalysisAgent(agentId: string): Promise<void>
     }
 
     const schema = await DbClient.getSchema(agent.connectionId).catch(() => null);
-    const history: ConversationTurn[] = [{ role: "user", text: agent.prompt }];
     let finalText = "";
 
-    for (let round = 0; round < 6; round += 1) {
-      const { text, toolCalls, stopReason } = await provider.stream({
-        system: buildBackgroundAgentSystemPrompt(agent, schema),
-        history,
-        model: getActiveModel(providerSettings),
-        tools: BACKGROUND_AGENT_TOOLS,
-        onToken: () => {},
-      });
-
-      finalText += text;
-      history.push({
-        role: "assistant",
-        text,
-        toolCalls,
-      });
-
-      if (stopReason === "end_turn" || toolCalls.length === 0) {
-        break;
-      }
-
-      for (const toolCall of toolCalls) {
-        if (toolCall.name === "background_execute_sql") {
-          const sql = String(toolCall.input.sql ?? "");
-          if (!isReadOnlySql(sql)) {
-            history.push(
-              buildToolResultTurn(
-                toolCall.id,
-                toolCall.name,
-                "Error: only read-only SQL is allowed in detached background agents.",
-                true,
-              ),
-            );
-            continue;
-          }
-
-          const rows = await DbClient.query(agent.connectionId, sql);
-          const artifact = createQueryArtifact({
-            name: `${agent.name} query ${queryArtifactIds.length + 1}`,
-            results: {
-              rows,
-              fields: rows[0] ? Object.keys(rows[0]).map((name) => ({ name })) : [],
-              rowCount: rows.length,
-              elapsedMs: 0,
-              queryId: `background-agent-query-${Date.now()}`,
-              source_tables: [],
-            },
-            sql,
-            connectionId: agent.connectionId,
-            sourceTabId: null,
-          });
-          useWorkspaceStore.getState().commitArtifactRevision(artifact);
-          queryArtifactIds.push(artifact.id);
-          history.push(
-            buildToolResultTurn(
-              toolCall.id,
-              toolCall.name,
-              JSON.stringify({
-                rowCount: rows.length,
-                columns: rows[0] ? Object.keys(rows[0]) : [],
-                artifactId: artifact.id,
-                preview: rows.slice(0, 5),
-              }),
-            ),
-          );
-          continue;
-        }
-
-        if (toolCall.name === "queue_followup_action") {
-          queuedApprovals.push({
+    for (let attempt = 1; attempt <= MAX_BACKGROUND_AGENT_ATTEMPTS; attempt += 1) {
+      const history: ConversationTurn[] = [{ role: "user", text: agent.prompt }];
+      try {
+        await markBackgroundAgentRunRunning({
+          agentId: agent.id,
+          runId: run.id,
+          attemptCount: attempt,
+        });
+        if (attempt > 1) {
+          await appendBackgroundAgentRunEvent({
             agentId: agent.id,
             runId: run.id,
-            title: String(toolCall.input.title ?? "Recommended follow-up"),
-            rationale: String(toolCall.input.rationale ?? "No rationale provided."),
-            risk:
-              toolCall.input.risk === "destructive" ? "destructive" : "caution",
-            suggestedSql:
-              typeof toolCall.input.suggestedSql === "string"
-                ? toolCall.input.suggestedSql
-                : undefined,
+            type: "retrying",
+            level: "warning",
+            message: `Retrying detached investigation after transient failure (attempt ${attempt} of ${MAX_BACKGROUND_AGENT_ATTEMPTS}).`,
           });
-          history.push(
-            buildToolResultTurn(
-              toolCall.id,
-              toolCall.name,
-              JSON.stringify({ queued: true }),
-            ),
-          );
+        }
+
+        finalText = "";
+        for (let round = 0; round < 6; round += 1) {
+          const { text, toolCalls, stopReason } = await provider.stream({
+            system: buildBackgroundAgentSystemPrompt(agent, schema),
+            history,
+            model: getActiveModel(providerSettings),
+            tools: BACKGROUND_AGENT_TOOLS,
+            onToken: () => {},
+          });
+
+          finalText += text;
+          history.push({
+            role: "assistant",
+            text,
+            toolCalls,
+          });
+
+          if (stopReason === "end_turn" || toolCalls.length === 0) {
+            break;
+          }
+
+          for (const toolCall of toolCalls) {
+            if (toolCall.name === "background_execute_sql") {
+              const sql = String(toolCall.input.sql ?? "");
+              if (!isReadOnlySql(sql)) {
+                history.push(
+                  buildToolResultTurn(
+                    toolCall.id,
+                    toolCall.name,
+                    "Error: only read-only SQL is allowed in detached background agents.",
+                    true,
+                  ),
+                );
+                await appendBackgroundAgentRunEvent({
+                  agentId: agent.id,
+                  runId: run.id,
+                  type: "failed",
+                  level: "warning",
+                  message: "Blocked non-read-only SQL during detached execution.",
+                  metadata: { sql },
+                });
+                continue;
+              }
+
+              const rows = await DbClient.query(agent.connectionId, sql);
+              const artifact = createQueryArtifact({
+                name: `${agent.name} query ${queryArtifactIds.length + 1}`,
+                results: {
+                  rows,
+                  fields: rows[0] ? Object.keys(rows[0]).map((name) => ({ name })) : [],
+                  rowCount: rows.length,
+                  elapsedMs: 0,
+                  queryId: `background-agent-query-${Date.now()}`,
+                  source_tables: [],
+                },
+                sql,
+                connectionId: agent.connectionId,
+                sourceTabId: null,
+              });
+              useWorkspaceStore.getState().commitArtifactRevision(artifact);
+              queryArtifactIds.push(artifact.id);
+              await appendBackgroundAgentRunEvent({
+                agentId: agent.id,
+                runId: run.id,
+                type: "sql_executed",
+                message: `Executed read-only SQL and recorded ${rows.length} row(s).`,
+                metadata: {
+                  artifactId: artifact.id,
+                  rowCount: rows.length,
+                  sql: sql.slice(0, 500),
+                },
+              });
+              history.push(
+                buildToolResultTurn(
+                  toolCall.id,
+                  toolCall.name,
+                  JSON.stringify({
+                    rowCount: rows.length,
+                    columns: rows[0] ? Object.keys(rows[0]) : [],
+                    artifactId: artifact.id,
+                    preview: rows.slice(0, 5),
+                  }),
+                ),
+              );
+              continue;
+            }
+
+            if (toolCall.name === "queue_followup_action") {
+              const queuedApproval = {
+                agentId: agent.id,
+                runId: run.id,
+                title: String(toolCall.input.title ?? "Recommended follow-up"),
+                rationale: String(toolCall.input.rationale ?? "No rationale provided."),
+                risk: (
+                  toolCall.input.risk === "destructive" ? "destructive" : "caution"
+                ) as "caution" | "destructive",
+                suggestedSql:
+                  typeof toolCall.input.suggestedSql === "string"
+                    ? toolCall.input.suggestedSql
+                    : undefined,
+              };
+              queuedApprovals.push(queuedApproval);
+              await appendBackgroundAgentRunEvent({
+                agentId: agent.id,
+                runId: run.id,
+                type: "approval_queued",
+                level: queuedApproval.risk === "destructive" ? "warning" : "info",
+                message: `Queued follow-up review item: ${queuedApproval.title}`,
+                metadata: {
+                  risk: queuedApproval.risk,
+                  suggestedSql: queuedApproval.suggestedSql ?? null,
+                },
+              });
+              history.push(
+                buildToolResultTurn(
+                  toolCall.id,
+                  toolCall.name,
+                  JSON.stringify({ queued: true }),
+                ),
+              );
+            }
+          }
+        }
+        break;
+      } catch (error) {
+        if (attempt >= MAX_BACKGROUND_AGENT_ATTEMPTS || !isRetryableBackgroundError(error)) {
+          throw error;
         }
       }
     }
@@ -302,6 +408,13 @@ export async function runBackgroundAnalysisAgent(agentId: string): Promise<void>
       })),
     });
     useWorkspaceStore.getState().commitArtifactRevision(reportArtifact);
+    await appendBackgroundAgentRunEvent({
+      agentId: agent.id,
+      runId: run.id,
+      type: "report_created",
+      message: `Created report artifact ${reportArtifact.id}.`,
+      metadata: { reportArtifactId: reportArtifact.id },
+    });
 
     const status = approvals.length > 0 ? "approval_required" : "success";
     const summary = extractSummaryBullets(finalText).join(" ");
@@ -324,6 +437,7 @@ export async function runBackgroundAnalysisAgent(agentId: string): Promise<void>
         description: summary || "Detached analysis finished successfully.",
       });
     }
+    return run;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Background agent run failed";
     await finishBackgroundAgentRun({
@@ -336,6 +450,7 @@ export async function runBackgroundAnalysisAgent(agentId: string): Promise<void>
     toast.error(`Background agent "${agent.name}" failed`, {
       description: message,
     });
+    return run;
   } finally {
     inFlightAgents.delete(agent.id);
   }
@@ -345,6 +460,35 @@ export async function runDueBackgroundAnalysisAgents(now = Date.now()): Promise<
   await ensureBackgroundAgentsLoaded();
   const agents = listBackgroundAgents().filter((agent) => shouldRunBackgroundAgentNow(agent, now));
   for (const agent of agents) {
-    void runBackgroundAnalysisAgent(agent.id);
+    void runBackgroundAnalysisAgent(agent.id, { trigger: "scheduled" });
   }
+}
+
+export function buildBackgroundRunTakeoverPrompt(
+  agentId: string,
+  runId: string,
+): string | null {
+  const agent = getBackgroundAgent(agentId);
+  if (!agent) return null;
+  const run = getBackgroundAgentRuns(agentId).find((candidate) => candidate.id === runId);
+  if (!run) return null;
+  const approvals = listBackgroundAgentApprovals(agentId).filter((approval) => run.approvalIds.includes(approval.id));
+  return buildBackgroundAgentTakeoverPrompt({
+    agent,
+    run,
+    approvals,
+  });
+}
+
+export async function queueBackgroundRunTakeover(agentId: string, runId: string): Promise<string | null> {
+  const run = getBackgroundAgentRuns(agentId).find((candidate) => candidate.id === runId);
+  if (!run) return null;
+  const prompt = buildBackgroundRunTakeoverPrompt(agentId, runId);
+  if (!prompt) return null;
+  await requestBackgroundAgentRunTakeover({
+    agentId,
+    runId,
+    prompt,
+  });
+  return prompt;
 }

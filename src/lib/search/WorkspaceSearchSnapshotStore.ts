@@ -138,8 +138,15 @@ function computeFingerprints(input: WorkspaceSearchIndexInput): Record<SearchSeg
           id: run.id,
           agentId: run.agentId,
           status: run.status,
+          trigger: run.trigger,
+          attemptCount: run.attemptCount,
           finishedAt: run.finishedAt ?? null,
           reportArtifactId: run.reportArtifactId ?? null,
+          events: run.events.map((event) => ({
+            type: event.type,
+            at: event.at,
+            message: event.message,
+          })),
         })),
         approvals: (input.backgroundAgentApprovals ?? []).map((approval) => ({
           id: approval.id,

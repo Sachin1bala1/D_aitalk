@@ -75,6 +75,7 @@ export default function App() {
     setQueryResults,
     setTabExecuting,
     updateTab,
+    setPendingChatInput,
     popUndo,
     undoStack,
     commitArtifactRevision,
@@ -1219,7 +1220,12 @@ export default function App() {
           {activePanel === "erd" ? (
             <ERDiagram schema={activeSchema} />
           ) : activePanel === "background_agents" ? (
-            <BackgroundAgentsPanel />
+            <BackgroundAgentsPanel
+              onTakeoverPrompt={(prompt) => {
+                setPendingChatInput(prompt);
+                setActivePanel("agent");
+              }}
+            />
           ) : activePanel === "artifacts" ? (
             <ArtifactsPanel />
           ) : activePanel === "pipelines" ? (

@@ -756,15 +756,18 @@ export function buildBackgroundAgentRunDocuments(
     subtitle: `${run.status} · ${run.reportArtifactId ?? "no report artifact"}`,
     body: [
       run.agentId,
+      run.trigger,
       run.summary ?? "",
       run.error ?? "",
       run.reportArtifactId ?? "",
       run.queryArtifactIds.join(" "),
       run.approvalIds.join(" "),
+      run.events.map((event) => `${event.type} ${event.message}`).join(" "),
     ].join(" "),
     keywords: uniqueTokens([
       run.agentId,
       run.status,
+      run.trigger,
       run.reportArtifactId ?? "",
       run.queryArtifactIds.join(" "),
     ]),
@@ -777,6 +780,8 @@ export function buildBackgroundAgentRunDocuments(
     metadata: {
       agentId: run.agentId,
       runId: run.id,
+      trigger: run.trigger,
+      attemptCount: run.attemptCount,
       reportArtifactId: run.reportArtifactId ?? null,
       queryArtifactIds: run.queryArtifactIds,
       approvalIds: run.approvalIds,
