@@ -4,7 +4,7 @@
  * "Approve" dispatches the stored AgentCommand via CommandBus and
  * updates step status to done/failed. "Reject" removes it without running.
  */
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { CheckCircle2, XCircle, AlertTriangle, Shield, Zap, Loader2 } from "lucide-react";
 import { useWorkspaceStore, PlanStep } from "../../lib/stores/WorkspaceStore";
 import { commandBus } from "../../lib/agent/CommandBus";
@@ -14,6 +14,9 @@ import { DbClient } from "../../lib/db/DbClient";
 import type { AgentCommand } from "../../lib/agent/commands";
 import { toast } from "sonner";
 import { verifyMutationCommand } from "../../lib/agent/VerificationEngine";
+import { buildCommandReview, type ReviewDossier } from "../../lib/review/DataChangeReviewEngine";
+import { ensurePipelinesLoaded, inspectPipelines } from "../../lib/pipelines/PipelineStore";
+import { ensureBackgroundAgentsLoaded, listBackgroundAgents } from "../../lib/backgroundAgents/BackgroundAgentStore";
 
 interface ApprovalSyncMeta {
   note: string;
@@ -42,6 +45,8 @@ async function recordPlanAudit(
       commandType: step.commandType,
       riskLevel: step.riskLevel,
       description: step.humanReadable,
+      reviewSummary: step.review?.summary ?? null,
+      reviewFindings: step.review?.findings ?? [],
       connectionId: state.activeConnectionId,
       activeTabId: state.activeTabId,
       ...extra,
@@ -338,6 +343,26 @@ function StepCard({ step }: { step: PlanStep }) {
   const { updatePlanStep, removePlanStep } = useWorkspaceStore();
   const [running, setRunning] = useState(false);
   const risk = RISK_CONFIG[step.riskLevel];
+  const review = step.review;
+
+  useEffect(() => {
+    if (!step.command || step.review) return;
+    let cancelled = false;
+    void (async () => {
+      await Promise.all([ensurePipelinesLoaded(), ensureBackgroundAgentsLoaded()]);
+      const workspace = useWorkspaceStore.getState();
+      const dossier = buildCommandReview(step.command!, workspace, {
+        pipelines: inspectPipelines().pipelines,
+        backgroundAgents: listBackgroundAgents(),
+      });
+      if (!cancelled && dossier) {
+        updatePlanStep(step.id, { review: dossier });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [step.command, step.id, step.review, updatePlanStep]);
 
   const handleApprove = async () => {
     setRunning(true);
@@ -410,6 +435,31 @@ function StepCard({ step }: { step: PlanStep }) {
         <pre className="text-[10px] font-mono text-white/40 bg-black/40 rounded p-2 overflow-x-auto border border-[#1a1a1a]">
           {step.sqlPreview}
         </pre>
+      )}
+
+      {review && (
+        <div className="rounded border border-[#1f1f1f] bg-black/20 p-2">
+          <div className="text-[9px] font-mono uppercase tracking-widest text-white/25">
+            Review Summary
+          </div>
+          <p className="mt-1 text-[10px] text-white/55">{review.summary}</p>
+          <div className="mt-2 space-y-1.5">
+            {review.findings.slice(0, 4).map((finding, index) => (
+              <div key={`${finding.title}-${index}`} className="rounded border border-[#2a2a2a] bg-[#111] px-2 py-1.5">
+                <div className={`text-[10px] font-semibold ${
+                  finding.severity === "critical"
+                    ? "text-red-300/80"
+                    : finding.severity === "warning"
+                      ? "text-amber-300/80"
+                      : "text-cyan-300/80"
+                }`}>
+                  {finding.title}
+                </div>
+                <div className="mt-1 text-[10px] text-white/45">{finding.detail}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {step.status === "failed" && step.errorMessage && (

@@ -767,6 +767,16 @@ export async function runAgentLoop(
           id: stepId,
           commandType: cmd.type,
           humanReadable: description,
+          sqlPreview:
+            "sql" in cmd && typeof cmd.sql === "string"
+              ? cmd.sql
+              : cmd.type === "delete_rows"
+                ? `DELETE FROM "${cmd.schema}"."${cmd.table}" WHERE ${cmd.where};`
+                : cmd.type === "drop_column"
+                  ? `ALTER TABLE "${cmd.schema}"."${cmd.table}" DROP COLUMN "${cmd.columnName}";`
+                  : cmd.type === "rename_table"
+                    ? `ALTER TABLE "${cmd.schema}"."${cmd.oldName}" RENAME TO "${cmd.newName}";`
+                    : undefined,
           taskId: currentTask?.id,
           subtaskId: currentSubtask?.id,
           riskLevel: cmd.risk,

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, FolderOpen, Play, RefreshCw, Trash2, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
+import { DataChangeReviewDialog } from "../review/DataChangeReviewDialog";
 import {
   deletePipelineDefinition,
   ensurePipelinesLoaded,
@@ -12,6 +13,7 @@ import {
   type PipelineDefinition,
   type PipelineRunRecord,
 } from "../../lib/pipelines/PipelineStore";
+import { buildPipelineRunReview, type ReviewDossier } from "../../lib/review/DataChangeReviewEngine";
 
 type PipelineWithMeta = PipelineDefinition & {
   runCount: number;
@@ -29,10 +31,11 @@ function formatTimestamp(timestamp?: number | null) {
 }
 
 export function PipelinePanel() {
-  const { connections, createArtifactQueryTab } = useWorkspaceStore();
+  const { connections, createArtifactQueryTab, artifacts } = useWorkspaceStore();
   const [pipelines, setPipelines] = useState<PipelineWithMeta[]>([]);
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
   const [runningPipelineId, setRunningPipelineId] = useState<string | null>(null);
+  const [reviewingRun, setReviewingRun] = useState<ReviewDossier | null>(null);
 
   useEffect(() => {
     const refresh = async () => {
@@ -81,6 +84,12 @@ export function PipelinePanel() {
 
   const runSelectedPipeline = async () => {
     if (!selectedPipeline) return;
+    setReviewingRun(buildPipelineRunReview(selectedPipeline, selectedRuns[0] ?? null, artifacts));
+  };
+
+  const confirmRunSelectedPipeline = async () => {
+    if (!selectedPipeline) return;
+    setReviewingRun(null);
     setRunningPipelineId(selectedPipeline.id);
     try {
       const run = await runPipelineDefinition(selectedPipeline.id);
@@ -272,6 +281,14 @@ export function PipelinePanel() {
           </>
         )}
       </div>
+      <DataChangeReviewDialog
+        open={!!reviewingRun}
+        dossier={reviewingRun}
+        title="Pipeline Review"
+        approveLabel="Run Pipeline"
+        onApprove={() => void confirmRunSelectedPipeline()}
+        onCancel={() => setReviewingRun(null)}
+      />
     </div>
   );
 }

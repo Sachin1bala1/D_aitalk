@@ -10,6 +10,7 @@ import type {
   Hypothesis,
   ConfidenceDeclaration,
 } from "../agent/commands";
+import type { ReviewDossier } from "../review/DataChangeReviewEngine";
 import type { Task, TaskCheckpoint } from "../agent/TaskState";
 import type { PersistedAiSessionState } from "../ai/AiSessionState";
 import type { WorkingMemoryState } from "../memory/WorkingMemory";
@@ -34,6 +35,7 @@ export interface PlanStep {
   commandType: string;
   humanReadable: string;
   sqlPreview?: string;
+  review?: ReviewDossier;
   taskId?: string;
   subtaskId?: string;
   riskLevel: "safe" | "caution" | "destructive";

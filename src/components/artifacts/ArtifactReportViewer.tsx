@@ -17,6 +17,8 @@ import { getUpstreamArtifacts } from "../../lib/artifacts/artifactGraph";
 import { ArtifactRevisionPanel, formatRevisionTimestamp } from "./ArtifactRevisionPanel";
 import { describeArtifactDiff } from "../../lib/artifacts/artifactDiff";
 import { ArtifactRevisionDetails } from "./ArtifactRevisionDetails";
+import { DataChangeReviewDialog } from "../review/DataChangeReviewDialog";
+import { buildReportRefreshReview, type ReviewDossier } from "../../lib/review/DataChangeReviewEngine";
 
 export function ArtifactReportViewer({ artifactId }: { artifactId: string }) {
   const artifact = useWorkspaceStore((state) => state.artifacts[artifactId] as ReportArtifact | undefined);
@@ -33,6 +35,10 @@ export function ArtifactReportViewer({ artifactId }: { artifactId: string }) {
   const duplicateArtifactFromRevision = useWorkspaceStore((state) => state.duplicateArtifactFromRevision);
   const artifactRevisions = useWorkspaceStore((state) => state.artifactRevisions[artifactId] ?? []);
   const [selectedRevision, setSelectedRevision] = useState<ArtifactRevision | null>(null);
+  const [pendingRefreshReview, setPendingRefreshReview] = useState<{
+    mode: "stale" | "all";
+    dossier: ReviewDossier;
+  } | null>(null);
 
   useEffect(() => {
     setSelectedRevision(null);
@@ -112,7 +118,7 @@ export function ArtifactReportViewer({ artifactId }: { artifactId: string }) {
     });
   };
 
-  const handleRefresh = (mode: "stale" | "all") => {
+  const startRefreshReview = (mode: "stale" | "all") => {
     if (selectedRevision) {
       toast.error("Switch back to the current revision before refreshing this report.");
       return;
@@ -133,6 +139,16 @@ export function ArtifactReportViewer({ artifactId }: { artifactId: string }) {
       return;
     }
 
+    setPendingRefreshReview({
+      mode,
+      dossier: buildReportRefreshReview(artifact, artifacts, artifactRevisionsById, mode),
+    });
+  };
+
+  const confirmRefresh = (mode: "stale" | "all") => {
+    const staleSectionKeys =
+      mode === "stale" ? getStaleReportSectionKeys(artifact, artifacts, artifactRevisionsById) : [];
+
     const refreshedArtifact = buildRefreshedReportArtifact(
       artifact,
       artifacts,
@@ -140,6 +156,7 @@ export function ArtifactReportViewer({ artifactId }: { artifactId: string }) {
       mode === "stale" ? { sectionKeys: staleSectionKeys } : undefined,
     );
     updateArtifactDraft(refreshedArtifact);
+    setPendingRefreshReview(null);
     toast.success(
       mode === "stale"
         ? `Refreshed ${staleSectionKeys.length} stale report section${staleSectionKeys.length === 1 ? "" : "s"}`
@@ -254,7 +271,7 @@ export function ArtifactReportViewer({ artifactId }: { artifactId: string }) {
         {!selectedRevision && artifact.sourceArtifactIds.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2">
             <button
-              onClick={() => handleRefresh("stale")}
+              onClick={() => startRefreshReview("stale")}
               disabled={health.missingIds.length > 0 || staleSections.length === 0}
               className="inline-flex items-center gap-1.5 rounded border border-[#2a2a2a] bg-[#111] px-2 py-1 text-[10px] font-mono text-white/55 hover:text-white/80 disabled:opacity-40"
             >
@@ -262,7 +279,7 @@ export function ArtifactReportViewer({ artifactId }: { artifactId: string }) {
               Refresh Stale Sections
             </button>
             <button
-              onClick={() => handleRefresh("all")}
+              onClick={() => startRefreshReview("all")}
               disabled={health.missingIds.length > 0}
               className="inline-flex items-center gap-1.5 rounded border border-[#2a2a2a] bg-[#111] px-2 py-1 text-[10px] font-mono text-white/55 hover:text-white/80 disabled:opacity-40"
             >
@@ -361,6 +378,14 @@ export function ArtifactReportViewer({ artifactId }: { artifactId: string }) {
           hasUncommittedChanges={artifactHead?.hasUncommittedChanges && !selectedRevision}
           onRestoreAsDraft={handleRestoreAsDraft}
           onDuplicateRevision={handleDuplicateRevision}
+        />
+        <DataChangeReviewDialog
+          open={!!pendingRefreshReview}
+          dossier={pendingRefreshReview?.dossier ?? null}
+          title="Report Refresh Review"
+          approveLabel="Apply Refresh"
+          onApprove={() => pendingRefreshReview && confirmRefresh(pendingRefreshReview.mode)}
+          onCancel={() => setPendingRefreshReview(null)}
         />
       </div>
 
