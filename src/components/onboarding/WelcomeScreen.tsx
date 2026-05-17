@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Database, HardDrive, Clock } from "lucide-react";
 
 interface WelcomeScreenProps {
@@ -35,23 +35,6 @@ const DB_CARDS = [
 ] as const;
 
 export function WelcomeScreen({ onConnect, onOpenFile, onDismiss }: WelcomeScreenProps) {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    if (localStorage.getItem("daitalk_onboarding_dismissed")) {
-      setVisible(false);
-    } else {
-      setVisible(true);
-    }
-  }, []);
-
-  if (!visible) return null;
-
-  const handleDismiss = () => {
-    localStorage.setItem("daitalk_onboarding_dismissed", "1");
-    onDismiss();
-  };
-
   return (
     <div className="fixed inset-0 bg-[#080808] z-50 flex items-center justify-center">
       <div className="flex flex-col items-center gap-8 w-full max-w-2xl px-6">
@@ -94,7 +77,7 @@ export function WelcomeScreen({ onConnect, onOpenFile, onDismiss }: WelcomeScree
 
       {/* Skip link — bottom-right */}
       <button
-        onClick={handleDismiss}
+        onClick={onDismiss}
         className="absolute bottom-6 right-6 text-xs text-white/30 hover:text-white/60 transition-colors"
       >
         Skip for now

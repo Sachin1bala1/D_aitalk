@@ -53,8 +53,25 @@ import { useWorkspaceRuleStore } from "./lib/memory/WorkspaceRuleStore";
 import { ensureBackgroundAgentsLoaded } from "./lib/backgroundAgents/BackgroundAgentStore";
 import { runDueBackgroundAnalysisAgents } from "./lib/backgroundAgents/BackgroundAgentRunner";
 import { runDuePipelineDefinitions } from "./lib/pipelines/PipelineStore";
+import { SmokeWorkspaceShell } from "./components/app/SmokeWorkspaceShell";
+import {
+  ensureAppPreferencesLoaded,
+  loadAppPreferencesSync,
+  updateAppPreferences,
+} from "./lib/app/AppPreferencesStore";
+import {
+  createSmokeConnection,
+  createSmokeSchema,
+  createSmokeWorkspaceSnapshot,
+  isSmokeMode,
+} from "./lib/app/SmokeWorkspace";
 
 export default function App() {
+  const smokeMode = isSmokeMode();
+  if (smokeMode) {
+    return <SmokeWorkspaceShell />;
+  }
+
   const {
     activeConnectionId,
     connections,
@@ -84,7 +101,9 @@ export default function App() {
   } = useWorkspaceStore();
 
   const [isConnecting, setIsConnecting] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem("daitalk_onboarding_dismissed"));
+  const [showWelcome, setShowWelcome] = useState(
+    () => !loadAppPreferencesSync().onboardingDismissed,
+  );
   const [showTour, setShowTour] = useState(false);
   const [activePanel, setActivePanel] = useState<WorkspacePanel>("agent");
   const [inTransaction, setInTransaction] = useState(false);
@@ -109,7 +128,25 @@ export default function App() {
   // Cancel query refs — survive re-renders without state
   // Register CommandBus handlers once on mount + restore saved connections
   useEffect(() => {
+    if (smokeMode) {
+      const connection = createSmokeConnection();
+      addConnection(connection);
+      setSchema(connection.id, createSmokeSchema());
+      setActiveConnection(connection.id);
+      hydrateWorkspaceSession(createSmokeWorkspaceSnapshot());
+      setActivePanel("search");
+      setShowWelcome(false);
+      setShowTour(false);
+      setWorkspaceSessionReady(true);
+      return;
+    }
+
     registerHandlers();
+    void ensureAppPreferencesLoaded()
+      .then((preferences) => {
+        setShowWelcome(!preferences.onboardingDismissed);
+      })
+      .catch(() => {});
     void useUserToolStore.getState().ensureLoaded();
     void useWorkspaceRuleStore.getState().ensureLoaded();
     void ensureBackgroundAgentsLoaded();
@@ -134,10 +171,10 @@ export default function App() {
       .finally(() => {
         setWorkspaceSessionReady(true);
       });
-  }, []);
+  }, [addConnection, hydrateWorkspaceSession, setActiveConnection, setSchema, smokeMode]);
 
   useEffect(() => {
-    if (!workspaceSessionReady) return;
+    if (smokeMode || !workspaceSessionReady) return;
 
     void runDueBackgroundAnalysisAgents();
     void runDuePipelineDefinitions();
@@ -147,10 +184,10 @@ export default function App() {
     }, 60_000);
 
     return () => window.clearInterval(interval);
-  }, [workspaceSessionReady]);
+  }, [smokeMode, workspaceSessionReady]);
 
   useEffect(() => {
-    if (!workspaceSessionReady) return;
+    if (smokeMode || !workspaceSessionReady) return;
 
     const timeout = window.setTimeout(() => {
       const snapshot = buildWorkspaceSessionSnapshot({
@@ -173,11 +210,13 @@ export default function App() {
     persistedAiSession,
     persistedTaskCheckpoint,
     selectedTableNode,
+    smokeMode,
     workspaceSessionReady,
   ]);
 
   // Global keyboard shortcuts
   useEffect(() => {
+    if (smokeMode) return;
     const handler = (e: KeyboardEvent) => {
       const ctrl = e.ctrlKey || e.metaKey;
       if (ctrl && e.key === "s" && !e.shiftKey) { e.preventDefault(); handleSaveSql(); }
@@ -219,6 +258,7 @@ export default function App() {
   // Schema auto-refresh: compare table fingerprint every 60s, notify if changed
   const schemaFingerprintRef = useRef<Record<string, string>>({});
   useEffect(() => {
+    if (smokeMode) return;
     if (connections.length === 0) return;
     const fingerprint = (s: typeof schemas[string] | undefined) =>
       s ? s.tables.map((t: { schema: string; name: string }) => `${t.schema}.${t.name}`).sort().join("|") : "";
@@ -249,10 +289,11 @@ export default function App() {
     }
     const id = setInterval(check, 60_000);
     return () => clearInterval(id);
-  }, [connections.map((c) => c.id).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [connections.map((c) => c.id).join(","), smokeMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Connection health ping — every 30 seconds
   useEffect(() => {
+    if (smokeMode) return;
     if (connections.length === 0) return;
     const ping = async () => {
       for (const conn of connections) {
@@ -268,7 +309,7 @@ export default function App() {
     ping(); // immediate first check
     const id = setInterval(ping, 30_000);
     return () => clearInterval(id);
-  }, [connections.map((c) => c.id).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [connections.map((c) => c.id).join(","), smokeMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const restoreSavedConnections = async () => {
     const saved = await loadSavedConnectionsAsync();
@@ -317,15 +358,17 @@ export default function App() {
     connections.find((connection) => connection.id === activeConnectionId)?.driver ?? null;
 
   useEffect(() => {
+    if (smokeMode) return;
     BusinessClient.trackUsageEvent({
       event_type: "navigation",
       feature: `panel:${activePanel}`,
       connection_id: activeConnectionId,
       driver: connections.find((c) => c.id === activeConnectionId)?.driver ?? null,
     }).catch(() => {});
-  }, [activePanel, activeConnectionId, connections]);
+  }, [activePanel, activeConnectionId, connections, smokeMode]);
 
   useEffect(() => {
+    if (smokeMode) return;
     const sql = activeTab?.sql ?? "";
     if (!sql.trim()) {
       setProactiveSuggestions([]);
@@ -337,9 +380,10 @@ export default function App() {
         .catch(() => {});
     }, 400);
     return () => clearTimeout(id);
-  }, [activeConnectionId, activeTab?.sql]);
+  }, [activeConnectionId, activeTab?.sql, smokeMode]);
 
   useEffect(() => {
+    if (smokeMode) return;
     const runScheduledMonitors = async () => {
       const rules = await BusinessClient.listMonitoringRules().catch(() => []);
       const now = Date.now();
@@ -385,7 +429,7 @@ export default function App() {
       void runScheduledMonitors();
     }, 60_000);
     return () => clearInterval(timer);
-  }, []);
+  }, [smokeMode]);
 
   const { handleQuerySuccess, handleQueryError } = useAppQueryFeedback({
     setQueryResults: (results) => setQueryResults(results),
@@ -711,15 +755,17 @@ export default function App() {
       persistConnections(nextConnections).catch(() => {});
     }
     toast.success("Connected");
-    BusinessClient.trackUsageEvent({
-      event_type: "connection",
-      feature: "connect",
-      connection_id: connectionId,
-      driver: config?.driver ?? connections.find((c) => c.id === connectionId)?.driver ?? null,
-    }).catch(() => {});
-    // First-run onboarding: dismiss welcome screen and launch tour if not yet completed
+    if (!smokeMode) {
+      BusinessClient.trackUsageEvent({
+        event_type: "connection",
+        feature: "connect",
+        connection_id: connectionId,
+        driver: config?.driver ?? connections.find((c) => c.id === connectionId)?.driver ?? null,
+      }).catch(() => {});
+    }
+    updateAppPreferences({ onboardingDismissed: true });
     setShowWelcome(false);
-    if (!localStorage.getItem("daitalk_tour_completed")) {
+    if (!loadAppPreferencesSync().onboardingTourCompleted) {
       setShowTour(true);
     }
   };
@@ -884,11 +930,11 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#0a0a0a] text-white overflow-hidden">
+    <div className="flex h-screen w-full bg-[#0a0a0a] text-white overflow-hidden" data-testid="app-shell">
       <Toaster position="bottom-right" theme="dark" />
 
       {/* Left: Schema sidebar */}
-      <div data-tour="schema-sidebar" className="w-64 border-r border-[#262626] flex flex-col bg-[#0d0d0d] shrink-0">
+      <div data-tour="schema-sidebar" data-testid="schema-sidebar" className="w-64 border-r border-[#262626] flex flex-col bg-[#0d0d0d] shrink-0">
         <div className="h-12 flex items-center justify-between px-4 border-b border-[#262626]">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 bg-[#00d2ff] rounded flex items-center justify-center">
@@ -990,6 +1036,7 @@ export default function App() {
       {/* Center: Editor + Results */}
       <div
         ref={splitContainerRef}
+        data-testid="workspace-center"
         className="flex-1 flex flex-col min-w-0"
         onMouseMove={(e) => {
           if (!splitDragging.current || !splitContainerRef.current) return;
@@ -1200,12 +1247,13 @@ export default function App() {
       </div>
 
       {/* Right: AI Panel */}
-      <div data-tour="ai-panel" className="w-96 border-l border-[#262626] flex flex-col bg-[#0d0d0d] shrink-0">
+      <div data-tour="ai-panel" data-testid="right-panel" className="w-96 border-l border-[#262626] flex flex-col bg-[#0d0d0d] shrink-0">
         <div className="h-12 border-b border-[#262626] flex items-center px-4 gap-4 shrink-0">
           {(["agent", "background_agents", "artifacts", "pipelines", "history", "memory", "founder", "snippets", "erd", "search", "sessions", "overview"] as const).map((p) => (
             <button
               key={p}
               onClick={() => setActivePanel(p)}
+              data-testid={`panel-tab-${p}`}
               className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${
                 activePanel === p ? "text-[#00d2ff]" : "text-white/30 hover:text-white/50"
               }`}
@@ -1219,7 +1267,7 @@ export default function App() {
             </span>
           )}
         </div>
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden" data-testid={`panel-content-${activePanel}`}>
           {activePanel === "erd" ? (
             <ERDiagram schema={activeSchema} />
           ) : activePanel === "background_agents" ? (
@@ -1335,11 +1383,24 @@ export default function App() {
             setShowWelcome(false);
             handleOpenFile();
           }}
-          onDismiss={() => setShowWelcome(false)}
+          onDismiss={() => {
+            updateAppPreferences({ onboardingDismissed: true });
+            setShowWelcome(false);
+          }}
         />
       )}
 
-      {showTour && <OnboardingTour onComplete={() => setShowTour(false)} />}
+      {showTour && (
+        <OnboardingTour
+          onComplete={() => {
+            updateAppPreferences({
+              onboardingDismissed: true,
+              onboardingTourCompleted: true,
+            });
+            setShowTour(false);
+          }}
+        />
+      )}
     </div>
   );
 }

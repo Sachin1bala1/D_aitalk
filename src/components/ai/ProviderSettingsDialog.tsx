@@ -9,6 +9,7 @@ import React, { useState, useEffect } from "react";
 import { X, Eye, EyeOff, CheckCircle2, ExternalLink } from "lucide-react";
 import {
   PROVIDER_CATALOG,
+  ensureProviderSettingsLoaded,
   loadSettings,
   saveSettings,
   loadApiKeysFromKeychain,
@@ -44,6 +45,11 @@ export function ProviderSettingsDialog({ open, onClose, onSave }: Props) {
   // Load API keys from OS keychain when dialog opens
   useEffect(() => {
     if (!open) return;
+    ensureProviderSettingsLoaded()
+      .then((loaded) => {
+        setSettings((current) => ({ ...loaded, keys: current.keys }));
+      })
+      .catch(() => {});
     loadApiKeysFromKeychain().then((keys) => {
       setSettings((s) => ({ ...s, keys }));
     }).catch(() => {});

@@ -2,7 +2,7 @@
 
 Last updated: 2026-05-17
 Owner: Codex / product engineering
-Status: Active execution plan
+Status: Launch hardening complete; strategic parity work remains
 
 ## Goal
 
@@ -26,15 +26,15 @@ The product already has strong foundations:
 - artifact-backed query/chart/report workflows with revisions and restore
 - workspace and AI session restore with interrupted-task checkpoints
 
-The largest remaining production blockers are:
+The largest remaining product gaps are now strategic, not launch-hardening basics:
 
-1. mutation verification/provenance is still incomplete for some write paths
-2. artifact/report depth still needs section-level refresh/binding polish
-3. Rust-side automated test execution still needs to be made practical/reliable in CI and local verification
+1. true remote/cloud execution beyond the local governed desktop fleet
+2. optional deeper visualization interaction depth beyond the current chart workspace
+3. future operator-scale features if the product expands beyond a desktop-first model
 
 ## Audit-Critical Findings
 
-These findings came from parallel repo audits and should override any softer prioritization:
+These findings came from the original parallel repo audits. They are kept here as historical context; the launch-hardening items have now been addressed.
 
 1. `P0` Destructive-action approval is not truly enforced in Auto Mode.
    - Current behavior in `src/lib/agent/AgentLoop.ts` can allow destructive commands to run immediately outside Plan Mode.
@@ -207,8 +207,8 @@ Objective:
 Remove remaining persistence fragmentation and make restore behavior fully trustworthy.
 
 Status:
-- native persistence now covers workspace state, AI session state, query history, snippets, chart presets, pipelines, and user-defined tools
-- legacy `localStorage` is now limited to migration/fallback paths plus device-local UX preferences
+- native persistence now covers workspace state, AI session state, query history, snippets, chart presets, pipelines, user-defined tools, app preferences, and provider preferences
+- legacy `localStorage` is limited to migration/fallback paths
 - degraded native persistence now surfaces warnings instead of failing silently
 
 Primary files:
@@ -237,8 +237,8 @@ Action items:
    - any local convenience cache must not conflict with artifact state
 
 4. Consolidate onboarding/preferences where appropriate.
-   - separate throwaway device preferences from product state
-   - document the boundary clearly
+   - completed for onboarding/tour state, panel-height preferences, and provider/model preferences
+   - document the boundary clearly in [persistence-boundary.md](C:/Users/sachi/OneDrive/Desktop/Daitalk/daitalk-v2/daitalk-v2/docs/persistence-boundary.md)
 
 5. Deepen restore diagnostics.
    - indicate stale, missing, offline, and partially restorable entities
@@ -257,7 +257,7 @@ Make analysis outputs navigable, refreshable, and understandable at production d
 Status:
 - downstream report bulk-open and stale-refresh actions are now implemented for query/chart artifacts
 - revision compare and draft/revision flows are in place
-- remaining gap is deeper report section binding / partial refresh precision
+- launch hardening closed visible chart polish seams including export and unsupported affordances
 
 Primary files:
 
@@ -284,9 +284,10 @@ Action items:
    - support partial refresh for stale sections
 
 4. Finish obvious chart/report polish seams.
-   - export completeness
-   - remove or clearly gate unsupported chart interactions
-   - eliminate confusing stale local chart config behavior
+   - completed for launch hardening:
+     - PNG export in Graph Builder
+     - unsupported faceting changed to a clear gated state
+     - unfinished lasso TODO messaging removed from user-facing behavior
 
 Exit criteria:
 
@@ -300,9 +301,10 @@ Introduce the engineering discipline required for safe releases.
 
 Status:
 - frontend validation now includes `npm test`
+- workspace-shell smoke validation exists in `npm run test:smoke`
 - release workflows and scripts now align to real commands
 - support-bundle export and support collection docs are in place
-- Rust library tests are now the practical enforced CI gate; remaining gaps are deeper mutation verification and report refresh depth rather than missing validation wiring
+- Rust library tests are the practical enforced CI gate
 
 Primary files:
 
@@ -515,4 +517,14 @@ During implementation, update this file by:
   - snippets
   - chart presets
 - Legacy `localStorage` values for those features now act as migration/fallback sources rather than the canonical store.
-- Remaining `localStorage` usage is intentionally limited to non-critical/device-local UX preferences until a later cleanup wave.
+- Remaining `localStorage` usage is limited to migration/fallback behavior.
+
+### Launch Hardening Follow-up
+
+- Completed on 2026-05-17 via [launch-hardening-plan.md](C:/Users/sachi/OneDrive/Desktop/Daitalk/daitalk-v2/daitalk-v2/docs/launch-hardening-plan.md)
+- Added:
+  - `npm run test:smoke`
+  - honest updater states in the About dialog
+  - Graph Builder PNG export and chart-affordance cleanup
+  - native-backed onboarding/panel/provider preferences
+  - documented persistence boundaries

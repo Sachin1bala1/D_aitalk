@@ -113,7 +113,7 @@ export function PipelinePanel() {
 
   if (pipelines.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 text-white/10">
+      <div className="flex h-full flex-col items-center justify-center gap-2 text-white/10" data-testid="pipelines-panel">
         <Workflow className="h-8 w-8" />
         <p className="text-xs uppercase tracking-widest">No pipelines yet</p>
         <p className="text-[10px] text-white/15 font-mono">
@@ -124,7 +124,7 @@ export function PipelinePanel() {
   }
 
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex h-full min-h-0" data-testid="pipelines-panel">
       <div className="w-44 shrink-0 border-r border-[#1a1a1a] overflow-y-auto">
         {pipelines.map((pipeline) => (
           <button

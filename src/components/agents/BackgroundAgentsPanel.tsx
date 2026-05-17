@@ -235,7 +235,7 @@ export function BackgroundAgentsPanel({ onTakeoverPrompt }: BackgroundAgentsPane
   };
 
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex h-full min-h-0" data-testid="background-agents-panel">
       <div className="w-56 shrink-0 border-r border-[#1a1a1a] overflow-y-auto">
         <div className="flex items-center justify-between px-3 py-3 border-b border-[#1a1a1a]">
           <div className="flex items-center gap-2">

@@ -10,11 +10,12 @@
  * - Manual chart type override via right panel buttons
  * - Chart options: show data points, trend line, log scale, reference line, CI
  * - Save/restore chart presets through the native persistence layer
- * - Export: PNG (html2canvas TODO), TSV copy
+ * - Export: PNG, TSV copy
  * - Selection via shift+click; right-click context menu → "Analyze with APEX"
  */
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { X, ChevronDown, ChevronRight, BarChart2, TrendingUp, Download, Save, List, Hash, Calendar, Type, HelpCircle } from 'lucide-react';
+import html2canvas from 'html2canvas';
 import type { ColumnMeta } from '../../lib/db/DbClient';
 import { GraphBuilder } from './GraphBuilder';
 import { autoSelectChart, type ChartType } from '../../lib/charts/chartAutoSelect';
@@ -266,6 +267,7 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
   const [optionsCollapsed, setOptionsCollapsed] = useState(false);
   const [savedChartsCollapsed, setSavedChartsCollapsed] = useState(true);
   const [savedCharts, setSavedCharts] = useState<SavedChartConfig[]>(loadChartPresets);
+  const chartCaptureRef = useRef<HTMLDivElement>(null);
 
   // Find ColumnMeta by name
   const colMeta = useCallback(
@@ -452,6 +454,31 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
     navigator.clipboard.writeText(header + '\n' + rows).catch(() => {});
   };
 
+  const handleExportPng = async () => {
+    if (!chartCaptureRef.current) {
+      toast.error('Chart surface is not ready to export yet.');
+      return;
+    }
+
+    try {
+      const canvas = await html2canvas(chartCaptureRef.current, {
+        backgroundColor: '#0a0a0a',
+        scale: 2,
+      });
+      const link = document.createElement('a');
+      const fileNameBase = (title || `${resolvedChartType}-${assignments.y ?? 'chart'}`)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'chart-export';
+      link.href = canvas.toDataURL('image/png');
+      link.download = `${fileNameBase}.png`;
+      link.click();
+      toast.success('Chart exported as PNG');
+    } catch (error: any) {
+      toast.error(error?.message ?? 'Unable to export the chart as PNG.');
+    }
+  };
+
   // Right-click selection handler
   const handleRightClickSelection = useCallback((indices: number[], summary: string) => {
     // Send to AI panel context via window custom event (consumed by AIPanel if listening)
@@ -572,7 +599,7 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
             <DropZone zoneKey="color" label="Color" assignedCol={assignments.color} onDrop={(payload) => handleZoneDrop('color', payload)} onRemove={() => setAssignment('color', null)} disabled={!zoneSupport.color} helperText="unsupported for this chart" />
             <DropZone zoneKey="size" label="Size" assignedCol={assignments.size} onDrop={(payload) => handleZoneDrop('size', payload)} onRemove={() => setAssignment('size', null)} disabled={!zoneSupport.size} helperText="use bubble or auto" />
           </div>
-          <DropZone zoneKey="facet" label="Group" assignedCol={assignments.facet} onDrop={(payload) => handleZoneDrop('facet', payload)} onRemove={() => setAssignment('facet', null)} disabled={!zoneSupport.facet} helperText="faceting not implemented" />
+          <DropZone zoneKey="facet" label="Group" assignedCol={assignments.facet} onDrop={(payload) => handleZoneDrop('facet', payload)} onRemove={() => setAssignment('facet', null)} disabled={!zoneSupport.facet} helperText="use color to compare groups" />
         </div>
 
         {/* Export toolbar */}
@@ -604,11 +631,10 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
                 </button>
               </>
             )}
-            {/* TODO: html2canvas export */}
             <button
-              disabled
-              className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] text-white/15 font-mono uppercase tracking-wider cursor-not-allowed"
-              title="PNG export — html2canvas not installed"
+              onClick={handleExportPng}
+              className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] text-white/30 hover:text-white/60 font-mono uppercase tracking-wider transition-colors"
+              title="Export the current chart as PNG"
             >
               <Download className="w-2.5 h-2.5" /> PNG
             </button>
@@ -631,6 +657,7 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
 
         {/* Chart area */}
         <div
+          ref={chartCaptureRef}
           className="flex-1 min-h-0 overflow-hidden"
           data-graph-builder-chart
         >

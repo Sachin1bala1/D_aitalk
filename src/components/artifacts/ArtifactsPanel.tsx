@@ -38,7 +38,7 @@ export function ArtifactsPanel() {
 
   if (orderedArtifacts.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-white/10 gap-2">
+      <div className="flex flex-col items-center justify-center h-full text-white/10 gap-2" data-testid="artifacts-panel">
         <BarChart3 className="w-8 h-8" />
         <p className="text-xs uppercase tracking-widest">No artifacts yet</p>
         <p className="text-[10px] text-white/15 font-mono">
@@ -49,7 +49,7 @@ export function ArtifactsPanel() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" data-testid="artifacts-panel">
       <div className="px-3 py-2 border-b border-[#1a1a1a] shrink-0">
         <span className="text-[9px] font-mono uppercase tracking-widest text-white/20">
           {orderedArtifacts.length} saved artifact{orderedArtifacts.length === 1 ? "" : "s"}

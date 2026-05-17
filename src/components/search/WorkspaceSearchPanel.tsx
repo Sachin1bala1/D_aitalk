@@ -312,7 +312,7 @@ export function WorkspaceSearchPanel({ schemas, connections, onNavigate, onSelec
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" data-testid="workspace-search-panel">
       <div className="p-3 border-b border-[#1a1a1a]">
         <div className="flex items-center gap-2 px-3 py-2 rounded bg-[#111] border border-[#262626] focus-within:border-[#00d2ff]/40 transition-colors">
           <Search className="w-3.5 h-3.5 text-white/30 shrink-0" />
