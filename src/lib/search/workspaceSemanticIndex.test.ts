@@ -7,6 +7,7 @@ import type { PipelineDefinition, PipelineRunRecord } from "../pipelines/Pipelin
 import type {
   BackgroundAgentApprovalItem,
   BackgroundAgentDefinition,
+  BackgroundAgentEnvironment,
   BackgroundAgentRun,
 } from "../backgroundAgents/BackgroundAgentStore";
 import type { Episode } from "../memory/EpisodicMemory";
@@ -145,6 +146,7 @@ describe("workspaceSemanticIndex", () => {
       name: "Revenue monitor",
       prompt: "Watch for revenue drops and summarize anomalies.",
       connectionId: "conn-1",
+      environmentId: "background-env-1",
       cadenceMinutes: 60,
       isEnabled: true,
       createdAt: Date.now() - 6000,
@@ -153,6 +155,20 @@ describe("workspaceSemanticIndex", () => {
       lastRunStatus: "success",
       lastRunArtifactId: chartArtifact.id,
       lastRunSummary: "Detected a weekend dip.",
+    };
+
+    const environment: BackgroundAgentEnvironment = {
+      id: "background-env-1",
+      name: "Warehouse Prod",
+      description: "Primary detached analysis lane.",
+      connectionIds: ["conn-1"],
+      concurrencyLimit: 2,
+      isEnabled: true,
+      status: "active",
+      createdAt: Date.now() - 7000,
+      updatedAt: Date.now() - 1000,
+      lastDispatchAt: Date.now() - 2500,
+      lastHeartbeatAt: Date.now() - 2400,
     };
 
     const pipelineRun: PipelineRunRecord = {
@@ -171,6 +187,7 @@ describe("workspaceSemanticIndex", () => {
     const agentRun: BackgroundAgentRun = {
       id: "agent-run-1",
       agentId: agent.id,
+      environmentId: environment.id,
       status: "success",
       trigger: "scheduled",
       startedAt: Date.now() - 3000,
@@ -270,6 +287,7 @@ describe("workspaceSemanticIndex", () => {
       },
       pipelines: [pipeline],
       pipelineRuns: [pipelineRun],
+      backgroundAgentEnvironments: [environment],
       backgroundAgents: [agent],
       backgroundAgentRuns: [agentRun],
       backgroundAgentApprovals: [approval],
@@ -414,6 +432,7 @@ describe("workspaceSemanticIndex", () => {
       name: "Revenue monitor",
       prompt: "Watch for revenue drops and summarize anomalies.",
       connectionId: "conn-1",
+      environmentId: "background-env-1",
       cadenceMinutes: 60,
       isEnabled: true,
       createdAt: Date.now() - 6000,
@@ -423,9 +442,23 @@ describe("workspaceSemanticIndex", () => {
       lastRunArtifactId: reportArtifact.id,
       lastRunSummary: "Weekend dip detected.",
     };
+    const environment: BackgroundAgentEnvironment = {
+      id: "background-env-1",
+      name: "Warehouse Prod",
+      description: "Primary detached analysis lane.",
+      connectionIds: ["conn-1"],
+      concurrencyLimit: 2,
+      isEnabled: true,
+      status: "active",
+      createdAt: Date.now() - 7000,
+      updatedAt: Date.now() - 1000,
+      lastDispatchAt: Date.now() - 2500,
+      lastHeartbeatAt: Date.now() - 2400,
+    };
     const agentRun: BackgroundAgentRun = {
       id: "agent-run-1",
       agentId: agent.id,
+      environmentId: environment.id,
       status: "success",
       trigger: "scheduled",
       startedAt: Date.now() - 3000,
@@ -480,6 +513,7 @@ describe("workspaceSemanticIndex", () => {
       },
       pipelines: [pipeline],
       pipelineRuns: [pipelineRun],
+      backgroundAgentEnvironments: [environment],
       backgroundAgents: [agent],
       backgroundAgentRuns: [agentRun],
       backgroundAgentApprovals: [approval],

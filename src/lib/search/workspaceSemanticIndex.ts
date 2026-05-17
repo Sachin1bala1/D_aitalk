@@ -5,6 +5,7 @@ import type { PipelineDefinition, PipelineRunRecord } from "../pipelines/Pipelin
 import type {
   BackgroundAgentApprovalItem,
   BackgroundAgentDefinition,
+  BackgroundAgentEnvironment,
   BackgroundAgentRun,
 } from "../backgroundAgents/BackgroundAgentStore";
 import type { Episode } from "../memory/EpisodicMemory";
@@ -21,6 +22,7 @@ export type WorkspaceSearchDocumentKind =
   | "pipeline"
   | "pipeline_run"
   | "background_agent"
+  | "background_environment"
   | "background_agent_run"
   | "background_agent_approval"
   | "query_history"
@@ -61,6 +63,7 @@ export interface WorkspaceSearchIndexInput {
   pipelines: PipelineDefinition[];
   pipelineRuns?: PipelineRunRecord[];
   backgroundAgents: BackgroundAgentDefinition[];
+  backgroundAgentEnvironments?: BackgroundAgentEnvironment[];
   backgroundAgentRuns?: BackgroundAgentRun[];
   backgroundAgentApprovals?: BackgroundAgentApprovalItem[];
   queryHistory: QueryHistoryRecord[];
@@ -746,6 +749,39 @@ export function buildBackgroundAgentDocuments(
   }));
 }
 
+export function buildBackgroundAgentEnvironmentDocuments(
+  environments: BackgroundAgentEnvironment[],
+): WorkspaceSearchDocument[] {
+  return environments.map((environment) => ({
+    id: `background-environment:${environment.id}`,
+    kind: "background_environment",
+    title: environment.name,
+    subtitle: `${environment.status} · concurrency ${environment.concurrencyLimit}`,
+    body: [
+      environment.description,
+      environment.connectionIds.join(" "),
+      environment.isEnabled ? "enabled" : "disabled",
+    ].join(" "),
+    keywords: uniqueTokens([
+      environment.name,
+      environment.description,
+      environment.status,
+      environment.connectionIds.join(" "),
+    ]),
+    connectionId: null,
+    updatedAt: environment.updatedAt,
+    action: {
+      type: "open_panel",
+      panel: "background_agents",
+    },
+    metadata: {
+      environmentId: environment.id,
+      connectionIds: environment.connectionIds,
+      concurrencyLimit: environment.concurrencyLimit,
+    },
+  }));
+}
+
 export function buildBackgroundAgentRunDocuments(
   runs: BackgroundAgentRun[],
 ): WorkspaceSearchDocument[] {
@@ -912,6 +948,7 @@ export function buildWorkspaceSearchDocuments(
     ...buildArtifactDocuments(input.artifacts),
     ...buildPipelineDocuments(input.pipelines),
     ...buildPipelineRunDocuments(input.pipelineRuns ?? []),
+    ...buildBackgroundAgentEnvironmentDocuments(input.backgroundAgentEnvironments ?? []),
     ...buildBackgroundAgentDocuments(input.backgroundAgents),
     ...buildBackgroundAgentRunDocuments(input.backgroundAgentRuns ?? []),
     ...buildBackgroundAgentApprovalDocuments(input.backgroundAgentApprovals ?? []),
@@ -936,6 +973,7 @@ export function buildWorkspaceSearchSegments(
       ...buildPipelineRunDocuments(input.pipelineRuns ?? []),
     ],
     backgroundAgents: [
+      ...buildBackgroundAgentEnvironmentDocuments(input.backgroundAgentEnvironments ?? []),
       ...buildBackgroundAgentDocuments(input.backgroundAgents),
       ...buildBackgroundAgentRunDocuments(input.backgroundAgentRuns ?? []),
       ...buildBackgroundAgentApprovalDocuments(input.backgroundAgentApprovals ?? []),

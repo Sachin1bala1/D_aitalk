@@ -3,8 +3,12 @@ import {
   __resetBackgroundAgentStoreForTests,
   addBackgroundAgentApprovalItems,
   appendBackgroundAgentRunEvent,
+  createBackgroundAgentEnvironment,
   createBackgroundAgent,
   getBackgroundAgent,
+  listBackgroundAgentEnvironments,
+  hasOpenBackgroundAgentRun,
+  listQueuedBackgroundAgentRuns,
   getBackgroundAgentRuns,
   markBackgroundAgentRunRunning,
   recordBackgroundAgentRunStart,
@@ -43,10 +47,16 @@ describe("BackgroundAgentStore", () => {
   });
 
   it("persists runs and approval lifecycle for background agents", async () => {
+    const environment = await createBackgroundAgentEnvironment({
+      name: "Warehouse Prod",
+      connectionIds: ["conn-1"],
+      concurrencyLimit: 2,
+    });
     const agent = await createBackgroundAgent({
       name: "Monitor drift",
       prompt: "Check anomalies",
       connectionId: "conn-1",
+      environmentId: environment.id,
       cadenceMinutes: 60,
       isEnabled: true,
     });
@@ -98,8 +108,10 @@ describe("BackgroundAgentStore", () => {
     const savedRuns = getBackgroundAgentRuns(agent.id);
     const savedApproval = listBackgroundAgentApprovals(agent.id)[0];
 
+    expect(savedAgent?.environmentId).toBe(environment.id);
     expect(savedAgent?.lastRunStatus).toBe("approval_required");
     expect(savedAgent?.lastRunArtifactId).toBe("artifact-report-1");
+    expect(savedRuns[0]?.environmentId).toBe(environment.id);
     expect(savedRuns[0]?.trigger).toBe("scheduled");
     expect(savedRuns[0]?.attemptCount).toBe(1);
     expect(savedRuns[0]?.approvalIds).toEqual([approvals[0].id]);
@@ -107,5 +119,23 @@ describe("BackgroundAgentStore", () => {
     expect(savedRuns[0]?.events.some((event) => event.type === "sql_executed")).toBe(true);
     expect(savedRuns[0]?.takeoverPrompt).toContain("detached investigation");
     expect(savedApproval?.status).toBe("approved");
+  });
+
+  it("creates a default environment and queues runs there for legacy-style agents", async () => {
+    const agent = await createBackgroundAgent({
+      name: "Legacy style",
+      prompt: "check",
+      connectionId: "conn-2",
+      cadenceMinutes: null,
+      isEnabled: true,
+    });
+    const environments = listBackgroundAgentEnvironments();
+    const run = await recordBackgroundAgentRunStart(agent.id);
+
+    expect(environments[0]?.id).toBe("background-env-local-default");
+    expect(agent.environmentId).toBe("background-env-local-default");
+    expect(run.environmentId).toBe("background-env-local-default");
+    expect(hasOpenBackgroundAgentRun(agent.id)).toBe(true);
+    expect(listQueuedBackgroundAgentRuns("background-env-local-default").some((queuedRun) => queuedRun.id === run.id)).toBe(true);
   });
 });

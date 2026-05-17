@@ -18,6 +18,7 @@ import type { ConnectionConfig, FullSchema, QueryHistoryRecord } from "../../lib
 import { ensureHistoryLoaded, loadHistory, subscribeHistoryStore } from "../history/QueryHistory";
 import {
   ensureBackgroundAgentsLoaded,
+  listBackgroundAgentEnvironments,
   getBackgroundAgentRuns,
   listBackgroundAgents,
   listBackgroundAgentApprovals,
@@ -60,6 +61,7 @@ const KIND_ICON: Record<WorkspaceSearchDocument["kind"], React.ReactNode> = {
   artifact_report: <FolderSearch className="w-3 h-3 text-fuchsia-400/70 shrink-0" />,
   pipeline: <Workflow className="w-3 h-3 text-amber-300/70 shrink-0" />,
   background_agent: <Bot className="w-3 h-3 text-cyan-300/70 shrink-0" />,
+  background_environment: <Layers className="w-3 h-3 text-cyan-400/70 shrink-0" />,
   background_agent_run: <Bot className="w-3 h-3 text-cyan-200/70 shrink-0" />,
   background_agent_approval: <Bot className="w-3 h-3 text-amber-300/70 shrink-0" />,
   query_history: <Clock3 className="w-3 h-3 text-white/35 shrink-0" />,
@@ -91,6 +93,7 @@ function relatedGroupLabel(kind: WorkspaceSearchDocument["kind"]) {
   if (kind === "pipeline" || kind === "pipeline_run") return "Pipelines";
   if (
     kind === "background_agent" ||
+    kind === "background_environment" ||
     kind === "background_agent_run" ||
     kind === "background_agent_approval"
   ) {
@@ -168,6 +171,7 @@ export function WorkspaceSearchPanel({ schemas, connections, onNavigate, onSelec
           pipelines: listPipelines(),
           pipelineRuns: listPipelines().flatMap((pipeline) => getPipelineRuns(pipeline.id)),
           backgroundAgents: listBackgroundAgents(),
+          backgroundAgentEnvironments: listBackgroundAgentEnvironments(),
           backgroundAgentRuns: listBackgroundAgents().flatMap((agent) => getBackgroundAgentRuns(agent.id)),
           backgroundAgentApprovals: listBackgroundAgentApprovals(),
           queryHistory: mapLegacyHistoryToQueryHistory(loadHistory()),
@@ -215,6 +219,7 @@ export function WorkspaceSearchPanel({ schemas, connections, onNavigate, onSelec
               : kindFilter === "background_agent"
                 ? ([
                     "background_agent",
+                    "background_environment",
                     "background_agent_run",
                     "background_agent_approval",
                   ] as WorkspaceSearchDocumentKind[])

@@ -1,19 +1,25 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Bot, CheckCircle2, Clock3, FolderOpen, Play, RotateCcw, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
+import { Bot, CheckCircle2, Clock3, FolderOpen, Layers3, Play, RotateCcw, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
 import {
+  createBackgroundAgentEnvironment,
   createBackgroundAgent,
+  deleteBackgroundAgentEnvironment,
   deleteBackgroundAgent,
   ensureBackgroundAgentsLoaded,
+  getBackgroundAgentEnvironment,
   listBackgroundAgentApprovals,
+  listBackgroundAgentEnvironments,
   getBackgroundAgentRuns,
   listBackgroundAgents,
   resolveBackgroundAgentApproval,
   subscribeBackgroundAgents,
+  updateBackgroundAgentEnvironment,
   updateBackgroundAgent,
   type BackgroundAgentApprovalItem,
   type BackgroundAgentDefinition,
+  type BackgroundAgentEnvironment,
   type BackgroundAgentRun,
 } from "../../lib/backgroundAgents/BackgroundAgentStore";
 import { queueBackgroundRunTakeover, runBackgroundAnalysisAgent } from "../../lib/backgroundAgents/BackgroundAgentRunner";
@@ -52,6 +58,7 @@ interface BackgroundAgentsPanelProps {
 export function BackgroundAgentsPanel({ onTakeoverPrompt }: BackgroundAgentsPanelProps) {
   const { connections, createArtifactReportTab } = useWorkspaceStore();
   const [agents, setAgents] = useState<BackgroundAgentDefinition[]>([]);
+  const [environments, setEnvironments] = useState<BackgroundAgentEnvironment[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [runsByAgent, setRunsByAgent] = useState<Record<string, BackgroundAgentRun[]>>({});
   const [approvals, setApprovals] = useState<BackgroundAgentApprovalItem[]>([]);
@@ -59,25 +66,34 @@ export function BackgroundAgentsPanel({ onTakeoverPrompt }: BackgroundAgentsPane
   const [draftName, setDraftName] = useState("");
   const [draftPrompt, setDraftPrompt] = useState("");
   const [draftConnectionId, setDraftConnectionId] = useState<string>("");
+  const [draftEnvironmentId, setDraftEnvironmentId] = useState<string>("");
   const [draftCadenceMinutes, setDraftCadenceMinutes] = useState<string>("60");
   const [runningAgentId, setRunningAgentId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editPrompt, setEditPrompt] = useState("");
   const [editConnectionId, setEditConnectionId] = useState("");
+  const [editEnvironmentId, setEditEnvironmentId] = useState("");
   const [editCadenceMinutes, setEditCadenceMinutes] = useState("");
   const [busyRunId, setBusyRunId] = useState<string | null>(null);
+  const [creatingEnvironment, setCreatingEnvironment] = useState(false);
+  const [environmentDraftName, setEnvironmentDraftName] = useState("");
+  const [environmentDraftDescription, setEnvironmentDraftDescription] = useState("");
+  const [environmentDraftConcurrency, setEnvironmentDraftConcurrency] = useState("1");
 
   useEffect(() => {
     const refresh = async () => {
       await ensureBackgroundAgentsLoaded();
       const nextAgents = listBackgroundAgents();
+      const nextEnvironments = listBackgroundAgentEnvironments();
       setAgents(nextAgents);
+      setEnvironments(nextEnvironments);
       setRunsByAgent(
         Object.fromEntries(nextAgents.map((agent) => [agent.id, getBackgroundAgentRuns(agent.id)])),
       );
       setApprovals(listBackgroundAgentApprovals());
       setSelectedAgentId((current) => current ?? nextAgents[0]?.id ?? null);
       setDraftConnectionId((current) => current || connections[0]?.id || "");
+      setDraftEnvironmentId((current) => current || nextEnvironments[0]?.id || "");
     };
 
     void refresh();
@@ -105,8 +121,31 @@ export function BackgroundAgentsPanel({ onTakeoverPrompt }: BackgroundAgentsPane
     setEditName(selectedAgent.name);
     setEditPrompt(selectedAgent.prompt);
     setEditConnectionId(selectedAgent.connectionId);
+    setEditEnvironmentId(selectedAgent.environmentId);
     setEditCadenceMinutes(selectedAgent.cadenceMinutes ? String(selectedAgent.cadenceMinutes) : "");
   }, [selectedAgent]);
+
+  const environmentStats = useMemo(
+    () =>
+      environments.map((environment) => {
+        const envAgents = agents.filter((agent) => agent.environmentId === environment.id);
+        const envRuns = envAgents.flatMap((agent) => runsByAgent[agent.id] ?? []);
+        const queuedCount = envRuns.filter((run) => run.status === "queued").length;
+        const activeCount = envRuns.filter((run) => run.status === "running").length;
+        return {
+          environment,
+          agentCount: envAgents.length,
+          queuedCount,
+          activeCount,
+        };
+      }),
+    [agents, environments, runsByAgent],
+  );
+
+  const selectedEnvironment =
+    getBackgroundAgentEnvironment(selectedAgent?.environmentId ?? "") ??
+    environments[0] ??
+    null;
 
   const handleCreateAgent = async () => {
     if (!draftName.trim() || !draftPrompt.trim() || !draftConnectionId) {
@@ -117,6 +156,7 @@ export function BackgroundAgentsPanel({ onTakeoverPrompt }: BackgroundAgentsPane
       name: draftName,
       prompt: draftPrompt,
       connectionId: draftConnectionId,
+      environmentId: draftEnvironmentId,
       cadenceMinutes: draftCadenceMinutes.trim() ? Number(draftCadenceMinutes) : null,
       isEnabled: true,
     });
@@ -125,6 +165,25 @@ export function BackgroundAgentsPanel({ onTakeoverPrompt }: BackgroundAgentsPane
     setDraftPrompt("");
     setSelectedAgentId(agent.id);
     toast.success(`Background agent "${agent.name}" created`);
+  };
+
+  const handleCreateEnvironment = async () => {
+    if (!environmentDraftName.trim()) {
+      toast.error("Environment name is required.");
+      return;
+    }
+    const environment = await createBackgroundAgentEnvironment({
+      name: environmentDraftName,
+      description: environmentDraftDescription,
+      connectionIds: [],
+      concurrencyLimit: environmentDraftConcurrency.trim() ? Number(environmentDraftConcurrency) : 1,
+      isEnabled: true,
+    });
+    setCreatingEnvironment(false);
+    setEnvironmentDraftName("");
+    setEnvironmentDraftDescription("");
+    setDraftEnvironmentId(environment.id);
+    toast.success(`Environment "${environment.name}" created`);
   };
 
   const handleRunNow = async (agent: BackgroundAgentDefinition) => {
@@ -169,6 +228,7 @@ export function BackgroundAgentsPanel({ onTakeoverPrompt }: BackgroundAgentsPane
       name: editName.trim(),
       prompt: editPrompt.trim(),
       connectionId: editConnectionId,
+      environmentId: editEnvironmentId,
       cadenceMinutes: editCadenceMinutes.trim() ? Number(editCadenceMinutes) : null,
     });
     toast.success(`Saved ${selectedAgent.name}`);
@@ -184,12 +244,76 @@ export function BackgroundAgentsPanel({ onTakeoverPrompt }: BackgroundAgentsPane
               Background
             </span>
           </div>
-          <button
-            onClick={() => setCreating((value) => !value)}
-            className="rounded border border-[#2a2a2a] bg-[#111] px-2 py-1 text-[9px] font-mono uppercase tracking-widest text-white/55 hover:text-white/80"
-          >
-            {creating ? "Close" : "New"}
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCreatingEnvironment((value) => !value)}
+              className="rounded border border-[#2a2a2a] bg-[#111] px-2 py-1 text-[9px] font-mono uppercase tracking-widest text-white/55 hover:text-white/80"
+            >
+              {creatingEnvironment ? "Env Close" : "New Env"}
+            </button>
+            <button
+              onClick={() => setCreating((value) => !value)}
+              className="rounded border border-[#2a2a2a] bg-[#111] px-2 py-1 text-[9px] font-mono uppercase tracking-widest text-white/55 hover:text-white/80"
+            >
+              {creating ? "Close" : "New"}
+            </button>
+          </div>
+        </div>
+
+        {creatingEnvironment && (
+          <div className="border-b border-[#1a1a1a] p-3 space-y-2">
+            <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-white/35">
+              <Layers3 className="h-3 w-3" />
+              Environment
+            </div>
+            <input
+              value={environmentDraftName}
+              onChange={(e) => setEnvironmentDraftName(e.target.value)}
+              placeholder="Environment name"
+              className="w-full rounded border border-[#2a2a2a] bg-[#111] px-2 py-1.5 text-[11px] text-white/80 focus:outline-none"
+            />
+            <input
+              value={environmentDraftConcurrency}
+              onChange={(e) => setEnvironmentDraftConcurrency(e.target.value)}
+              placeholder="Concurrency limit"
+              className="w-full rounded border border-[#2a2a2a] bg-[#111] px-2 py-1.5 text-[11px] text-white/80 focus:outline-none"
+            />
+            <textarea
+              value={environmentDraftDescription}
+              onChange={(e) => setEnvironmentDraftDescription(e.target.value)}
+              placeholder="What kind of detached workload belongs here?"
+              rows={3}
+              className="w-full rounded border border-[#2a2a2a] bg-[#111] px-2 py-1.5 text-[11px] text-white/80 focus:outline-none resize-none"
+            />
+            <button
+              onClick={() => void handleCreateEnvironment()}
+              className="w-full rounded border border-cyan-500/20 bg-cyan-500/10 px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest text-cyan-300 hover:bg-cyan-500/20"
+            >
+              Save Environment
+            </button>
+          </div>
+        )}
+
+        <div className="border-b border-[#1a1a1a] p-3 space-y-2">
+          <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-white/35">
+            <Layers3 className="h-3 w-3" />
+            Environments
+          </div>
+          {environmentStats.map(({ environment, agentCount, queuedCount, activeCount }) => (
+            <div key={environment.id} className="rounded border border-[#1f1f1f] bg-black/20 p-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-[10px] font-medium text-white/70">{environment.name}</span>
+                <span className="font-mono text-[8px] uppercase tracking-widest text-white/25">
+                  {environment.status}
+                </span>
+              </div>
+              <div className="mt-1 flex flex-wrap gap-2 font-mono text-[8px] uppercase tracking-widest text-white/25">
+                <span>{agentCount} agents</span>
+                <span>{activeCount}/{environment.concurrencyLimit} active</span>
+                <span>{queuedCount} queued</span>
+              </div>
+            </div>
+          ))}
         </div>
 
         {creating && (
@@ -209,6 +333,18 @@ export function BackgroundAgentsPanel({ onTakeoverPrompt }: BackgroundAgentsPane
               {connections.map((connection) => (
                 <option key={connection.id} value={connection.id}>
                   {connection.display_name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={draftEnvironmentId}
+              onChange={(e) => setDraftEnvironmentId(e.target.value)}
+              className="w-full rounded border border-[#2a2a2a] bg-[#111] px-2 py-1.5 text-[11px] text-white/80 focus:outline-none"
+            >
+              <option value="">Select environment</option>
+              {environments.map((environment) => (
+                <option key={environment.id} value={environment.id}>
+                  {environment.name}
                 </option>
               ))}
             </select>
@@ -273,6 +409,7 @@ export function BackgroundAgentsPanel({ onTakeoverPrompt }: BackgroundAgentsPane
                   </div>
                   <div className="mt-2 text-[10px] font-mono text-white/35">
                     <div>Connection: {connections.find((connection) => connection.id === selectedAgent.connectionId)?.display_name ?? selectedAgent.connectionId}</div>
+                    <div>Environment: {selectedEnvironment?.name ?? selectedAgent.environmentId}</div>
                     <div>Cadence: {selectedAgent.cadenceMinutes ? `${selectedAgent.cadenceMinutes} minutes` : "Manual only"}</div>
                     <div>Last run: {formatTimestamp(selectedAgent.lastRunAt)}</div>
                   </div>
@@ -319,6 +456,17 @@ export function BackgroundAgentsPanel({ onTakeoverPrompt }: BackgroundAgentsPane
                     </option>
                   ))}
                 </select>
+                <select
+                  value={editEnvironmentId}
+                  onChange={(e) => setEditEnvironmentId(e.target.value)}
+                  className="w-full rounded border border-[#2a2a2a] bg-[#111] px-2 py-1.5 text-[11px] text-white/80 focus:outline-none"
+                >
+                  {environments.map((environment) => (
+                    <option key={environment.id} value={environment.id}>
+                      {environment.name}
+                    </option>
+                  ))}
+                </select>
                 <input
                   value={editCadenceMinutes}
                   onChange={(e) => setEditCadenceMinutes(e.target.value)}
@@ -337,6 +485,42 @@ export function BackgroundAgentsPanel({ onTakeoverPrompt }: BackgroundAgentsPane
                 >
                   Save Changes
                 </button>
+                {selectedEnvironment && selectedEnvironment.id !== "background-env-local-default" && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <button
+                      onClick={() =>
+                        void updateBackgroundAgentEnvironment(selectedEnvironment.id, {
+                          connectionIds: Array.from(new Set([...selectedEnvironment.connectionIds, editConnectionId])),
+                        })
+                      }
+                      className="rounded border border-[#2a2a2a] bg-[#111] px-2 py-1 text-[9px] font-mono uppercase tracking-widest text-white/45 hover:text-white/70"
+                    >
+                      Add Conn To Env
+                    </button>
+                    <button
+                      onClick={() =>
+                        void updateBackgroundAgentEnvironment(selectedEnvironment.id, {
+                          isEnabled: !selectedEnvironment.isEnabled,
+                        })
+                      }
+                      className="rounded border border-[#2a2a2a] bg-[#111] px-2 py-1 text-[9px] font-mono uppercase tracking-widest text-white/45 hover:text-white/70"
+                    >
+                      {selectedEnvironment.isEnabled ? "Pause Env" : "Enable Env"}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await deleteBackgroundAgentEnvironment(selectedEnvironment.id);
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : "Failed to delete environment");
+                        }
+                      }}
+                      className="rounded border border-red-500/20 bg-red-500/10 px-2 py-1 text-[9px] font-mono uppercase tracking-widest text-red-300/70 hover:bg-red-500/20"
+                    >
+                      Delete Env
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -357,6 +541,7 @@ export function BackgroundAgentsPanel({ onTakeoverPrompt }: BackgroundAgentsPane
                           <span className="font-mono">{formatTimestamp(run.finishedAt ?? run.startedAt)}</span>
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2 font-mono text-[9px] uppercase tracking-widest text-white/30">
+                          <span>{getBackgroundAgentEnvironment(run.environmentId)?.name ?? run.environmentId}</span>
                           <span>{run.trigger}</span>
                           <span>attempt {run.attemptCount}/{run.maxAttempts}</span>
                           {run.retryOfRunId && <span>retry of prior run</span>}

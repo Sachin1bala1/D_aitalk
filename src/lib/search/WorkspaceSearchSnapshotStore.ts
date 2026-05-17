@@ -130,13 +130,23 @@ function computeFingerprints(input: WorkspaceSearchIndexInput): Record<SearchSeg
         agents: input.backgroundAgents.map((agent) => ({
           id: agent.id,
           name: agent.name,
+          environmentId: agent.environmentId,
           updatedAt: agent.updatedAt,
           lastRunStatus: agent.lastRunStatus,
           lastRunSummary: agent.lastRunSummary,
         })),
+        environments: (input.backgroundAgentEnvironments ?? []).map((environment) => ({
+          id: environment.id,
+          name: environment.name,
+          status: environment.status,
+          concurrencyLimit: environment.concurrencyLimit,
+          connectionIds: environment.connectionIds,
+          updatedAt: environment.updatedAt,
+        })),
         runs: (input.backgroundAgentRuns ?? []).map((run) => ({
           id: run.id,
           agentId: run.agentId,
+          environmentId: run.environmentId,
           status: run.status,
           trigger: run.trigger,
           attemptCount: run.attemptCount,

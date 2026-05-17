@@ -70,6 +70,7 @@ import {
 import { ensureHistoryLoaded, loadHistory } from "../../components/history/QueryHistory";
 import {
   ensureBackgroundAgentsLoaded,
+  listBackgroundAgentEnvironments,
   getBackgroundAgentRuns,
   listBackgroundAgents,
   listBackgroundAgentApprovals,
@@ -841,6 +842,7 @@ export function registerHandlers() {
         pipelines: inspectPipelines().pipelines,
         pipelineRuns: inspectPipelines().pipelines.flatMap((pipeline) => getPipelineRuns(pipeline.id)),
         backgroundAgents: listBackgroundAgents(),
+        backgroundAgentEnvironments: listBackgroundAgentEnvironments(),
         backgroundAgentRuns: listBackgroundAgents().flatMap((agent) => getBackgroundAgentRuns(agent.id)),
         backgroundAgentApprovals: listBackgroundAgentApprovals(),
         queryHistory: loadHistory().map((entry) => ({

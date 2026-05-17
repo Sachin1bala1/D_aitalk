@@ -8,9 +8,14 @@ import {
   ensureBackgroundAgentsLoaded,
   finishBackgroundAgentRun,
   getBackgroundAgent,
+  getBackgroundAgentEnvironment,
+  getBackgroundAgentRun,
   getBackgroundAgentRuns,
-  listBackgroundAgents,
+  hasOpenBackgroundAgentRun,
   listBackgroundAgentApprovals,
+  listBackgroundAgentEnvironments,
+  listBackgroundAgents,
+  listQueuedBackgroundAgentRuns,
   markBackgroundAgentRunRunning,
   recordBackgroundAgentRunStart,
   requestBackgroundAgentRunTakeover,
@@ -70,8 +75,29 @@ const BACKGROUND_AGENT_TOOLS: UnifiedTool[] = [
   },
 ];
 
-const inFlightAgents = new Set<string>();
 const MAX_BACKGROUND_AGENT_ATTEMPTS = 2;
+const inFlightRuns = new Map<string, Set<string>>();
+const inFlightRunIds = new Set<string>();
+
+function reserveRun(environmentId: string, runId: string) {
+  if (!inFlightRuns.has(environmentId)) {
+    inFlightRuns.set(environmentId, new Set());
+  }
+  inFlightRuns.get(environmentId)!.add(runId);
+  inFlightRunIds.add(runId);
+}
+
+function releaseRun(environmentId: string, runId: string) {
+  inFlightRuns.get(environmentId)?.delete(runId);
+  if (inFlightRuns.get(environmentId)?.size === 0) {
+    inFlightRuns.delete(environmentId);
+  }
+  inFlightRunIds.delete(runId);
+}
+
+function activeRunCount(environmentId: string): number {
+  return inFlightRuns.get(environmentId)?.size ?? 0;
+}
 
 function isReadOnlySql(sql: string): boolean {
   const normalized = sql.trim().replace(/^\(+/, "").toLowerCase();
@@ -102,6 +128,7 @@ function buildBackgroundAgentSystemPrompt(agent: BackgroundAgentDefinition, sche
     "Keep outputs concise, operational, and evidence-based.",
     "Conclude with a short operator-ready summary and next steps.",
     `Target connection: ${agent.connectionId}`,
+    `Execution environment: ${agent.environmentId}`,
     "Available schema overview:",
     summarizeSchema(schema),
   ].join("\n\n");
@@ -193,6 +220,7 @@ function buildBackgroundAgentTakeoverPrompt(args: {
   return [
     `Continue the detached background investigation for "${args.agent.name}".`,
     `Original prompt: ${args.agent.prompt}`,
+    `Execution environment: ${args.run.environmentId}`,
     `Run status: ${args.run.status}`,
     `Run summary: ${args.run.summary ?? args.run.error ?? "No final summary recorded."}`,
     args.run.reportArtifactId ? `Linked report artifact: ${args.run.reportArtifactId}` : null,
@@ -209,21 +237,26 @@ function buildBackgroundAgentTakeoverPrompt(args: {
     .join("\n");
 }
 
-export async function runBackgroundAnalysisAgent(
-  agentId: string,
-  options?: { trigger?: BackgroundAgentRunTrigger; retryOfRunId?: string | null },
-): Promise<BackgroundAgentRun | null> {
-  await ensureBackgroundAgentsLoaded();
-  const agent = getBackgroundAgent(agentId);
-  if (!agent) throw new Error("Background agent not found");
-  if (inFlightAgents.has(agent.id)) return null;
-  inFlightAgents.add(agent.id);
+async function executeQueuedBackgroundRun(
+  agent: BackgroundAgentDefinition,
+  run: BackgroundAgentRun,
+): Promise<void> {
+  if (inFlightRunIds.has(run.id)) return;
 
-  const run = await recordBackgroundAgentRunStart(agent.id, {
-    trigger: options?.trigger ?? "manual",
-    maxAttempts: MAX_BACKGROUND_AGENT_ATTEMPTS,
-    retryOfRunId: options?.retryOfRunId ?? null,
-  });
+  const environment = getBackgroundAgentEnvironment(run.environmentId);
+  if (!environment || !environment.isEnabled) {
+    await appendBackgroundAgentRunEvent({
+      agentId: agent.id,
+      runId: run.id,
+      type: "deferred_by_environment",
+      level: "warning",
+      message: "Run remains queued because its execution environment is disabled.",
+      metadata: { environmentId: run.environmentId },
+    });
+    return;
+  }
+
+  reserveRun(run.environmentId, run.id);
   const queryArtifactIds: string[] = [];
   const queuedApprovals: Array<Omit<BackgroundAgentApprovalItem, "id" | "createdAt" | "resolvedAt" | "status">> = [];
 
@@ -239,13 +272,14 @@ export async function runBackgroundAnalysisAgent(
     const schema = await DbClient.getSchema(agent.connectionId).catch(() => null);
     let finalText = "";
 
-    for (let attempt = 1; attempt <= MAX_BACKGROUND_AGENT_ATTEMPTS; attempt += 1) {
+    for (let attempt = 1; attempt <= run.maxAttempts; attempt += 1) {
       const history: ConversationTurn[] = [{ role: "user", text: agent.prompt }];
       try {
         await markBackgroundAgentRunRunning({
           agentId: agent.id,
           runId: run.id,
           attemptCount: attempt,
+          environmentId: run.environmentId,
         });
         if (attempt > 1) {
           await appendBackgroundAgentRunEvent({
@@ -253,7 +287,8 @@ export async function runBackgroundAnalysisAgent(
             runId: run.id,
             type: "retrying",
             level: "warning",
-            message: `Retrying detached investigation after transient failure (attempt ${attempt} of ${MAX_BACKGROUND_AGENT_ATTEMPTS}).`,
+            message: `Retrying detached investigation after transient failure (attempt ${attempt} of ${run.maxAttempts}).`,
+            metadata: { environmentId: run.environmentId },
           });
         }
 
@@ -296,7 +331,7 @@ export async function runBackgroundAnalysisAgent(
                   type: "failed",
                   level: "warning",
                   message: "Blocked non-read-only SQL during detached execution.",
-                  metadata: { sql },
+                  metadata: { sql, environmentId: run.environmentId },
                 });
                 continue;
               }
@@ -324,6 +359,7 @@ export async function runBackgroundAnalysisAgent(
                 type: "sql_executed",
                 message: `Executed read-only SQL and recorded ${rows.length} row(s).`,
                 metadata: {
+                  environmentId: run.environmentId,
                   artifactId: artifact.id,
                   rowCount: rows.length,
                   sql: sql.slice(0, 500),
@@ -366,6 +402,7 @@ export async function runBackgroundAnalysisAgent(
                 level: queuedApproval.risk === "destructive" ? "warning" : "info",
                 message: `Queued follow-up review item: ${queuedApproval.title}`,
                 metadata: {
+                  environmentId: run.environmentId,
                   risk: queuedApproval.risk,
                   suggestedSql: queuedApproval.suggestedSql ?? null,
                 },
@@ -382,7 +419,7 @@ export async function runBackgroundAnalysisAgent(
         }
         break;
       } catch (error) {
-        if (attempt >= MAX_BACKGROUND_AGENT_ATTEMPTS || !isRetryableBackgroundError(error)) {
+        if (attempt >= run.maxAttempts || !isRetryableBackgroundError(error)) {
           throw error;
         }
       }
@@ -413,7 +450,7 @@ export async function runBackgroundAnalysisAgent(
       runId: run.id,
       type: "report_created",
       message: `Created report artifact ${reportArtifact.id}.`,
-      metadata: { reportArtifactId: reportArtifact.id },
+      metadata: { environmentId: run.environmentId, reportArtifactId: reportArtifact.id },
     });
 
     const status = approvals.length > 0 ? "approval_required" : "success";
@@ -437,7 +474,6 @@ export async function runBackgroundAnalysisAgent(
         description: summary || "Detached analysis finished successfully.",
       });
     }
-    return run;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Background agent run failed";
     await finishBackgroundAgentRun({
@@ -450,10 +486,82 @@ export async function runBackgroundAnalysisAgent(
     toast.error(`Background agent "${agent.name}" failed`, {
       description: message,
     });
-    return run;
   } finally {
-    inFlightAgents.delete(agent.id);
+    releaseRun(run.environmentId, run.id);
+    void drainBackgroundAgentQueue();
   }
+}
+
+export async function drainBackgroundAgentQueue(): Promise<void> {
+  await ensureBackgroundAgentsLoaded();
+  const environments = listBackgroundAgentEnvironments();
+  const queuedRuns = listQueuedBackgroundAgentRuns().sort((left, right) => left.startedAt - right.startedAt);
+
+  for (const environment of environments) {
+    if (!environment.isEnabled) continue;
+    let available = Math.max(0, environment.concurrencyLimit - activeRunCount(environment.id));
+    if (available <= 0) continue;
+
+    const runsForEnvironment = queuedRuns.filter((run) => run.environmentId === environment.id);
+    for (const run of runsForEnvironment) {
+      if (available <= 0) break;
+      const latestRun = getBackgroundAgentRun(run.agentId, run.id);
+      const agent = getBackgroundAgent(run.agentId);
+      if (!latestRun || latestRun.status !== "queued" || !agent) continue;
+      available -= 1;
+      void executeQueuedBackgroundRun(agent, latestRun);
+    }
+  }
+}
+
+export async function runBackgroundAnalysisAgent(
+  agentId: string,
+  options?: { trigger?: BackgroundAgentRunTrigger; retryOfRunId?: string | null },
+): Promise<BackgroundAgentRun | null> {
+  await ensureBackgroundAgentsLoaded();
+  const agent = getBackgroundAgent(agentId);
+  if (!agent) throw new Error("Background agent not found");
+
+  if (hasOpenBackgroundAgentRun(agent.id)) {
+    return getBackgroundAgentRuns(agent.id).find((run) => run.status === "queued" || run.status === "running") ?? null;
+  }
+
+  const run = await recordBackgroundAgentRunStart(agent.id, {
+    trigger: options?.trigger ?? "manual",
+    maxAttempts: MAX_BACKGROUND_AGENT_ATTEMPTS,
+    retryOfRunId: options?.retryOfRunId ?? null,
+    environmentId: agent.environmentId,
+  });
+
+  const environment = getBackgroundAgentEnvironment(agent.environmentId);
+  if (!environment || !environment.isEnabled) {
+    await appendBackgroundAgentRunEvent({
+      agentId: agent.id,
+      runId: run.id,
+      type: "deferred_by_environment",
+      level: "warning",
+      message: "Run queued but waiting for its execution environment to be enabled.",
+      metadata: { environmentId: agent.environmentId },
+    });
+    return getBackgroundAgentRun(agent.id, run.id);
+  }
+
+  if (activeRunCount(agent.environmentId) >= environment.concurrencyLimit) {
+    await appendBackgroundAgentRunEvent({
+      agentId: agent.id,
+      runId: run.id,
+      type: "deferred_by_environment",
+      level: "info",
+      message: `Run queued while waiting for capacity in ${environment.name}.`,
+      metadata: {
+        environmentId: agent.environmentId,
+        concurrencyLimit: environment.concurrencyLimit,
+      },
+    });
+  }
+
+  await drainBackgroundAgentQueue();
+  return getBackgroundAgentRun(agent.id, run.id);
 }
 
 export async function runDueBackgroundAnalysisAgents(now = Date.now()): Promise<void> {

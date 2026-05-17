@@ -13,6 +13,7 @@ export type BackgroundAgentRunStatus =
   | "cancelled";
 
 export type BackgroundAgentRunTrigger = "manual" | "scheduled" | "retry";
+export type BackgroundAgentEnvironmentStatus = "idle" | "active" | "paused";
 
 export type BackgroundAgentRunEventType =
   | "queued"
@@ -23,7 +24,8 @@ export type BackgroundAgentRunEventType =
   | "retrying"
   | "completed"
   | "failed"
-  | "takeover_requested";
+  | "takeover_requested"
+  | "deferred_by_environment";
 
 export interface BackgroundAgentRunEvent {
   id: string;
@@ -36,11 +38,26 @@ export interface BackgroundAgentRunEvent {
 
 export type BackgroundAgentApprovalStatus = "pending" | "approved" | "rejected";
 
+export interface BackgroundAgentEnvironment {
+  id: string;
+  name: string;
+  description: string;
+  connectionIds: string[];
+  concurrencyLimit: number;
+  isEnabled: boolean;
+  status: BackgroundAgentEnvironmentStatus;
+  createdAt: number;
+  updatedAt: number;
+  lastDispatchAt: number | null;
+  lastHeartbeatAt: number | null;
+}
+
 export interface BackgroundAgentDefinition {
   id: string;
   name: string;
   prompt: string;
   connectionId: string;
+  environmentId: string;
   cadenceMinutes: number | null;
   isEnabled: boolean;
   createdAt: number;
@@ -67,6 +84,7 @@ export interface BackgroundAgentApprovalItem {
 export interface BackgroundAgentRun {
   id: string;
   agentId: string;
+  environmentId: string;
   status: BackgroundAgentRunStatus;
   trigger: BackgroundAgentRunTrigger;
   startedAt: number;
@@ -86,18 +104,21 @@ export interface BackgroundAgentRun {
 }
 
 interface BackgroundAgentDocument {
-  version: 2;
+  version: 3;
   agents: BackgroundAgentDefinition[];
+  environments: BackgroundAgentEnvironment[];
   runs: Record<string, BackgroundAgentRun[]>;
   approvals: BackgroundAgentApprovalItem[];
 }
 
 const DOC_KEY = "background_analysis_agents";
 const LEGACY_KEY = "daitalk_background_analysis_agents";
+export const DEFAULT_BACKGROUND_ENVIRONMENT_ID = "background-env-local-default";
 
 const DEFAULT_DOCUMENT: BackgroundAgentDocument = {
-  version: 2,
+  version: 3,
   agents: [],
+  environments: [],
   runs: {},
   approvals: [],
 };
@@ -107,37 +128,6 @@ const listeners = new Set<() => void>();
 
 function emit() {
   listeners.forEach((listener) => listener());
-}
-
-function cloneDocument(document: BackgroundAgentDocument): BackgroundAgentDocument {
-  return {
-    version: 2,
-    agents: [...document.agents],
-    runs: Object.fromEntries(
-      Object.entries(document.runs).map(([agentId, runs]) => [
-        agentId,
-        runs.map((run) => ({
-          ...run,
-          events: run.events.map((event) => ({
-            ...event,
-            metadata: event.metadata ? { ...event.metadata } : undefined,
-          })),
-        })),
-      ]),
-    ),
-    approvals: [...document.approvals],
-  };
-}
-
-function normalizeRunEvent(event: Partial<BackgroundAgentRunEvent>, fallbackType: BackgroundAgentRunEventType): BackgroundAgentRunEvent {
-  return {
-    id: event.id ?? `background-agent-run-event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    at: event.at ?? Date.now(),
-    type: event.type ?? fallbackType,
-    level: event.level ?? "info",
-    message: event.message ?? "",
-    metadata: event.metadata ? { ...event.metadata } : undefined,
-  };
 }
 
 function createRunEvent(args: {
@@ -157,11 +147,62 @@ function createRunEvent(args: {
   };
 }
 
+function buildDefaultEnvironment(now = Date.now(), connectionIds: string[] = []): BackgroundAgentEnvironment {
+  return {
+    id: DEFAULT_BACKGROUND_ENVIRONMENT_ID,
+    name: "Local Default",
+    description: "Default local detached execution environment.",
+    connectionIds: [...new Set(connectionIds)],
+    concurrencyLimit: 1,
+    isEnabled: true,
+    status: "idle",
+    createdAt: now,
+    updatedAt: now,
+    lastDispatchAt: null,
+    lastHeartbeatAt: null,
+  };
+}
+
+function normalizeRunEvent(
+  event: Partial<BackgroundAgentRunEvent>,
+  fallbackType: BackgroundAgentRunEventType,
+): BackgroundAgentRunEvent {
+  return {
+    id: event.id ?? `background-agent-run-event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    at: event.at ?? Date.now(),
+    type: event.type ?? fallbackType,
+    level: event.level ?? "info",
+    message: event.message ?? "",
+    metadata: event.metadata ? { ...event.metadata } : undefined,
+  };
+}
+
+function normalizeEnvironment(environment: Partial<BackgroundAgentEnvironment>): BackgroundAgentEnvironment {
+  const now = Date.now();
+  return {
+    id: environment.id ?? `background-env-${now}-${Math.random().toString(36).slice(2, 8)}`,
+    name: environment.name?.trim() || "Execution Environment",
+    description: environment.description?.trim() || "",
+    connectionIds: [...new Set(environment.connectionIds ?? [])],
+    concurrencyLimit:
+      typeof environment.concurrencyLimit === "number" && environment.concurrencyLimit > 0
+        ? Math.max(1, Math.floor(environment.concurrencyLimit))
+        : 1,
+    isEnabled: environment.isEnabled ?? true,
+    status: environment.status ?? "idle",
+    createdAt: environment.createdAt ?? now,
+    updatedAt: environment.updatedAt ?? now,
+    lastDispatchAt: environment.lastDispatchAt ?? null,
+    lastHeartbeatAt: environment.lastHeartbeatAt ?? null,
+  };
+}
+
 function normalizeRun(run: Partial<BackgroundAgentRun>): BackgroundAgentRun {
   const startedAt = run.startedAt ?? Date.now();
   return {
     id: run.id ?? `background-agent-run-${startedAt}-${Math.random().toString(36).slice(2, 8)}`,
     agentId: run.agentId ?? "",
+    environmentId: run.environmentId ?? DEFAULT_BACKGROUND_ENVIRONMENT_ID,
     status: run.status ?? "queued",
     trigger: run.trigger ?? "manual",
     startedAt,
@@ -184,16 +225,75 @@ function normalizeRun(run: Partial<BackgroundAgentRun>): BackgroundAgentRun {
 }
 
 function normalizeDocument(document: Partial<BackgroundAgentDocument>): BackgroundAgentDocument {
+  const rawAgents = document.agents ?? [];
+  const rawRuns = document.runs ?? {};
+  const connectionIds = rawAgents.map((agent) => agent.connectionId).filter((id): id is string => !!id);
+  const normalizedEnvironments = (document.environments ?? []).map((environment) =>
+    normalizeEnvironment(environment),
+  );
+  const defaultEnvironment =
+    normalizedEnvironments.find((environment) => environment.id === DEFAULT_BACKGROUND_ENVIRONMENT_ID) ??
+    buildDefaultEnvironment(Date.now(), connectionIds);
+  const environments = [
+    defaultEnvironment,
+    ...normalizedEnvironments.filter((environment) => environment.id !== DEFAULT_BACKGROUND_ENVIRONMENT_ID),
+  ];
+  const environmentIds = new Set(environments.map((environment) => environment.id));
+  const agents = rawAgents.map((agent) => ({
+    ...agent,
+    environmentId:
+      agent.environmentId && environmentIds.has(agent.environmentId)
+        ? agent.environmentId
+        : DEFAULT_BACKGROUND_ENVIRONMENT_ID,
+  }));
+  const agentEnvironmentById = new Map(agents.map((agent) => [agent.id, agent.environmentId]));
+
   return {
-    version: 2,
-    agents: document.agents ?? [],
+    version: 3,
+    agents,
+    environments,
     runs: Object.fromEntries(
-      Object.entries(document.runs ?? {}).map(([agentId, runs]) => [
+      Object.entries(rawRuns).map(([agentId, runs]) => [
         agentId,
-        (runs ?? []).map((run) => normalizeRun({ ...run, agentId: run.agentId ?? agentId })),
+        (runs ?? []).map((run) =>
+          normalizeRun({
+            ...run,
+            agentId: run.agentId ?? agentId,
+            environmentId:
+              run.environmentId ??
+              agentEnvironmentById.get(run.agentId ?? agentId) ??
+              DEFAULT_BACKGROUND_ENVIRONMENT_ID,
+          }),
+        ),
       ]),
     ),
     approvals: document.approvals ?? [],
+  };
+}
+
+function cloneDocument(document: BackgroundAgentDocument): BackgroundAgentDocument {
+  return {
+    version: 3,
+    agents: [...document.agents],
+    environments: document.environments.map((environment) => ({
+      ...environment,
+      connectionIds: [...environment.connectionIds],
+    })),
+    runs: Object.fromEntries(
+      Object.entries(document.runs).map(([agentId, runs]) => [
+        agentId,
+        runs.map((run) => ({
+          ...run,
+          queryArtifactIds: [...run.queryArtifactIds],
+          approvalIds: [...run.approvalIds],
+          events: run.events.map((event) => ({
+            ...event,
+            metadata: event.metadata ? { ...event.metadata } : undefined,
+          })),
+        })),
+      ]),
+    ),
+    approvals: [...document.approvals],
   };
 }
 
@@ -210,7 +310,7 @@ function loadLegacyDocument(): BackgroundAgentDocument {
 
 function getCache(): BackgroundAgentDocument {
   if (!cache) {
-    cache = loadLegacyDocument();
+    cache = normalizeDocument(loadLegacyDocument());
   }
   return cloneDocument(cache);
 }
@@ -239,6 +339,23 @@ async function updateDocument(
   return cloneDocument(next);
 }
 
+function deriveEnvironmentStatus(
+  document: BackgroundAgentDocument,
+  environment: BackgroundAgentEnvironment,
+  excludingRunId?: string,
+): BackgroundAgentEnvironmentStatus {
+  if (!environment.isEnabled) return "paused";
+  const hasRunning = Object.values(document.runs)
+    .flatMap((runs) => runs)
+    .some(
+      (run) =>
+        run.environmentId === environment.id &&
+        run.id !== excludingRunId &&
+        run.status === "running",
+    );
+  return hasRunning ? "active" : "idle";
+}
+
 export async function ensureBackgroundAgentsLoaded(): Promise<BackgroundAgentDocument> {
   const fallback = loadLegacyDocument();
   const document = await loadJsonDocument<BackgroundAgentDocument>(DOC_KEY, fallback);
@@ -263,8 +380,32 @@ export function getBackgroundAgent(agentId: string): BackgroundAgentDefinition |
   return getCache().agents.find((agent) => agent.id === agentId) ?? null;
 }
 
+export function listBackgroundAgentEnvironments(): BackgroundAgentEnvironment[] {
+  return getCache().environments;
+}
+
+export function getBackgroundAgentEnvironment(environmentId: string): BackgroundAgentEnvironment | null {
+  return getCache().environments.find((environment) => environment.id === environmentId) ?? null;
+}
+
 export function getBackgroundAgentRuns(agentId: string): BackgroundAgentRun[] {
   return getCache().runs[agentId] ?? [];
+}
+
+export function getBackgroundAgentRun(agentId: string, runId: string): BackgroundAgentRun | null {
+  return getBackgroundAgentRuns(agentId).find((run) => run.id === runId) ?? null;
+}
+
+export function listAllBackgroundAgentRuns(): BackgroundAgentRun[] {
+  return Object.values(getCache().runs)
+    .flatMap((runs) => runs)
+    .sort((left, right) => right.startedAt - left.startedAt);
+}
+
+export function listQueuedBackgroundAgentRuns(environmentId?: string): BackgroundAgentRun[] {
+  return listAllBackgroundAgentRuns().filter(
+    (run) => run.status === "queued" && (!environmentId || run.environmentId === environmentId),
+  );
 }
 
 export function listBackgroundAgentApprovals(agentId?: string): BackgroundAgentApprovalItem[] {
@@ -272,10 +413,15 @@ export function listBackgroundAgentApprovals(agentId?: string): BackgroundAgentA
   return agentId ? approvals.filter((approval) => approval.agentId === agentId) : approvals;
 }
 
+export function hasOpenBackgroundAgentRun(agentId: string): boolean {
+  return getBackgroundAgentRuns(agentId).some((run) => run.status === "queued" || run.status === "running");
+}
+
 export async function createBackgroundAgent(input: {
   name: string;
   prompt: string;
   connectionId: string;
+  environmentId?: string | null;
   cadenceMinutes: number | null;
   isEnabled: boolean;
 }): Promise<BackgroundAgentDefinition> {
@@ -285,6 +431,7 @@ export async function createBackgroundAgent(input: {
     name: input.name.trim(),
     prompt: input.prompt.trim(),
     connectionId: input.connectionId,
+    environmentId: input.environmentId?.trim() || DEFAULT_BACKGROUND_ENVIRONMENT_ID,
     cadenceMinutes: input.cadenceMinutes && input.cadenceMinutes > 0 ? input.cadenceMinutes : null,
     isEnabled: input.isEnabled,
     createdAt: now,
@@ -298,6 +445,15 @@ export async function createBackgroundAgent(input: {
   await updateDocument((document) => ({
     ...document,
     agents: [agent, ...document.agents],
+    environments: document.environments.map((environment) =>
+      environment.id === agent.environmentId && !environment.connectionIds.includes(agent.connectionId)
+        ? {
+            ...environment,
+            connectionIds: [...environment.connectionIds, agent.connectionId],
+            updatedAt: now,
+          }
+        : environment,
+    ),
   }));
 
   return agent;
@@ -305,7 +461,12 @@ export async function createBackgroundAgent(input: {
 
 export async function updateBackgroundAgent(
   agentId: string,
-  changes: Partial<Pick<BackgroundAgentDefinition, "name" | "prompt" | "connectionId" | "cadenceMinutes" | "isEnabled">>,
+  changes: Partial<
+    Pick<
+      BackgroundAgentDefinition,
+      "name" | "prompt" | "connectionId" | "environmentId" | "cadenceMinutes" | "isEnabled"
+    >
+  >,
 ): Promise<void> {
   await updateDocument((document) => ({
     ...document,
@@ -314,6 +475,7 @@ export async function updateBackgroundAgent(
         ? {
             ...agent,
             ...changes,
+            environmentId: changes.environmentId?.trim() || agent.environmentId,
             cadenceMinutes:
               changes.cadenceMinutes !== undefined
                 ? changes.cadenceMinutes && changes.cadenceMinutes > 0
@@ -340,12 +502,83 @@ export async function deleteBackgroundAgent(agentId: string): Promise<void> {
   });
 }
 
+export async function createBackgroundAgentEnvironment(input: {
+  name: string;
+  description?: string;
+  connectionIds: string[];
+  concurrencyLimit?: number;
+  isEnabled?: boolean;
+}): Promise<BackgroundAgentEnvironment> {
+  const now = Date.now();
+  const environment = normalizeEnvironment({
+    id: `background-env-${now}-${Math.random().toString(36).slice(2, 8)}`,
+    name: input.name,
+    description: input.description ?? "",
+    connectionIds: input.connectionIds,
+    concurrencyLimit: input.concurrencyLimit ?? 1,
+    isEnabled: input.isEnabled ?? true,
+    status: input.isEnabled === false ? "paused" : "idle",
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await updateDocument((document) => ({
+    ...document,
+    environments: [environment, ...document.environments],
+  }));
+
+  return environment;
+}
+
+export async function updateBackgroundAgentEnvironment(
+  environmentId: string,
+  changes: Partial<
+    Pick<
+      BackgroundAgentEnvironment,
+      "name" | "description" | "connectionIds" | "concurrencyLimit" | "isEnabled" | "status"
+    >
+  >,
+): Promise<void> {
+  await updateDocument((document) => ({
+    ...document,
+    environments: document.environments.map((environment) => {
+      if (environment.id !== environmentId) return environment;
+      const isDisabled = typeof changes.isEnabled === "boolean" && changes.isEnabled === false;
+      return normalizeEnvironment({
+        ...environment,
+        ...changes,
+        updatedAt: Date.now(),
+        status: isDisabled
+          ? "paused"
+          : changes.status ?? (environment.status === "paused" && !isDisabled ? "idle" : environment.status),
+      });
+    }),
+  }));
+}
+
+export async function deleteBackgroundAgentEnvironment(environmentId: string): Promise<void> {
+  if (environmentId === DEFAULT_BACKGROUND_ENVIRONMENT_ID) {
+    throw new Error("The default environment cannot be deleted.");
+  }
+
+  await updateDocument((document) => {
+    if (document.agents.some((agent) => agent.environmentId === environmentId)) {
+      throw new Error("Reassign agents before deleting this environment.");
+    }
+    return {
+      ...document,
+      environments: document.environments.filter((environment) => environment.id !== environmentId),
+    };
+  });
+}
+
 export async function recordBackgroundAgentRunStart(
   agentId: string,
   options?: {
     trigger?: BackgroundAgentRunTrigger;
     maxAttempts?: number;
     retryOfRunId?: string | null;
+    environmentId?: string | null;
   },
 ): Promise<BackgroundAgentRun> {
   return recordBackgroundAgentRunQueued(agentId, options);
@@ -357,12 +590,19 @@ export async function recordBackgroundAgentRunQueued(
     trigger?: BackgroundAgentRunTrigger;
     maxAttempts?: number;
     retryOfRunId?: string | null;
+    environmentId?: string | null;
   },
 ): Promise<BackgroundAgentRun> {
   const now = Date.now();
+  const environmentId =
+    options?.environmentId?.trim() ||
+    getBackgroundAgent(agentId)?.environmentId ||
+    DEFAULT_BACKGROUND_ENVIRONMENT_ID;
+
   const run: BackgroundAgentRun = {
     id: `background-agent-run-${now}-${Math.random().toString(36).slice(2, 8)}`,
     agentId,
+    environmentId,
     status: "queued",
     trigger: options?.trigger ?? "manual",
     startedAt: now,
@@ -387,6 +627,7 @@ export async function recordBackgroundAgentRunQueued(
         metadata: {
           trigger: options?.trigger ?? "manual",
           maxAttempts: options?.maxAttempts ?? 1,
+          environmentId,
         },
       }),
     ],
@@ -398,6 +639,18 @@ export async function recordBackgroundAgentRunQueued(
       ...document.runs,
       [agentId]: [run, ...(document.runs[agentId] ?? [])].slice(0, 50),
     },
+    environments: document.environments.map((environment) =>
+      environment.id === environmentId
+        ? {
+            ...environment,
+            updatedAt: now,
+            lastHeartbeatAt: now,
+            connectionIds: environment.connectionIds.includes(getBackgroundAgent(agentId)?.connectionId ?? "")
+              ? environment.connectionIds
+              : [...environment.connectionIds, getBackgroundAgent(agentId)?.connectionId ?? ""].filter(Boolean),
+          }
+        : environment,
+    ),
     agents: document.agents.map((agent) =>
       agent.id === agentId
         ? {
@@ -417,8 +670,14 @@ export async function markBackgroundAgentRunRunning(args: {
   agentId: string;
   runId: string;
   attemptCount: number;
+  environmentId?: string | null;
 }): Promise<void> {
   const now = Date.now();
+  const environmentId =
+    args.environmentId ??
+    getBackgroundAgentRun(args.agentId, args.runId)?.environmentId ??
+    DEFAULT_BACKGROUND_ENVIRONMENT_ID;
+
   await updateDocument((document) => ({
     ...document,
     runs: {
@@ -442,13 +701,25 @@ export async function markBackgroundAgentRunRunning(args: {
                       : "Detached analysis started.",
                   metadata: {
                     attemptCount: args.attemptCount,
+                    environmentId,
                   },
                 }),
-              ],
+              ].slice(-100),
             }
           : run,
       ),
     },
+    environments: document.environments.map((environment) =>
+      environment.id === environmentId
+        ? {
+            ...environment,
+            status: environment.isEnabled ? "active" : "paused",
+            updatedAt: now,
+            lastDispatchAt: now,
+            lastHeartbeatAt: now,
+          }
+        : environment,
+    ),
     agents: document.agents.map((agent) =>
       agent.id === args.agentId
         ? {
@@ -471,6 +742,10 @@ export async function appendBackgroundAgentRunEvent(args: {
   metadata?: Record<string, unknown>;
 }): Promise<void> {
   const now = Date.now();
+  const environmentId =
+    getBackgroundAgentRun(args.agentId, args.runId)?.environmentId ??
+    DEFAULT_BACKGROUND_ENVIRONMENT_ID;
+
   await updateDocument((document) => ({
     ...document,
     runs: {
@@ -494,6 +769,15 @@ export async function appendBackgroundAgentRunEvent(args: {
           : run,
       ),
     },
+    environments: document.environments.map((environment) =>
+      environment.id === environmentId
+        ? {
+            ...environment,
+            updatedAt: now,
+            lastHeartbeatAt: now,
+          }
+        : environment,
+    ),
   }));
 }
 
@@ -503,13 +787,17 @@ export async function requestBackgroundAgentRunTakeover(args: {
   prompt: string;
 }): Promise<void> {
   const now = Date.now();
+  const environmentId =
+    getBackgroundAgentRun(args.agentId, args.runId)?.environmentId ??
+    DEFAULT_BACKGROUND_ENVIRONMENT_ID;
+
   await updateDocument((document) => ({
     ...document,
     runs: {
       ...document.runs,
       [args.agentId]: (document.runs[args.agentId] ?? []).map((run) =>
         run.id === args.runId
-          ? ({
+          ? {
               ...run,
               takeoverRequestedAt: now,
               takeoverPrompt: args.prompt,
@@ -522,10 +810,19 @@ export async function requestBackgroundAgentRunTakeover(args: {
                   message: "Operator requested AI takeover.",
                 }),
               ].slice(-100),
-            } satisfies BackgroundAgentRun)
+            }
           : run,
       ),
     },
+    environments: document.environments.map((environment) =>
+      environment.id === environmentId
+        ? {
+            ...environment,
+            updatedAt: now,
+            lastHeartbeatAt: now,
+          }
+        : environment,
+    ),
   }));
 }
 
@@ -540,13 +837,17 @@ export async function finishBackgroundAgentRun(args: {
   approvalIds?: string[];
 }): Promise<void> {
   const now = Date.now();
+  const environmentId =
+    getBackgroundAgentRun(args.agentId, args.runId)?.environmentId ??
+    DEFAULT_BACKGROUND_ENVIRONMENT_ID;
+
   await updateDocument((document) => ({
     ...document,
     runs: {
       ...document.runs,
       [args.agentId]: (document.runs[args.agentId] ?? []).map((run) =>
         run.id === args.runId
-          ? ({
+          ? {
               ...run,
               status: args.status,
               finishedAt: now,
@@ -560,10 +861,7 @@ export async function finishBackgroundAgentRun(args: {
                 ...run.events,
                 createRunEvent({
                   at: now,
-                  type:
-                    args.status === "failed"
-                      ? "failed"
-                      : "completed",
+                  type: args.status === "failed" ? "failed" : "completed",
                   level:
                     args.status === "failed"
                       ? "error"
@@ -578,10 +876,20 @@ export async function finishBackgroundAgentRun(args: {
                         : "Detached analysis completed successfully.",
                 }),
               ].slice(-100),
-            } satisfies BackgroundAgentRun)
+            }
           : run,
       ),
     },
+    environments: document.environments.map((environment) =>
+      environment.id === environmentId
+        ? {
+            ...environment,
+            status: deriveEnvironmentStatus(document, environment, args.runId),
+            updatedAt: now,
+            lastHeartbeatAt: now,
+          }
+        : environment,
+    ),
     agents: document.agents.map((agent) =>
       agent.id === args.agentId
         ? {
