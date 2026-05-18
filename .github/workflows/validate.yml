@@ -49,7 +49,7 @@ jobs:
         run: npm run build
 
   rust:
-    runs-on: windows-latest
+    runs-on: windows-2025
     env:
       CARGO_TARGET_DIR: C:\cargo-target\daitalk-check
     steps:
@@ -74,7 +74,37 @@ jobs:
           rustup target add x86_64-pc-windows-msvc
 
       - name: Setup MSVC developer shell
-        uses: ilammy/msvc-dev-cmd@v1
+        shell: powershell
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path $vswhere)) {
+            throw "vswhere.exe was not found at $vswhere"
+          }
+
+          $installPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installPath) {
+            throw "Visual Studio Build Tools installation path not found."
+          }
+
+          $vsDevCmd = Join-Path $installPath "Common7\Tools\VsDevCmd.bat"
+          if (-not (Test-Path $vsDevCmd)) {
+            throw "VsDevCmd.bat not found at $vsDevCmd"
+          }
+
+          $envDump = Join-Path $env:RUNNER_TEMP "vsdevcmd-env.txt"
+          cmd /c "`"$vsDevCmd`" -arch=x64 -host_arch=x64 >nul && set" | Set-Content -Path $envDump
+
+          Get-Content $envDump | ForEach-Object {
+            if ($_ -match "^(.*?)=(.*)$") {
+              $name = $matches[1]
+              $value = $matches[2]
+              if ($name -eq "PATH") {
+                $value | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+              } else {
+                "$name=$value" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+              }
+            }
+          }
 
       - name: Install Windows build prerequisites
         shell: powershell
@@ -151,4 +181,4 @@ jobs:
       - name: Cargo tests
         working-directory: src-tauri
         shell: powershell
-        run: cargo test --lib
+        run: cargo test --lib -- --test-threads=1
