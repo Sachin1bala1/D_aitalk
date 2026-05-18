@@ -189,8 +189,7 @@ jobs:
               ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
             }
 
-            Write-Host "::error title=Cargo check library failed::$errorLine"
-            exit 1
+            throw "Cargo check library failed: $errorLine"
           }
 
           Get-Content $logPath -Tail 40 | ForEach-Object { Write-Host $_ }
