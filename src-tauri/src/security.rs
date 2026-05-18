@@ -193,11 +193,35 @@ mod tests {
     }
 
     #[test]
-    fn classifies_common_sql_operations() {
-        assert_eq!(classify_sql_operation("SELECT * FROM demo"), OperationKind::ReadQuery);
-        assert_eq!(classify_sql_operation("UPDATE demo SET value = 1"), OperationKind::DataMutation);
-        assert_eq!(classify_sql_operation("ALTER TABLE demo ADD COLUMN x int"), OperationKind::SchemaMutation);
-        assert_eq!(classify_sql_operation("EXPLAIN SELECT 1"), OperationKind::ReadQuery);
+    fn classifies_select_as_read_query() {
+        assert_eq!(
+            classify_sql_operation("SELECT * FROM demo"),
+            OperationKind::ReadQuery
+        );
+    }
+
+    #[test]
+    fn classifies_update_as_data_mutation() {
+        assert_eq!(
+            classify_sql_operation("UPDATE demo SET value = 1"),
+            OperationKind::DataMutation
+        );
+    }
+
+    #[test]
+    fn classifies_alter_table_as_schema_mutation() {
+        assert_eq!(
+            classify_sql_operation("ALTER TABLE demo ADD COLUMN x int"),
+            OperationKind::SchemaMutation
+        );
+    }
+
+    #[test]
+    fn classifies_explain_as_read_query() {
+        assert_eq!(
+            classify_sql_operation("EXPLAIN SELECT 1"),
+            OperationKind::ReadQuery
+        );
     }
 
     #[test]

@@ -161,11 +161,29 @@ jobs:
 
           Write-Host "CARGO_TARGET_DIR=$env:CARGO_TARGET_DIR"
 
-      - name: Cargo test security classifies sql operations
+      - name: Cargo test security classifies select as read query
         working-directory: src-tauri
         shell: cmd
         run: |
-          cargo test --lib -vv security::tests::classifies_common_sql_operations -j 1 -- --exact --test-threads=1
+          cargo test --lib -vv security::tests::classifies_select_as_read_query -j 1 -- --exact --test-threads=1
+
+      - name: Cargo test security classifies update as data mutation
+        working-directory: src-tauri
+        shell: cmd
+        run: |
+          cargo test --lib -vv security::tests::classifies_update_as_data_mutation -j 1 -- --exact --test-threads=1
+
+      - name: Cargo test security classifies alter table as schema mutation
+        working-directory: src-tauri
+        shell: cmd
+        run: |
+          cargo test --lib -vv security::tests::classifies_alter_table_as_schema_mutation -j 1 -- --exact --test-threads=1
+
+      - name: Cargo test security classifies explain as read query
+        working-directory: src-tauri
+        shell: cmd
+        run: |
+          cargo test --lib -vv security::tests::classifies_explain_as_read_query -j 1 -- --exact --test-threads=1
 
       - name: Cargo test security blocks read only mutations
         working-directory: src-tauri
