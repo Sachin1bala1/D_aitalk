@@ -163,5 +163,21 @@ jobs:
 
       - name: Cargo tests
         working-directory: src-tauri
-        shell: cmd
-        run: cargo test --lib -j 1 -- --test-threads=1
+        shell: powershell
+        run: |
+          $logPath = Join-Path $env:RUNNER_TEMP "cargo-test.log"
+          cmd /c "cargo test --lib -j 1 -- --test-threads=1 > `"$logPath`" 2>&1"
+          $exitCode = $LASTEXITCODE
+          Get-Content $logPath
+
+          if ($exitCode -ne 0) {
+            $matches = Select-String -Path $logPath -Pattern 'test .* \.\.\. FAILED|panicked at|error: test failed|failures:'
+            if ($matches) {
+              $first = $matches | Select-Object -First 1
+              $snippet = (Get-Content $logPath | Select-Object -Skip ([Math]::Max($first.LineNumber - 3, 0)) -First 16) -join "`n"
+              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "## Cargo test failure`n```text`n$snippet`n```"
+              throw $snippet
+            }
+
+            throw "cargo test --lib failed on Windows CI; no failure block matched in cargo-test.log"
+          }
