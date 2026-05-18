@@ -48,8 +48,22 @@ jobs:
       - name: Frontend build
         run: npm run build
 
-  rust:
+  rust-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Rust stable
+        run: rustup update stable && rustup default stable
+
+      - name: Cargo test library
+        working-directory: src-tauri
+        run: cargo test --lib -j 1 -- --test-threads=1
+
+  rust-windows-smoke:
     runs-on: windows-2022
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -161,110 +175,8 @@ jobs:
 
           Write-Host "CARGO_TARGET_DIR=$env:CARGO_TARGET_DIR"
 
-      - name: Cargo test security classifies select as read query
+      - name: Cargo check library
         working-directory: src-tauri
         shell: cmd
         run: |
-          cargo test --lib -vv security::tests::classifies_select_as_read_query -j 1 -- --exact --test-threads=1
-
-      - name: Cargo test security classifies update as data mutation
-        working-directory: src-tauri
-        shell: cmd
-        run: |
-          cargo test --lib -vv security::tests::classifies_update_as_data_mutation -j 1 -- --exact --test-threads=1
-
-      - name: Cargo test security classifies alter table as schema mutation
-        working-directory: src-tauri
-        shell: cmd
-        run: |
-          cargo test --lib -vv security::tests::classifies_alter_table_as_schema_mutation -j 1 -- --exact --test-threads=1
-
-      - name: Cargo test security classifies explain as read query
-        working-directory: src-tauri
-        shell: cmd
-        run: |
-          cargo test --lib -vv security::tests::classifies_explain_as_read_query -j 1 -- --exact --test-threads=1
-
-      - name: Cargo test security blocks read only mutations
-        working-directory: src-tauri
-        shell: cmd
-        run: |
-          cargo test --lib -vv security::tests::blocks_mutations_on_read_only_connections -j 1 -- --exact --test-threads=1
-
-      - name: Cargo test security enforces query guard limits
-        working-directory: src-tauri
-        shell: cmd
-        run: |
-          cargo test --lib -vv security::tests::enforces_query_guard_limits -j 1 -- --exact --test-threads=1
-
-      - name: Cargo tests sql analyzer
-        working-directory: src-tauri
-        shell: cmd
-        run: |
-          cargo test --lib -vv intelligence::sql_analyzer::tests:: -j 1 -- --test-threads=1
-
-      - name: Cargo tests query transform
-        working-directory: src-tauri
-        shell: cmd
-        run: |
-          cargo test --lib -vv db::query_transform::tests:: -j 1 -- --test-threads=1
-
-      - name: Cargo test store derives affinity candidates
-        working-directory: src-tauri
-        shell: cmd
-        run: |
-          cargo test --lib -vv intelligence::store::tests::derives_affinity_candidates_from_single_table_select -j 1 -- --exact --test-threads=1
-
-      - name: Cargo test store filters audit dimensions
-        working-directory: src-tauri
-        shell: cmd
-        run: |
-          cargo test --lib -vv intelligence::store::tests::filters_and_lists_security_audit_dimensions -j 1 -- --exact --test-threads=1
-
-      - name: Cargo test store initializes schema
-        working-directory: src-tauri
-        shell: cmd
-        run: |
-          cargo test --lib -vv intelligence::store::tests::initializes_schema_idempotently -j 1 -- --exact --test-threads=1
-
-      - name: Cargo test store clears local data scopes
-        working-directory: src-tauri
-        shell: cmd
-        run: |
-          cargo test --lib -vv intelligence::store::tests::lists_and_clears_local_data_scopes -j 1 -- --exact --test-threads=1
-
-      - name: Cargo test store migrates benchmark context
-        working-directory: src-tauri
-        shell: cmd
-        run: |
-          cargo test --lib -vv intelligence::store::tests::migrates_legacy_benchmark_context_and_persists_benchmark -j 1 -- --exact --test-threads=1
-
-      - name: Cargo test store records visualization affinity
-        working-directory: src-tauri
-        shell: cmd
-        run: |
-          cargo test --lib -vv intelligence::store::tests::records_query_visualization_and_affinity -j 1 -- --exact --test-threads=1
-
-      - name: Cargo test store records audit events
-        working-directory: src-tauri
-        shell: cmd
-        run: |
-          cargo test --lib -vv intelligence::store::tests::records_security_audit_events -j 1 -- --exact --test-threads=1
-
-      - name: Cargo test store redacts string literals
-        working-directory: src-tauri
-        shell: cmd
-        run: |
-          cargo test --lib -vv intelligence::store::tests::redacts_string_literals_before_storage -j 1 -- --exact --test-threads=1
-
-      - name: Cargo test store skips multi table affinity
-        working-directory: src-tauri
-        shell: cmd
-        run: |
-          cargo test --lib -vv intelligence::store::tests::skips_affinity_candidates_for_multi_table_queries -j 1 -- --exact --test-threads=1
-
-      - name: Cargo test store normalized multi table lineage
-        working-directory: src-tauri
-        shell: cmd
-        run: |
-          cargo test --lib -vv intelligence::store::tests::stores_normalized_multi_table_lineage -j 1 -- --exact --test-threads=1
+          cargo check --lib
