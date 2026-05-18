@@ -161,11 +161,23 @@ jobs:
 
           Write-Host "CARGO_TARGET_DIR=$env:CARGO_TARGET_DIR"
 
-      - name: Cargo tests security
+      - name: Cargo test security classifies sql operations
         working-directory: src-tauri
         shell: cmd
         run: |
-          cargo test --lib security::tests:: -j 1 -- --test-threads=1
+          cargo test --lib security::tests::classifies_common_sql_operations -j 1 -- --exact --test-threads=1
+
+      - name: Cargo test security blocks read only mutations
+        working-directory: src-tauri
+        shell: cmd
+        run: |
+          cargo test --lib security::tests::blocks_mutations_on_read_only_connections -j 1 -- --exact --test-threads=1
+
+      - name: Cargo test security enforces query guard limits
+        working-directory: src-tauri
+        shell: cmd
+        run: |
+          cargo test --lib security::tests::enforces_query_guard_limits -j 1 -- --exact --test-threads=1
 
       - name: Cargo tests sql analyzer
         working-directory: src-tauri
