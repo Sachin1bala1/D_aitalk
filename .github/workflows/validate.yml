@@ -164,6 +164,33 @@ jobs:
 
       - name: Cargo check library
         working-directory: src-tauri
-        shell: cmd
+        shell: powershell
         run: |
-          cargo check --lib
+          $logPath = Join-Path $env:RUNNER_TEMP "cargo-check-library.log"
+          cmd /c "cargo check --lib > `"$logPath`" 2>&1"
+          if ($LASTEXITCODE -ne 0) {
+            $tail = @(Get-Content $logPath -Tail 200)
+            $tail | ForEach-Object { Write-Host $_ }
+
+            $errorLine = $tail |
+              Where-Object { $_ -match '(^error(\[[^\]]+\])?:)|(^\s*= note:)|(^Caused by:)' } |
+              Select-Object -Last 1
+            if (-not $errorLine) {
+              $errorLine = $tail | Select-Object -Last 1
+            }
+
+            if ($env:GITHUB_STEP_SUMMARY) {
+              @(
+                "### Cargo check library failed"
+                ""
+                "```text"
+                $tail
+                "```"
+              ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+            }
+
+            Write-Host "::error title=Cargo check library failed::$errorLine"
+            exit 1
+          }
+
+          Get-Content $logPath -Tail 40 | ForEach-Object { Write-Host $_ }
