@@ -16,7 +16,12 @@ import { ConnectionDialog } from "./components/dialogs/ConnectionDialog";
 import { AIPanel } from "./components/ai/AIPanel";
 import { AgentModeToggle } from "./components/ai/AgentModeToggle";
 import { registerHandlers } from "./lib/agent/registerHandlers";
-import { loadSavedConnectionsAsync, persistConnections, removeConnection as removePersistedConnection } from "./lib/db/ConnectionStore";
+import {
+  loadConnectionWithPassword,
+  loadSavedConnectionsAsync,
+  persistConnections,
+  removeConnection as removePersistedConnection,
+} from "./lib/db/ConnectionStore";
 import { ERDiagram } from "./components/schema/ERDiagram";
 import { KeyboardShortcutsDialog } from "./components/dialogs/KeyboardShortcutsDialog";
 import { FileImportDialog } from "./components/dialogs/FileImportDialog";
@@ -321,12 +326,13 @@ export default function App() {
     await Promise.allSettled(
       saved.map(async (config) => {
         try {
-          await DbClient.connect(config);
-          addConnection(config);
-          const schema = await DbClient.getSchema(config.id);
-          setSchema(config.id, schema);
-          setConnectionHealth(config.id, "healthy");
-          if (!firstRestoredId) firstRestoredId = config.id;
+          const hydrated = (await loadConnectionWithPassword(config.id)) ?? config;
+          await DbClient.connect(hydrated);
+          addConnection(hydrated);
+          const schema = await DbClient.getSchema(hydrated.id);
+          setSchema(hydrated.id, schema);
+          setConnectionHealth(hydrated.id, "healthy");
+          if (!firstRestoredId) firstRestoredId = hydrated.id;
         } catch {
           // Individual failure is non-fatal — user can reconnect manually
         }
@@ -353,9 +359,17 @@ export default function App() {
   const isArtifactQueryTab = activeTab?.type === "artifact_query";
   const isArtifactReportTab = activeTab?.type === "artifact_report";
   const isArtifactTab = isArtifactChartTab || isArtifactQueryTab || isArtifactReportTab;
-  const activeSchema = activeConnectionId ? schemas[activeConnectionId] : null;
+  const effectiveConnectionId = activeTab?.connectionId ?? activeConnectionId;
+  const activeSchema = effectiveConnectionId ? schemas[effectiveConnectionId] : null;
   const activeDriver =
-    connections.find((connection) => connection.id === activeConnectionId)?.driver ?? null;
+    connections.find((connection) => connection.id === effectiveConnectionId)?.driver ?? null;
+
+  useEffect(() => {
+    if (!activeTab?.connectionId) return;
+    if (activeTab.connectionId === activeConnectionId) return;
+    if (!connections.some((connection) => connection.id === activeTab.connectionId)) return;
+    setActiveConnection(activeTab.connectionId);
+  }, [activeConnectionId, activeTab?.connectionId, connections, setActiveConnection]);
 
   useEffect(() => {
     if (smokeMode) return;
@@ -1313,7 +1327,7 @@ export default function App() {
               currentSQL={activeTab?.sql ?? null}
               currentResults={activeTab?.queryResults ?? null}
               currentSchema={activeSchema}
-              connectionId={activeConnectionId}
+              connectionId={effectiveConnectionId}
               onApplySQL={(sql) => setEditorSql(sql)}
               onQuerySuccess={(results, sql) => {
                 setEditorSql(sql);

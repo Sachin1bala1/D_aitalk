@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { startTaskEngine } from "./TaskEngine";
+import { shouldSkipPlanning, startTaskEngine } from "./TaskEngine";
 import type { AIProvider } from "../ai/types";
 import { useWorkspaceStore } from "../stores/WorkspaceStore";
 
@@ -65,5 +65,18 @@ describe("TaskEngine approval handling", () => {
     expect(currentTask?.subtasks[0]?.status).toBe("awaiting_approval");
     expect(checkpoint?.task.status).toBe("awaiting_input");
     expect(checkpoint?.task.subtasks[0]?.status).toBe("awaiting_approval");
+  });
+
+  it("skips multi-step planning for simple parameter-ranking questions when results are already loaded", () => {
+    expect(
+      shouldSkipPlanning("what are the most important parameter in the data table?", {
+        rows: [{ a: 1, b: 2 }],
+        fields: [{ name: "a" }, { name: "b" }],
+        rowCount: 1,
+        elapsedMs: 1,
+        queryId: "q-1",
+        source_tables: ["public.sample"],
+      }),
+    ).toBe(true);
   });
 });

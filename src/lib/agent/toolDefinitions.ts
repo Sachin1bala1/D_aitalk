@@ -72,7 +72,7 @@ export const AGENT_TOOLS: UnifiedTool[] = [
   {
     name: "execute_sql",
     description:
-      "Execute a SQL SELECT query against the active database and return results. Use for read-only queries to fetch data, answer questions, or validate assumptions.",
+      "Execute a SQL SELECT query against the active database and return results. Use this whenever the user asks to pull rows, fetch the first N records, answer a question from table data, or validate assumptions.",
     parameters: {
       type: "object",
       properties: {
@@ -85,7 +85,7 @@ export const AGENT_TOOLS: UnifiedTool[] = [
   // ── Navigation ────────────────────────────────────────────────────────────
   {
     name: "open_table",
-    description: "Open a database table in the editor with SELECT * LIMIT 500.",
+    description: "Open a database table and load a default SELECT * LIMIT 500 preview. Use this only for a generic table preview when the user did not ask for a specific SQL shape or row count.",
     parameters: {
       type: "object",
       properties: {

@@ -83,33 +83,31 @@ import {
   type WorkspaceSearchDocumentKind,
 } from "../search/workspaceSemanticIndex";
 
+const STREAMING_QUERY_TIMEOUT_MS = 15_000;
+const DUCKDB_QUERY_TIMEOUT_MS = 15_000;
+
 export function registerHandlers() {
-  // ── SQL ───────────────────────────────────────────────────────────────────
-
-  commandBus.register<SetEditorContentCmd>("set_editor_content", async (cmd) => {
-    useWorkspaceStore.getState().setEditorSql(cmd.sql);
-    return { success: true, result: "SQL written to editor" };
-  });
-
-  commandBus.register<ExecuteSqlCmd>("execute_sql", async (cmd) => {
+  const runStreamingQuery = async (connectionId: string, sql: string): Promise<CommandResult> => {
     const { setEditorSql, setTabExecuting, setQueryResults } =
       useWorkspaceStore.getState();
 
-    setEditorSql(cmd.sql);
+    setEditorSql(sql);
     setTabExecuting(true);
-    QueryManager.setBaseQuery(cmd.sql, cmd.connectionId);
+    QueryManager.setBaseQuery(sql, connectionId);
 
     try {
-      return new Promise((resolve) => {
+      return await new Promise((resolve) => {
         const allRows: Record<string, unknown>[] = [];
         let fields: { name: string }[] = [];
         let queryId: string | null = null;
         let sourceTables: string[] = [];
         let settled = false;
+        let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
 
         const finish = (payload: CommandResult) => {
           if (settled) return;
           settled = true;
+          if (timeoutHandle) clearTimeout(timeoutHandle);
           unlistenFn?.();
           resolve(payload);
         };
@@ -121,6 +119,9 @@ export function registerHandlers() {
         };
 
         let unlistenFn: (() => void) | null = null;
+        timeoutHandle = setTimeout(() => {
+          onError("Query execution timed out. Try narrowing the query, lowering the row count, or running a more targeted aggregate first.");
+        }, STREAMING_QUERY_TIMEOUT_MS);
         listen<QueryBatch>("query_batch", (event) => {
           const batch = event.payload;
           if (!queryId || batch.query_id !== queryId) return;
@@ -159,7 +160,7 @@ export function registerHandlers() {
         }).then(async (fn) => {
           unlistenFn = fn;
           try {
-            const response = await DbClient.executeStreaming(cmd.connectionId, cmd.sql);
+            const response = await DbClient.executeStreaming(connectionId, sql);
             queryId = response.query_id;
             sourceTables = response.source_tables;
             rowStore.reset(queryId);
@@ -175,6 +176,16 @@ export function registerHandlers() {
       rowStore.finalize();
       return { success: false, error: e.message ?? "Query failed" };
     }
+  };
+  // ── SQL ───────────────────────────────────────────────────────────────────
+
+  commandBus.register<SetEditorContentCmd>("set_editor_content", async (cmd) => {
+    useWorkspaceStore.getState().setEditorSql(cmd.sql);
+    return { success: true, result: "SQL written to editor" };
+  });
+
+  commandBus.register<ExecuteSqlCmd>("execute_sql", async (cmd) => {
+    return runStreamingQuery(cmd.connectionId, cmd.sql);
   });
 
   commandBus.register<CancelQueryCmd>("cancel_query", async () => {
@@ -186,8 +197,12 @@ export function registerHandlers() {
   // ── Navigation ────────────────────────────────────────────────────────────
 
   commandBus.register<OpenTableCmd>("open_table", async (cmd) => {
-    const { activeConnectionId, connections } = useWorkspaceStore.getState();
-    const conn = connections.find((c) => c.id === (activeConnectionId ?? ""));
+    const state = useWorkspaceStore.getState();
+    const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId) ?? null;
+    const effectiveConnectionId = activeTab?.connectionId ?? state.activeConnectionId;
+    const { connections } = state;
+    if (!effectiveConnectionId) return { success: false, error: "No active connection" };
+    const conn = connections.find((c) => c.id === effectiveConnectionId);
     const driver = conn?.driver ?? "postgres";
 
     let sql: string;
@@ -201,8 +216,16 @@ export function registerHandlers() {
       sql = `SELECT * FROM "${cmd.schema}"."${cmd.table}" LIMIT 500;`;
     }
 
-    useWorkspaceStore.getState().setEditorSql(sql);
-    return { success: true, result: `Opened ${cmd.schema}.${cmd.table}` };
+    const result = await runStreamingQuery(effectiveConnectionId, sql);
+    if (!result.success) return result;
+    return {
+      success: true,
+      result: {
+        ...(typeof result.result === "object" && result.result !== null ? result.result : {}),
+        openedTable: `${cmd.schema}.${cmd.table}`,
+        message: `Opened ${cmd.schema}.${cmd.table} and loaded preview rows`,
+      },
+    };
   });
 
   commandBus.register<OpenNewTabCmd>("open_new_tab", async (cmd) => {
@@ -486,6 +509,21 @@ export function registerHandlers() {
 
       return new Promise((resolve) => {
         let unlistenFn: (() => void) | null = null;
+        let settled = false;
+        const finish = (payload: CommandResult) => {
+          if (settled) return;
+          settled = true;
+          if (timeoutHandle) clearTimeout(timeoutHandle);
+          unlistenFn?.();
+          resolve(payload);
+        };
+        const timeoutHandle = setTimeout(() => {
+          rowStore.finalize();
+          finish({
+            success: false,
+            error: "DuckDB analysis timed out. Try reducing the data volume or using a narrower SQL query first.",
+          });
+        }, DUCKDB_QUERY_TIMEOUT_MS);
 
         listen<QueryBatch>("query_batch", (event) => {
           const batch = event.payload;
@@ -494,12 +532,10 @@ export function registerHandlers() {
           rowStore.appendBatch(batch);
 
           if (batch.error) {
-            unlistenFn?.();
             rowStore.finalize();
-            resolve({ success: false, error: batch.error });
+            finish({ success: false, error: batch.error });
           } else if (batch.is_final) {
-            unlistenFn?.();
-            resolve({ success: true, result: `DuckDB analysis complete: ${batch.rows_so_far} rows` });
+            finish({ success: true, result: `DuckDB analysis complete: ${batch.rows_so_far} rows` });
           }
         }).then((fn) => {
           unlistenFn = fn;

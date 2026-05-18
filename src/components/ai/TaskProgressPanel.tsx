@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -10,6 +11,35 @@ import {
 } from "lucide-react";
 import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
 import type { SubTask, SubTaskStatus } from "../../lib/agent/TaskState";
+
+const STALL_THRESHOLD_MS = 12_000;
+
+function formatElapsed(ms: number) {
+  const secs = Math.max(0, Math.floor(ms / 1000));
+  if (secs < 60) return `${secs}s`;
+  const mins = Math.floor(secs / 60);
+  const rem = secs % 60;
+  return `${mins}m ${rem}s`;
+}
+
+function getActivityMeta(subtask: SubTask, now: number) {
+  const startedAt = subtask.auditLog.find((entry) =>
+    entry.state === "planning" ||
+    entry.state === "executing" ||
+    entry.state === "verifying" ||
+    entry.state === "awaiting_approval"
+  )?.timestamp;
+  const lastActivityAt = subtask.auditLog[subtask.auditLog.length - 1]?.timestamp ?? startedAt ?? now;
+  const elapsedMs = startedAt ? Math.max(0, now - startedAt) : 0;
+  const isWorkingState =
+    subtask.status === "planning" ||
+    subtask.status === "executing" ||
+    subtask.status === "verifying";
+  return {
+    elapsedLabel: startedAt ? formatElapsed(elapsedMs) : null,
+    stalled: isWorkingState && now - lastActivityAt >= STALL_THRESHOLD_MS,
+  };
+}
 
 function StatusIcon({ status }: { status: SubTaskStatus }) {
   if (status === "complete") {
@@ -73,6 +103,13 @@ function verificationMeta(subtask: SubTask): {
 export function TaskProgressPanel() {
   const currentTask = useWorkspaceStore((state) => state.currentTask);
   const taskCheckpoint = useWorkspaceStore((state) => state.taskCheckpoint);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
+
   if (!currentTask) {
     if (taskCheckpoint?.lifecycle !== "interrupted") return null;
 
@@ -98,12 +135,23 @@ export function TaskProgressPanel() {
   }
 
   const activeSubtask = currentTask.subtasks[currentTask.currentIndex] ?? null;
+  const activeMeta = activeSubtask ? getActivityMeta(activeSubtask, now) : null;
 
   return (
     <div className="mx-4 mb-2 rounded-lg border border-[#00d2ff]/20 bg-[#00d2ff]/5 px-3 py-2 text-xs">
       <div className="flex items-center gap-2 min-w-0">
         <LoaderCircle className="w-3.5 h-3.5 text-[#00d2ff] animate-spin shrink-0" />
         <span className="font-mono text-[#00d2ff]/80 truncate">{currentTask.userGoal}</span>
+        {activeMeta?.elapsedLabel && (
+          <span className="text-[10px] uppercase tracking-widest text-white/35">
+            {activeMeta.elapsedLabel}
+          </span>
+        )}
+        {activeMeta?.stalled && (
+          <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-amber-300">
+            stalled
+          </span>
+        )}
         <span className="ml-auto text-[10px] uppercase tracking-widest text-white/35">
           {statusLabel(currentTask.status)}
         </span>
@@ -154,7 +202,9 @@ export function TaskProgressPanel() {
 
       {activeSubtask?.auditLog.length ? (
         <div className="mt-2 border-t border-white/10 pt-2 text-[10px] text-white/40 font-mono truncate">
-          {activeSubtask.auditLog[activeSubtask.auditLog.length - 1]?.note ?? "Working"}
+          {activeMeta?.stalled
+            ? `Stalled: ${activeSubtask.auditLog[activeSubtask.auditLog.length - 1]?.note ?? "Working"}`
+            : activeSubtask.auditLog[activeSubtask.auditLog.length - 1]?.note ?? "Working"}
         </div>
       ) : null}
     </div>

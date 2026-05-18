@@ -12,6 +12,7 @@ import type { QueryResults } from "../../lib/stores/WorkspaceStore";
 import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
 import { resumeTaskEngine, startTaskEngine } from "../../lib/agent/TaskEngine";
 import type { CommandResult } from "../../lib/agent/CommandBus";
+import { commandBus } from "../../lib/agent/CommandBus";
 import type { PersistedAiChatMessage, PersistedAiSessionState } from "../../lib/ai/AiSessionState";
 import type { ConversationTurn } from "../../lib/ai/types";
 import { loadSettings, loadApiKeysFromKeychain, getActiveKey, getActiveModel, PROVIDER_CATALOG } from "../../lib/ai/types";
@@ -33,6 +34,13 @@ import { TaskProgressPanel } from "./TaskProgressPanel";
 import { createReportArtifact } from "../../lib/artifacts/reportArtifacts";
 import { getLatestArtifactRevisionId } from "../../lib/stores/WorkspaceStore";
 import type { TaskCheckpoint } from "../../lib/agent/TaskState";
+import {
+  attemptedQueryMaterialization,
+  getAutoExecutableSql,
+  hasSuccessfulResultTool,
+  requiresLiveExecution,
+  type ToolExecutionOutcome,
+} from "../../lib/agent/ExecutionIntentGuard";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -168,6 +176,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
   const [conversationTurns, setConversationTurns] = useState<ConversationTurn[]>(aiSession?.conversationTurns ?? []);
   const historyRef = useRef<ConversationTurn[]>(aiSession?.conversationTurns ?? []);
   const toolsCalledRef = useRef<string[]>([]);
+  const toolOutcomeRef = useRef<ToolExecutionOutcome[]>([]);
   const [sessionQuestion, setSessionQuestion] = useState(aiSession?.sessionQuestion ?? "");
 
   // Load API keys from OS keychain on mount and merge into settings
@@ -316,6 +325,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       // Memory failure must not block the agent
     }
     toolsCalledRef.current = [];
+    toolOutcomeRef.current = [];
 
     try {
       const sharedTaskOptions = {
@@ -346,6 +356,11 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
         },
 
         onToolEnd: (toolName: string, result: CommandResult) => {
+          toolOutcomeRef.current.push({
+            toolName,
+            success: result.success,
+          });
+
           setMessages((prev) => {
             for (let i = prev.length - 1; i >= 0; i--) {
               const msg = prev[i];
@@ -406,6 +421,66 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       setQueryDepth(resultDepth ?? null);
       historyRef.current = updatedHistory;
       setConversationTurns(updatedHistory);
+
+      if (
+        requiresLiveExecution(userMsg) &&
+        attemptedQueryMaterialization(toolOutcomeRef.current) &&
+        !hasSuccessfulResultTool(toolOutcomeRef.current)
+      ) {
+        const state = useWorkspaceStore.getState();
+        const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId) ?? null;
+        const fallbackConnectionId =
+          activeTab?.connectionId ?? state.activeConnectionId ?? connectionId;
+        const fallbackSql = getAutoExecutableSql(activeTab?.sql ?? null);
+
+        if (fallbackConnectionId && fallbackSql) {
+          addMsg({
+            role: "assistant",
+            content:
+              "The agent generated the SQL but the live execution path did not complete. Running the safe read query automatically now.",
+          });
+
+          const fallbackResult = await commandBus.dispatch({
+            type: "execute_sql",
+            sql: fallbackSql,
+            connectionId: fallbackConnectionId,
+            risk: "safe",
+          });
+
+          toolOutcomeRef.current.push({
+            toolName: "execute_sql",
+            success: fallbackResult.success,
+          });
+
+          if (fallbackResult.success) {
+            const rowCount =
+              typeof fallbackResult.result === "object" &&
+              fallbackResult.result !== null &&
+              "rowCount" in fallbackResult.result
+                ? Number((fallbackResult.result as { rowCount?: number }).rowCount ?? 0)
+                : null;
+
+            addMsg({
+              role: "assistant",
+              content:
+                rowCount != null
+                  ? `Live execution completed automatically. Loaded **${rowCount}** row${rowCount === 1 ? "" : "s"} into the results pane.`
+                  : "Live execution completed automatically and the results pane is now populated.",
+            });
+          } else {
+            addMsg({
+              role: "error",
+              content: `The agent generated SQL, but live execution still failed: ${fallbackResult.error ?? "Unknown execution error"}`,
+            });
+          }
+        } else {
+          addMsg({
+            role: "error",
+            content:
+              "The agent generated SQL but did not complete live execution, and no safe runnable query/connection context was available for automatic fallback.",
+          });
+        }
+      }
 
       try {
         await EpisodicMemory.store({

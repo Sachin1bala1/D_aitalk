@@ -35,5 +35,11 @@
     "icon": [
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [],
+      "pubkey": ""
+    }
   }
 }

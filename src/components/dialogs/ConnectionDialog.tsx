@@ -4,7 +4,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { invoke } from "@tauri-apps/api/core";
 import { DbClient, ConnectionConfig, DbDriver } from "../../lib/db/DbClient";
-import { loadSavedConnectionsAsync, removeConnection } from "../../lib/db/ConnectionStore";
+import {
+  loadConnectionWithPassword,
+  loadSavedConnectionsAsync,
+  removeConnection,
+} from "../../lib/db/ConnectionStore";
 import { diagnoseConnection, DiagnosisResult } from "../../lib/connection/ConnectionDoctor";
 import { ConnectionDoctorPanel } from "./ConnectionDoctorPanel";
 import { loadApiKeysFromKeychain } from "../../lib/ai/types";
@@ -155,6 +159,7 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
   const [isConnecting, setIsConnecting] = useState(false);
   const [testStatus, setTestStatus] = useState<"idle" | "testing" | "ok" | "fail">("idle");
   const [savedConns, setSavedConns] = useState<ConnectionConfig[]>([]);
+  const [selectedSavedConnectionId, setSelectedSavedConnectionId] = useState<string | null>(null);
   // tracks whether user manually changed driver/name so auto-parse doesn't override
   const [driverManual, setDriverManual] = useState(false);
   const [nameManual, setNameManual] = useState(false);
@@ -179,6 +184,7 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
       // Reset manual flags when dialog reopens
       setDriverManual(false);
       setNameManual(false);
+      setSelectedSavedConnectionId(null);
     }
   }, [open]);
 
@@ -194,12 +200,34 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
 
   const selectedDriver = DRIVER_OPTIONS.find((d) => d.value === driver)!;
 
+  const applySavedConnectionToForm = (config: ConnectionConfig) => {
+    setSelectedSavedConnectionId(config.id);
+    setDriver(config.driver);
+    setDriverManual(true);
+    setDisplayName(config.display_name ?? "");
+    setNameManual(true);
+    setConnectionString(config.pi_config?.base_url ?? config.connection_string ?? "");
+    setTestStatus("idle");
+
+    if (config.pi_config) {
+      setPiUsername(config.pi_config.username ?? "");
+      setPiPassword(config.pi_config.password ?? "");
+      setPiVerifySsl(config.pi_config.verify_ssl ?? true);
+    } else {
+      setPiUsername("");
+      setPiPassword("");
+      setPiVerifySsl(true);
+    }
+  };
+
   const handleQuickConnect = async (config: ConnectionConfig) => {
     setIsConnecting(true);
     try {
-      await DbClient.connect(config);
-      onConnect(config.id, config);
-      toast.success(`Connected to ${config.display_name}`);
+      const hydrated = (await loadConnectionWithPassword(config.id)) ?? config;
+      applySavedConnectionToForm(hydrated);
+      await DbClient.connect(hydrated);
+      onConnect(hydrated.id, hydrated);
+      toast.success(`Connected to ${hydrated.display_name}`);
       onOpenChange(false);
     } catch (error: any) {
       toast.error(error.message ?? "Reconnection failed");
@@ -233,14 +261,15 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
     };
 
     const existing = savedConns.find((conn) => sameSavedConnection(conn, draft));
-    if (!existing) return draft;
+    const resolvedId = existing?.id ?? selectedSavedConnectionId;
+    if (!resolvedId) return draft;
 
     return {
       ...draft,
-      id: existing.id,
-      display_name: displayName || existing.display_name || draft.display_name,
-      pool_min: existing.pool_min ?? draft.pool_min,
-      pool_max: existing.pool_max ?? draft.pool_max,
+      id: resolvedId,
+      display_name: displayName || existing?.display_name || draft.display_name,
+      pool_min: existing?.pool_min ?? draft.pool_min,
+      pool_max: existing?.pool_max ?? draft.pool_max,
     };
   };
 
@@ -365,21 +394,40 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                     {savedConns.map((conn) => (
                       <button
                         key={conn.id}
-                        onClick={() => handleQuickConnect(conn)}
+                        onClick={async () => {
+                          const hydrated = (await loadConnectionWithPassword(conn.id)) ?? conn;
+                          applySavedConnectionToForm(hydrated);
+                        }}
                         disabled={isConnecting}
-                        className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[#1a1a1a] border border-[#262626] hover:border-[#00d2ff]/30 text-left transition-colors group disabled:opacity-40"
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-left transition-colors group disabled:opacity-40 ${
+                          selectedSavedConnectionId === conn.id
+                            ? "bg-[#00d2ff]/8 border-[#00d2ff]/30"
+                            : "bg-[#1a1a1a] border-[#262626] hover:border-[#00d2ff]/30"
+                        }`}
                       >
                         <div className="min-w-0">
                           <p className="text-xs font-semibold text-white/80 truncate">{conn.display_name}</p>
                           <p className="text-[10px] text-white/25 font-mono truncate">{conn.driver} · {conn.connection_string.replace(/:[^:@]+@/, ":***@")}</p>
                         </div>
-                        <button
-                          onClick={(e) => handleRemoveSaved(conn.id, e)}
-                          className="shrink-0 opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 rounded text-white/20 hover:text-red-400 transition-all"
-                          title="Remove saved connection"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
+                        <div className="shrink-0 flex items-center gap-1">
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await handleQuickConnect(conn);
+                            }}
+                            className="p-1 rounded text-white/25 hover:text-[#00d2ff] hover:bg-[#00d2ff]/10 transition-colors"
+                            title="Reconnect now"
+                          >
+                            <Wifi className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={(e) => handleRemoveSaved(conn.id, e)}
+                            className="p-1 hover:bg-red-500/20 rounded text-white/20 hover:text-red-400 transition-all"
+                            title="Remove saved connection"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
                       </button>
                     ))}
                   </div>

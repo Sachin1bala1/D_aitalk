@@ -4,6 +4,7 @@ import type { ConversationTurn, ToolCall } from "../ai/types";
 import type { AuditEntry, SubTask, SubTaskStatus, Task, TaskCheckpoint, TaskProvenance, VerifyResultParams } from "./TaskState";
 import { useWorkspaceStore } from "../stores/WorkspaceStore";
 import { verifyCurrentResults } from "./VerificationEngine";
+import { withTimeout } from "../ai/resilience";
 
 interface TaskPlan {
   subtasks: string[];
@@ -18,6 +19,10 @@ interface TaskExecutionRequest {
 
 const RESULT_PRODUCING_TOOLS = new Set(["execute_sql", "open_table", "run_duckdb_analysis"]);
 const MAX_AUTO_RETRIES = 1;
+const TASK_PLAN_TIMEOUT_MS = 6_000;
+const VERIFY_PLAN_TIMEOUT_MS = 4_000;
+const SINGLE_STEP_TIMEOUT_MS = 20_000;
+const SUBTASK_TIMEOUT_MS = 15_000;
 
 function createAuditEntry(state: SubTaskStatus, note?: string, extras?: Partial<AuditEntry>): AuditEntry {
   return {
@@ -206,9 +211,30 @@ function buildSubtaskPrompt(
   );
 }
 
-function shouldSkipPlanning(userMessage: string): boolean {
+export function shouldSkipPlanning(
+  userMessage: string,
+  currentResults: AgentLoopOptions["currentResults"] = null,
+): boolean {
   const q = userMessage.toLowerCase();
-  return /\b(delete|drop|rename|alter|update|insert|create index|pipeline|migrate|transform)\b/.test(q);
+  if (/\b(delete|drop|rename|alter|update|insert|create index|pipeline|migrate|transform)\b/.test(q)) {
+    return true;
+  }
+
+  if (
+    /\b(important parameter|most important|top parameter|key parameter|summary statistics|descriptive statistics|basic statistics|correlation|distribution|failure rate|sample rows|first \d+ rows|top \d+ rows)\b/.test(q)
+  ) {
+    return true;
+  }
+
+  if (currentResults && currentResults.rowCount > 0 && currentResults.rowCount <= 1_000) {
+    if (
+      /\b(show|pull|get|run|list|summarize|summarise|describe|analyze|analyse|plot|chart|visualize|visualise|correlate|compare)\b/.test(q)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 async function requestTaskPlan(
@@ -216,7 +242,7 @@ async function requestTaskPlan(
   history: ConversationTurn[],
   options: AgentLoopOptions,
 ): Promise<TaskPlan | null> {
-  if (shouldSkipPlanning(userMessage)) return null;
+  if (shouldSkipPlanning(userMessage, options.currentResults)) return null;
 
   const planningSystem = [
     "You are planning a safe, read-only data investigation workflow inside Daitalk.",
@@ -231,13 +257,17 @@ async function requestTaskPlan(
     { role: "user", text: userMessage },
   ];
 
-  const { toolCalls } = await options.provider.stream({
-    system: planningSystem,
-    history: planningHistory,
-    model: options.model,
-    tools: [CREATE_TASK_PLAN_TOOL],
-    onToken: () => {},
-  });
+  const { toolCalls } = await withTimeout(
+    options.provider.stream({
+      system: planningSystem,
+      history: planningHistory,
+      model: options.model,
+      tools: [CREATE_TASK_PLAN_TOOL],
+      onToken: () => {},
+    }),
+    TASK_PLAN_TIMEOUT_MS,
+    "Task planning",
+  );
 
   const toolCall = toolCalls.find((call) => call.name === "create_task_plan");
   if (!toolCall) return null;
@@ -267,14 +297,18 @@ async function requestVerificationPlan(
     "Only require columns that are necessary to satisfy the subtask. If no deterministic verification is possible, respond without a tool call.",
   ].join("\n");
 
-  const { toolCalls } = await options.provider.stream({
-    system:
-      "You are defining deterministic verification checks for a completed read-only data analysis subtask. Prefer minimal checks that can be validated against the current tabular result.",
-    history: [{ role: "user", text: verificationPrompt }],
-    model: options.model,
-    tools: [VERIFY_RESULT_TOOL],
-    onToken: () => {},
-  });
+  const { toolCalls } = await withTimeout(
+    options.provider.stream({
+      system:
+        "You are defining deterministic verification checks for a completed read-only data analysis subtask. Prefer minimal checks that can be validated against the current tabular result.",
+      history: [{ role: "user", text: verificationPrompt }],
+      model: options.model,
+      tools: [VERIFY_RESULT_TOOL],
+      onToken: () => {},
+    }),
+    VERIFY_PLAN_TIMEOUT_MS,
+    "Verification planning",
+  );
 
   const verificationCall = toolCalls.find((call) => call.name === "verify_result");
   if (!verificationCall) return null;
@@ -380,7 +414,11 @@ async function executeTaskEngine({
       setCurrentTask(task);
       persistTaskCheckpoint(task);
 
-      const result = await runAgentLoop(userMessage, history, options);
+      const result = await withTimeout(
+        runAgentLoop(userMessage, history, options),
+        SINGLE_STEP_TIMEOUT_MS,
+        "Agent execution",
+      );
 
       if (result.pendingApprovalSteps.length > 0) {
         task = updateSubtask(task, 0, "awaiting_approval", "Waiting for plan approval");
@@ -422,7 +460,11 @@ async function executeTaskEngine({
 
         const subtaskPrompt = buildSubtaskPrompt(task, i, userMessage, retryDiagnosis);
         const priorHistory = aggregatedHistory;
-        const result = await runAgentLoop(subtaskPrompt, aggregatedHistory, options);
+        const result = await withTimeout(
+          runAgentLoop(subtaskPrompt, aggregatedHistory, options),
+          SUBTASK_TIMEOUT_MS,
+          `Subtask ${i + 1} execution`,
+        );
 
         if (result.pendingApprovalSteps.length > 0) {
           aggregatedFinalText += (aggregatedFinalText ? "\n\n" : "") + result.finalText;

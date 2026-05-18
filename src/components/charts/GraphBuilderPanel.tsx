@@ -39,6 +39,20 @@ interface AxisAssignments {
   facet: string | null;
 }
 
+interface DragAssignmentPayload {
+  colName: string;
+  sourceZone: keyof AxisAssignments | null;
+}
+
+interface PointerDragState {
+  payload: DragAssignmentPayload;
+  startX: number;
+  startY: number;
+  x: number;
+  y: number;
+  active: boolean;
+}
+
 interface ChartOptions {
   showDataPoints: boolean;
   showTrendLine: boolean;
@@ -85,13 +99,15 @@ function ColTypeIcon({ col }: { col: ColumnMeta }) {
 function ColumnItem({
   col,
   data,
-  onDragStart,
+  onPointerStart,
   onClick,
+  selected = false,
 }: {
   col: ColumnMeta;
   data: Record<string, unknown>[];
-  onDragStart: (colName: string) => void;
+  onPointerStart: (payload: DragAssignmentPayload, event: React.PointerEvent) => void;
   onClick: (colName: string) => void;
+  selected?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -104,12 +120,10 @@ function ColumnItem({
 
   return (
     <div
-      className="relative flex items-center gap-1.5 px-2 py-1.5 rounded cursor-grab hover:bg-white/[0.05] transition-colors group select-none"
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData('column', col.name);
-        onDragStart(col.name);
-      }}
+      className={`relative flex items-center gap-1.5 px-2 py-1.5 rounded cursor-grab hover:bg-white/[0.05] transition-colors group select-none ${
+        selected ? 'bg-[#00d2ff]/10 ring-1 ring-[#00d2ff]/40' : ''
+      }`}
+      onPointerDown={(event) => onPointerStart({ colName: col.name, sourceZone: null }, event)}
       onClick={() => onClick(col.name)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -138,6 +152,12 @@ function DropZone({
   assignedCol,
   onDrop,
   onRemove,
+  onPointerStart,
+  onSelectAssigned,
+  onPointerEnterZone,
+  onPointerLeaveZone,
+  selectedPayload,
+  isPointerDragging,
   disabled = false,
   helperText,
 }: {
@@ -146,13 +166,21 @@ function DropZone({
   assignedCol: string | null;
   onDrop: (payload: { colName: string; sourceZone: keyof AxisAssignments | null }) => void;
   onRemove: () => void;
+  onPointerStart: (payload: DragAssignmentPayload, event: React.PointerEvent) => void;
+  onSelectAssigned: (payload: DragAssignmentPayload) => void;
+  onPointerEnterZone: (zone: keyof AxisAssignments) => void;
+  onPointerLeaveZone: (zone: keyof AxisAssignments) => void;
+  selectedPayload: DragAssignmentPayload | null;
+  isPointerDragging: boolean;
   disabled?: boolean;
   helperText?: string;
 }) {
   const [dragOver, setDragOver] = useState(false);
+  const hasSelectedColumn = Boolean(selectedPayload?.colName);
 
   return (
     <div
+      data-testid={`drop-zone-${zoneKey}`}
       className={`flex items-center gap-1.5 h-7 px-2 rounded border transition-colors ${
         disabled
           ? 'border-[#1f1f1f] bg-[#0f0f0f] opacity-50'
@@ -163,9 +191,22 @@ function DropZone({
           ? 'border-[#2a2a2a] bg-[#1a1a1a]'
           : 'border-dashed border-[#2a2a2a] bg-transparent'
       }`}
+      onClick={() => {
+        if (disabled || !selectedPayload?.colName) return;
+        onDrop(selectedPayload);
+      }}
+      onPointerEnter={() => {
+        if (disabled) return;
+        onPointerEnterZone(zoneKey);
+      }}
+      onPointerLeave={() => {
+        if (disabled) return;
+        onPointerLeaveZone(zoneKey);
+      }}
       onDragOver={(e) => {
         if (disabled) return;
         e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
         setDragOver(true);
       }}
       onDragLeave={() => setDragOver(false)}
@@ -173,20 +214,32 @@ function DropZone({
         if (disabled) return;
         e.preventDefault();
         setDragOver(false);
-        const col = e.dataTransfer.getData('column');
-        const sourceZone = e.dataTransfer.getData('sourceZone') as keyof AxisAssignments | '';
-        if (col) onDrop({ colName: col, sourceZone: sourceZone || null });
+        const col =
+          e.dataTransfer.getData('application/x-daitalk-column') ||
+          e.dataTransfer.getData('column') ||
+          selectedPayload?.colName ||
+          '';
+        const sourceZoneRaw = e.dataTransfer.getData('sourceZone');
+        const sourceZone =
+          (sourceZoneRaw as keyof AxisAssignments | '') ||
+          selectedPayload?.sourceZone ||
+          null;
+        if (col) onDrop({ colName: col, sourceZone });
       }}
     >
       <span className="text-[9px] text-white/25 uppercase tracking-widest font-bold shrink-0 w-9">{label}</span>
       {assignedCol ? (
         <>
           <span
-            className="text-[10px] text-[#00d2ff] font-mono flex-1 truncate cursor-grab active:cursor-grabbing"
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.setData('column', assignedCol);
-              e.dataTransfer.setData('sourceZone', zoneKey);
+            className={`text-[10px] text-[#00d2ff] font-mono flex-1 truncate cursor-grab active:cursor-grabbing ${
+              selectedPayload?.colName === assignedCol && selectedPayload?.sourceZone === zoneKey
+                ? 'underline decoration-[#00d2ff]/60 decoration-dotted underline-offset-2'
+                : ''
+            }`}
+            onPointerDown={(event) => onPointerStart({ colName: assignedCol, sourceZone: zoneKey }, event)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectAssigned({ colName: assignedCol, sourceZone: zoneKey });
             }}
             title="Drag to reassign"
           >
@@ -201,7 +254,7 @@ function DropZone({
         </>
       ) : (
         <span className="text-[10px] text-white/15 italic flex-1">
-          {disabled ? helperText ?? 'not available' : 'drop column here'}
+          {disabled ? helperText ?? 'not available' : isPointerDragging ? 'release to assign here' : hasSelectedColumn ? 'click to assign selected' : 'drop column here'}
         </span>
       )}
     </div>
@@ -268,6 +321,9 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
   const [savedChartsCollapsed, setSavedChartsCollapsed] = useState(true);
   const [savedCharts, setSavedCharts] = useState<SavedChartConfig[]>(loadChartPresets);
   const chartCaptureRef = useRef<HTMLDivElement>(null);
+  const [selectedPayload, setSelectedPayload] = useState<DragAssignmentPayload | null>(null);
+  const [pointerDrag, setPointerDrag] = useState<PointerDragState | null>(null);
+  const [hoveredZone, setHoveredZone] = useState<keyof AxisAssignments | null>(null);
 
   // Find ColumnMeta by name
   const colMeta = useCallback(
@@ -341,16 +397,9 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
     return unsubscribe;
   }, []);
 
-  // Assign a column to the next empty zone
-  const assignToNextEmpty = useCallback((colName: string) => {
-    setAssignments((prev) => {
-      if (!prev.x) return { ...prev, x: colName };
-      if (!prev.y) return { ...prev, y: colName };
-      if (!prev.color && zoneSupport.color) return { ...prev, color: colName };
-      if (!prev.size && zoneSupport.size) return { ...prev, size: colName };
-      return prev;
-    });
-  }, [zoneSupport.color, zoneSupport.size]);
+  const selectColumnPayload = useCallback((colName: string) => {
+    setSelectedPayload({ colName, sourceZone: null });
+  }, []);
 
   const setAssignment = useCallback((zone: keyof AxisAssignments, colName: string | null) => {
     setAssignments((prev) => {
@@ -360,6 +409,9 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
       }
       return next;
     });
+    if (!colName) {
+      setSelectedPayload((prev) => (prev?.sourceZone === zone ? null : prev));
+    }
   }, [chartTypeOverride]);
 
   const handleZoneDrop = useCallback((zone: keyof AxisAssignments, payload: { colName: string; sourceZone: keyof AxisAssignments | null }) => {
@@ -390,7 +442,60 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
     if (zone === 'size' && colName && chartTypeOverride === 'auto') {
       setChartTypeOverride('bubble');
     }
+    setSelectedPayload({ colName, sourceZone: zone });
+    setHoveredZone(null);
   }, [chartTypeOverride]);
+
+  const beginPointerDrag = useCallback((payload: DragAssignmentPayload, event: React.PointerEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedPayload(payload);
+    setPointerDrag({
+      payload,
+      startX: event.clientX,
+      startY: event.clientY,
+      x: event.clientX,
+      y: event.clientY,
+      active: false,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!pointerDrag) return;
+
+    const handleMove = (event: PointerEvent) => {
+      setPointerDrag((prev) => {
+        if (!prev) return prev;
+        const dx = event.clientX - prev.startX;
+        const dy = event.clientY - prev.startY;
+        const active = prev.active || Math.hypot(dx, dy) > 4;
+        return {
+          ...prev,
+          x: event.clientX,
+          y: event.clientY,
+          active,
+        };
+      });
+    };
+
+    const handleUp = () => {
+      setPointerDrag((prev) => {
+        if (!prev) return null;
+        if (prev.active && hoveredZone) {
+          handleZoneDrop(hoveredZone, prev.payload);
+        }
+        return null;
+      });
+      setHoveredZone(null);
+    };
+
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp, { once: true });
+    return () => {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+    };
+  }, [handleZoneDrop, hoveredZone, pointerDrag]);
 
   // Save chart config
   const handleSaveChart = () => {
@@ -581,8 +686,9 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
                 key={col.name}
                 col={col}
                 data={data}
-                onDragStart={() => {}}
-                onClick={assignToNextEmpty}
+                onPointerStart={beginPointerDrag}
+                onClick={selectColumnPayload}
+                selected={selectedPayload?.colName === col.name && selectedPayload?.sourceZone === null}
               />
             ))
           )}
@@ -593,13 +699,18 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Drop zones */}
         <div className="shrink-0 px-3 py-2 border-b border-[#1a1a1a] space-y-1 bg-[#0d0d0d]">
+          {selectedPayload?.colName && (
+            <div className="rounded border border-[#00d2ff]/20 bg-[#00d2ff]/5 px-2 py-1 text-[10px] text-[#00d2ff]/80 font-mono">
+              Selected: {selectedPayload.colName} {selectedPayload.sourceZone ? `from ${selectedPayload.sourceZone.toUpperCase()}` : ''} — drag it or click a target zone.
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-1.5">
-            <DropZone zoneKey="x" label="X" assignedCol={assignments.x} onDrop={(payload) => handleZoneDrop('x', payload)} onRemove={() => setAssignment('x', null)} />
-            <DropZone zoneKey="y" label="Y" assignedCol={assignments.y} onDrop={(payload) => handleZoneDrop('y', payload)} onRemove={() => setAssignment('y', null)} />
-            <DropZone zoneKey="color" label="Color" assignedCol={assignments.color} onDrop={(payload) => handleZoneDrop('color', payload)} onRemove={() => setAssignment('color', null)} disabled={!zoneSupport.color} helperText="unsupported for this chart" />
-            <DropZone zoneKey="size" label="Size" assignedCol={assignments.size} onDrop={(payload) => handleZoneDrop('size', payload)} onRemove={() => setAssignment('size', null)} disabled={!zoneSupport.size} helperText="use bubble or auto" />
+            <DropZone zoneKey="x" label="X" assignedCol={assignments.x} onDrop={(payload) => handleZoneDrop('x', payload)} onRemove={() => setAssignment('x', null)} onPointerStart={beginPointerDrag} onSelectAssigned={setSelectedPayload} onPointerEnterZone={setHoveredZone} onPointerLeaveZone={(zone) => setHoveredZone((prev) => (prev === zone ? null : prev))} selectedPayload={pointerDrag?.payload ?? selectedPayload} isPointerDragging={Boolean(pointerDrag?.active)} />
+            <DropZone zoneKey="y" label="Y" assignedCol={assignments.y} onDrop={(payload) => handleZoneDrop('y', payload)} onRemove={() => setAssignment('y', null)} onPointerStart={beginPointerDrag} onSelectAssigned={setSelectedPayload} onPointerEnterZone={setHoveredZone} onPointerLeaveZone={(zone) => setHoveredZone((prev) => (prev === zone ? null : prev))} selectedPayload={pointerDrag?.payload ?? selectedPayload} isPointerDragging={Boolean(pointerDrag?.active)} />
+            <DropZone zoneKey="color" label="Color" assignedCol={assignments.color} onDrop={(payload) => handleZoneDrop('color', payload)} onRemove={() => setAssignment('color', null)} onPointerStart={beginPointerDrag} onSelectAssigned={setSelectedPayload} onPointerEnterZone={setHoveredZone} onPointerLeaveZone={(zone) => setHoveredZone((prev) => (prev === zone ? null : prev))} selectedPayload={pointerDrag?.payload ?? selectedPayload} isPointerDragging={Boolean(pointerDrag?.active)} disabled={!zoneSupport.color} helperText="unsupported for this chart" />
+            <DropZone zoneKey="size" label="Size" assignedCol={assignments.size} onDrop={(payload) => handleZoneDrop('size', payload)} onRemove={() => setAssignment('size', null)} onPointerStart={beginPointerDrag} onSelectAssigned={setSelectedPayload} onPointerEnterZone={setHoveredZone} onPointerLeaveZone={(zone) => setHoveredZone((prev) => (prev === zone ? null : prev))} selectedPayload={pointerDrag?.payload ?? selectedPayload} isPointerDragging={Boolean(pointerDrag?.active)} disabled={!zoneSupport.size} helperText="use bubble or auto" />
           </div>
-          <DropZone zoneKey="facet" label="Group" assignedCol={assignments.facet} onDrop={(payload) => handleZoneDrop('facet', payload)} onRemove={() => setAssignment('facet', null)} disabled={!zoneSupport.facet} helperText="use color to compare groups" />
+          <DropZone zoneKey="facet" label="Group" assignedCol={assignments.facet} onDrop={(payload) => handleZoneDrop('facet', payload)} onRemove={() => setAssignment('facet', null)} onPointerStart={beginPointerDrag} onSelectAssigned={setSelectedPayload} onPointerEnterZone={setHoveredZone} onPointerLeaveZone={(zone) => setHoveredZone((prev) => (prev === zone ? null : prev))} selectedPayload={pointerDrag?.payload ?? selectedPayload} isPointerDragging={Boolean(pointerDrag?.active)} disabled={!zoneSupport.facet} helperText="use color to compare groups" />
         </div>
 
         {/* Export toolbar */}
@@ -902,6 +1013,14 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
           )}
         </div>
       </div>
+      {pointerDrag?.active && (
+        <div
+          className="fixed z-[10000] pointer-events-none rounded border border-[#00d2ff]/40 bg-[#08141a] px-2 py-1 text-[10px] text-[#00d2ff] font-mono shadow-xl"
+          style={{ left: pointerDrag.x + 12, top: pointerDrag.y + 12 }}
+        >
+          {pointerDrag.payload.colName}
+        </div>
+      )}
     </div>
   );
 }

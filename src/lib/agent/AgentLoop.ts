@@ -17,7 +17,7 @@ import type { WorkspaceRule } from "../memory/WorkspaceRuleStore";
 import type { FullSchema } from "../db/DbClient";
 import type { QueryResults } from "../stores/WorkspaceStore";
 import type { AIProvider, ConversationTurn, ToolCall } from "../ai/types";
-import { withRetry } from "../ai/resilience";
+import { withRetry, withTimeout } from "../ai/resilience";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -85,6 +85,10 @@ function classifyQueryDepth(question: string): 'fast' | 'deep' {
 export function isVisualizationRequest(question: string): boolean {
   return /\b(plot|chart|graph|visuali[sz]e|scatter|histogram|bar chart|line chart)\b/i.test(question);
 }
+
+const RESULT_FETCHING_TOOL_NAMES = new Set(["execute_sql", "open_table", "run_duckdb_analysis"]);
+const FAST_MODE_ROUND_TIMEOUT_MS = 10_000;
+const DEEP_MODE_ROUND_TIMEOUT_MS = 18_000;
 
 export function isUnderspecifiedVisualizationRequest(question: string): boolean {
   if (!isVisualizationRequest(question)) return false;
@@ -350,8 +354,12 @@ For any question about anomalies, quality issues, process upsets, or unexplained
 
   parts.push(`GUIDELINES:
 - Explain what you are doing before calling tools
+- For basic statistics, correlations, parameter-ranking, and other read-only exploratory questions, prefer one focused execute_sql or run_duckdb_analysis pass over a long multi-step decomposition
 - Use execute_sql to fetch data for answering questions
+- If the user asks for a specific number of rows, filters, ordering, or "pull/show/get data", use execute_sql instead of open_table
+- Use open_table only for a generic default preview of a table when no specific SQL shape was requested
 - Use set_editor_content when the user wants to review SQL before running
+- For requests that ask you to run, execute, pull, fetch, or show live data, do not end by telling the user to click Run in the editor. Either execute the safe read query or clearly state why execution failed.
 - Quote all SQL identifiers: "schema"."table"."column"
 - Never call delete_rows or drop_column without explicit user confirmation
 - When the user states a durable preference, governance rule, or reporting convention that should persist across sessions, call propose_workspace_rule so it can be explicitly reviewed and approved
@@ -710,17 +718,24 @@ export async function runAgentLoop(
 
   let finalText = "";
   const pendingApprovalSteps: string[] = [];
-  const MAX_ROUNDS = 10;
+  const MAX_ROUNDS = queryDepth === "fast" ? 4 : 8;
+  const toolSignatureCounts = new Map<string, number>();
+  let resultFetchingAttempts = 0;
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const { text, toolCalls, stopReason } = await withRetry(
-      () => provider.stream({
-        system,
-        history: working,
-        model,
-        tools: allTools,
-        onToken,
-      }),
+      () =>
+        withTimeout(
+          provider.stream({
+            system,
+            history: working,
+            model,
+            tools: allTools,
+            onToken,
+          }),
+          queryDepth === "fast" ? FAST_MODE_ROUND_TIMEOUT_MS : DEEP_MODE_ROUND_TIMEOUT_MS,
+          "Agent model round",
+        ),
       {
         maxAttempts: 3,
         baseDelayMs: 1_000,
@@ -743,6 +758,32 @@ export async function runAgentLoop(
     const toolResults: ConversationTurn["toolResults"] = [];
 
     for (const tc of toolCalls) {
+      const toolSignature = `${tc.name}:${JSON.stringify(tc.input ?? {})}`;
+      const priorSignatureCount = toolSignatureCounts.get(toolSignature) ?? 0;
+      toolSignatureCounts.set(toolSignature, priorSignatureCount + 1);
+
+      if (RESULT_FETCHING_TOOL_NAMES.has(tc.name)) {
+        if (queryDepth === "fast" && resultFetchingAttempts >= 2) {
+          toolResults!.push({
+            toolCallId: tc.id,
+            name: tc.name,
+            content: "Skipped additional data-fetch attempt because this fast analysis already exhausted its live-query budget. Use the currently loaded results or answer with the best available evidence.",
+            isError: true,
+          });
+          continue;
+        }
+
+        if (priorSignatureCount >= 1) {
+          toolResults!.push({
+            toolCallId: tc.id,
+            name: tc.name,
+            content: "Skipped duplicate data-fetch attempt. Do not repeat the same live query path; summarize the current evidence or choose a narrower alternative.",
+            isError: true,
+          });
+          continue;
+        }
+      }
+
       const cmd = toolCallToCommand(tc, connectionId);
 
       if (!cmd) {
@@ -793,6 +834,9 @@ export async function runAgentLoop(
         };
       } else {
         result = await commandBus.dispatch(cmd);
+        if (RESULT_FETCHING_TOOL_NAMES.has(tc.name)) {
+          resultFetchingAttempts += 1;
+        }
 
         // Push to undo stack on successful non-safe mutations
         if (result.success && cmd.risk !== "safe") {

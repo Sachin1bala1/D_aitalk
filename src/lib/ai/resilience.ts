@@ -18,6 +18,16 @@ export interface RetryOptions {
   onRetry?: (attempt: number, delayMs: number, error: unknown) => void;
 }
 
+export class TimeoutError extends Error {
+  timeoutMs: number;
+
+  constructor(message: string, timeoutMs: number) {
+    super(message);
+    this.name = "TimeoutError";
+    this.timeoutMs = timeoutMs;
+  }
+}
+
 const DEFAULT_OPTS: Required<RetryOptions> = {
   maxAttempts: 3,
   baseDelayMs: 1_000,
@@ -58,6 +68,27 @@ function extractRetryAfterMs(err: unknown): number | null {
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  label = "Operation",
+): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(new TimeoutError(`${label} timed out after ${Math.round(timeoutMs / 1000)}s`, timeoutMs));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
 }
 
 /**
