@@ -13,7 +13,7 @@ jobs:
   build:
     runs-on: windows-2025-vs2026
     env:
-      CARGO_TARGET_DIR: C:\cargo-target\daitalk
+      CARGO_TARGET_DIR: ${{ runner.temp }}\daitalk-release-target
     steps:
       - name: Checkout
         uses: actions/checkout@v5
