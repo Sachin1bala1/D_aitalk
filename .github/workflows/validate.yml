@@ -173,12 +173,19 @@ jobs:
           if ($exitCode -ne 0) {
             Write-Host "Cargo check failed. Extracting first Rust error blocks..."
             $matches = Select-String -Path $logPath -Pattern 'error(\[[A-Z0-9]+\])?:'
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "## Cargo check failure"
             if ($matches) {
               foreach ($match in $matches | Select-Object -First 5) {
                 Write-Host ("--- cargo error near line {0} ---" -f $match.LineNumber)
-                Get-Content $logPath | Select-Object -Skip ([Math]::Max($match.LineNumber - 3, 0)) -First 12
+                $snippet = (Get-Content $logPath | Select-Object -Skip ([Math]::Max($match.LineNumber - 3, 0)) -First 12) -join "`n"
+                Write-Host $snippet
+                Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Error near line $($match.LineNumber)`n```text`n$snippet`n```"
+                $title = "Cargo check error near line $($match.LineNumber)"
+                $oneLine = ($match.Line.Trim() -replace '%','%25' -replace "`r","%0D" -replace "`n","%0A")
+                Write-Host "::error title=$title::$oneLine"
               }
             } else {
+              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "No explicit Rust error lines were found in cargo-check.log."
               Write-Warning "No explicit Rust error lines found in cargo-check.log"
             }
             exit $exitCode
@@ -196,12 +203,19 @@ jobs:
           if ($exitCode -ne 0) {
             Write-Host "Cargo tests failed. Extracting first failure blocks..."
             $matches = Select-String -Path $logPath -Pattern 'test result: FAILED|panicked at|error: test failed|---- .* stdout ----|failures:'
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "## Cargo test failure"
             if ($matches) {
               foreach ($match in $matches | Select-Object -First 8) {
                 Write-Host ("--- cargo test failure near line {0} ---" -f $match.LineNumber)
-                Get-Content $logPath | Select-Object -Skip ([Math]::Max($match.LineNumber - 3, 0)) -First 16
+                $snippet = (Get-Content $logPath | Select-Object -Skip ([Math]::Max($match.LineNumber - 3, 0)) -First 16) -join "`n"
+                Write-Host $snippet
+                Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Failure near line $($match.LineNumber)`n```text`n$snippet`n```"
+                $title = "Cargo test failure near line $($match.LineNumber)"
+                $oneLine = ($match.Line.Trim() -replace '%','%25' -replace "`r","%0D" -replace "`n","%0A")
+                Write-Host "::error title=$title::$oneLine"
               }
             } else {
+              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "No explicit Rust test failure lines were found in cargo-test.log."
               Write-Warning "No explicit Rust test failure lines found in cargo-test.log"
             }
             exit $exitCode
