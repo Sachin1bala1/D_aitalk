@@ -12,11 +12,16 @@ on:
 jobs:
   build:
     runs-on: windows-2025-vs2026
-    env:
-      CARGO_TARGET_DIR: ${{ runner.temp }}\daitalk-release-target
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      - name: Set Cargo target dir
+        shell: powershell
+        run: |
+          $targetDir = Join-Path $env:RUNNER_TEMP "daitalk-release-target"
+          New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
+          "CARGO_TARGET_DIR=$targetDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
