@@ -49,7 +49,7 @@ jobs:
         run: npm run build
 
   rust:
-    runs-on: windows-2025
+    runs-on: windows-2025-vs2026
     env:
       CARGO_TARGET_DIR: C:\cargo-target\daitalk-check
     steps:
@@ -181,4 +181,21 @@ jobs:
       - name: Cargo tests
         working-directory: src-tauri
         shell: powershell
-        run: cargo test --lib -- --test-threads=1
+        run: |
+          $logPath = Join-Path $env:RUNNER_TEMP "cargo-test.log"
+          cargo test --lib -- --test-threads=1 *>&1 | Tee-Object -FilePath $logPath
+          $exitCode = $LASTEXITCODE
+
+          if ($exitCode -ne 0) {
+            Write-Host "Cargo tests failed. Extracting first failure blocks..."
+            $matches = Select-String -Path $logPath -Pattern 'test result: FAILED|panicked at|error: test failed|---- .* stdout ----|failures:'
+            if ($matches) {
+              foreach ($match in $matches | Select-Object -First 8) {
+                Write-Host ("--- cargo test failure near line {0} ---" -f $match.LineNumber)
+                Get-Content $logPath | Select-Object -Skip ([Math]::Max($match.LineNumber - 3, 0)) -First 16
+              }
+            } else {
+              Write-Warning "No explicit Rust test failure lines found in cargo-test.log"
+            }
+            exit $exitCode
+          }
