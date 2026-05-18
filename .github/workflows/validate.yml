@@ -164,7 +164,7 @@ jobs:
       - name: Cargo check
         working-directory: src-tauri
         shell: cmd
-        run: cargo check -j 1
+        run: cargo check --lib -j 1
 
       - name: Cargo tests
         working-directory: src-tauri
