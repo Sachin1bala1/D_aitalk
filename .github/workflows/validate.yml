@@ -161,8 +161,9 @@ jobs:
         shell: powershell
         run: |
           $logPath = Join-Path $env:RUNNER_TEMP "cargo-check.log"
-          cargo check -vv *>&1 | Tee-Object -FilePath $logPath
+          cmd /c "cargo check -vv > `"$logPath`" 2>&1"
           $exitCode = $LASTEXITCODE
+          Get-Content $logPath
 
           if ($exitCode -ne 0) {
             Write-Host "Cargo check failed. Extracting first Rust error blocks..."
@@ -183,8 +184,9 @@ jobs:
         shell: powershell
         run: |
           $logPath = Join-Path $env:RUNNER_TEMP "cargo-test.log"
-          cargo test --lib -- --test-threads=1 *>&1 | Tee-Object -FilePath $logPath
+          cmd /c "cargo test --lib -- --test-threads=1 > `"$logPath`" 2>&1"
           $exitCode = $LASTEXITCODE
+          Get-Content $logPath
 
           if ($exitCode -ne 0) {
             Write-Host "Cargo tests failed. Extracting first failure blocks..."
