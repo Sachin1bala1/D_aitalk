@@ -161,67 +161,67 @@ jobs:
 
           Write-Host "CARGO_TARGET_DIR=$env:CARGO_TARGET_DIR"
 
-      - name: Cargo tests (security)
+      - name: Cargo tests security
         working-directory: src-tauri
         shell: cmd
         run: cargo test --lib security::tests:: -j 1 -- --test-threads=1
 
-      - name: Cargo tests (sql analyzer)
+      - name: Cargo tests sql analyzer
         working-directory: src-tauri
         shell: cmd
         run: cargo test --lib intelligence::sql_analyzer::tests:: -j 1 -- --test-threads=1
 
-      - name: Cargo tests (query transform)
+      - name: Cargo tests query transform
         working-directory: src-tauri
         shell: cmd
         run: cargo test --lib db::query_transform::tests:: -j 1 -- --test-threads=1
 
-      - name: Cargo test intelligence::store::tests::derives_affinity_candidates_from_single_table_select
+      - name: Cargo test store derives affinity candidates
         working-directory: src-tauri
         shell: cmd
         run: cargo test --lib intelligence::store::tests::derives_affinity_candidates_from_single_table_select -j 1 -- --exact --test-threads=1
 
-      - name: Cargo test intelligence::store::tests::filters_and_lists_security_audit_dimensions
+      - name: Cargo test store filters audit dimensions
         working-directory: src-tauri
         shell: cmd
         run: cargo test --lib intelligence::store::tests::filters_and_lists_security_audit_dimensions -j 1 -- --exact --test-threads=1
 
-      - name: Cargo test intelligence::store::tests::initializes_schema_idempotently
+      - name: Cargo test store initializes schema
         working-directory: src-tauri
         shell: cmd
         run: cargo test --lib intelligence::store::tests::initializes_schema_idempotently -j 1 -- --exact --test-threads=1
 
-      - name: Cargo test intelligence::store::tests::lists_and_clears_local_data_scopes
+      - name: Cargo test store clears local data scopes
         working-directory: src-tauri
         shell: cmd
         run: cargo test --lib intelligence::store::tests::lists_and_clears_local_data_scopes -j 1 -- --exact --test-threads=1
 
-      - name: Cargo test intelligence::store::tests::migrates_legacy_benchmark_context_and_persists_benchmark
+      - name: Cargo test store migrates benchmark context
         working-directory: src-tauri
         shell: cmd
         run: cargo test --lib intelligence::store::tests::migrates_legacy_benchmark_context_and_persists_benchmark -j 1 -- --exact --test-threads=1
 
-      - name: Cargo test intelligence::store::tests::records_query_visualization_and_affinity
+      - name: Cargo test store records visualization affinity
         working-directory: src-tauri
         shell: cmd
         run: cargo test --lib intelligence::store::tests::records_query_visualization_and_affinity -j 1 -- --exact --test-threads=1
 
-      - name: Cargo test intelligence::store::tests::records_security_audit_events
+      - name: Cargo test store records audit events
         working-directory: src-tauri
         shell: cmd
         run: cargo test --lib intelligence::store::tests::records_security_audit_events -j 1 -- --exact --test-threads=1
 
-      - name: Cargo test intelligence::store::tests::redacts_string_literals_before_storage
+      - name: Cargo test store redacts string literals
         working-directory: src-tauri
         shell: cmd
         run: cargo test --lib intelligence::store::tests::redacts_string_literals_before_storage -j 1 -- --exact --test-threads=1
 
-      - name: Cargo test intelligence::store::tests::skips_affinity_candidates_for_multi_table_queries
+      - name: Cargo test store skips multi table affinity
         working-directory: src-tauri
         shell: cmd
         run: cargo test --lib intelligence::store::tests::skips_affinity_candidates_for_multi_table_queries -j 1 -- --exact --test-threads=1
 
-      - name: Cargo test intelligence::store::tests::stores_normalized_multi_table_lineage
+      - name: Cargo test store normalized multi table lineage
         working-directory: src-tauri
         shell: cmd
         run: cargo test --lib intelligence::store::tests::stores_normalized_multi_table_lineage -j 1 -- --exact --test-threads=1
