@@ -161,11 +161,6 @@ jobs:
 
           Write-Host "CARGO_TARGET_DIR=$env:CARGO_TARGET_DIR"
 
-      - name: Cargo check
-        working-directory: src-tauri
-        shell: cmd
-        run: cargo check --lib -j 1
-
       - name: Cargo tests
         working-directory: src-tauri
         shell: cmd
