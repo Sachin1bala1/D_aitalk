@@ -392,7 +392,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
           });
 
           // Track stat tool results for report session
-          if (toolName.startsWith("stat__") && result.success) {
+          if ((toolName.startsWith("stat__") || toolName.startsWith("analyze_loaded_")) && result.success) {
             const rawResult = result.result;
             setSessionSections((prev) => [
               ...prev,
@@ -498,6 +498,14 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       const rawMsg: string = e instanceof Error ? e.message : String(e);
       const provider = providerSettings.activeProvider;
       let hint = rawMsg;
+      if (rawMsg.toLowerCase().includes("gemini quota exceeded")) {
+        hint =
+          "Gemini accepted the key, but this project has no usable quota for the selected model right now. Enable billing in Google AI Studio / Google Cloud, switch to a Gemini model with available quota, or use another provider.";
+      }
+      if (rawMsg.toLowerCase().includes("timed out")) {
+        hint =
+          "The model took longer than the interactive budget for this request. The runtime now retries slow rounds automatically, but this provider or model is still responding slowly right now. Try again or switch to a faster model/provider for routine work.";
+      }
       if (rawMsg === "Connection error." || rawMsg.includes("fetch")) {
         if (provider === "ollama") {
           hint = "Cannot reach Ollama at http://127.0.0.1:11434 — is Ollama running? Run: ollama serve";

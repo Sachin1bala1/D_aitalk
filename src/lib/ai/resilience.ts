@@ -35,9 +35,18 @@ const DEFAULT_OPTS: Required<RetryOptions> = {
   onRetry: () => {},
 };
 
+function isPermanentQuotaErrorMessage(msg: string): boolean {
+  return (
+    (msg.includes("quota exceeded") || msg.includes("resource_exhausted")) &&
+    (msg.includes("limit: 0") || msg.includes("perday") || msg.includes("billing"))
+  );
+}
+
 function isRetryable(err: unknown): boolean {
+  if (err instanceof TimeoutError) return true;
   if (err instanceof Error) {
     const msg = err.message.toLowerCase();
+    if (isPermanentQuotaErrorMessage(msg)) return false;
     // Network failures
     if (msg.includes("fetch") || msg.includes("network") || msg.includes("econnrefused")) return true;
     // Rate limit / server error codes embedded in message
@@ -61,6 +70,19 @@ function extractRetryAfterMs(err: unknown): number | null {
     if (headers?.["retry-after"]) {
       const secs = parseFloat(headers["retry-after"]);
       if (!isNaN(secs)) return secs * 1_000;
+    }
+  }
+  if (err instanceof Error) {
+    const message = err.message;
+    const secondsMatch = message.match(/retry in\s+(\d+(?:\.\d+)?)s/i);
+    if (secondsMatch) {
+      const secs = parseFloat(secondsMatch[1]);
+      if (!Number.isNaN(secs)) return secs * 1_000;
+    }
+    const delayMatch = message.match(/"retryDelay"\s*:\s*"(\d+)s"/i);
+    if (delayMatch) {
+      const secs = parseFloat(delayMatch[1]);
+      if (!Number.isNaN(secs)) return secs * 1_000;
     }
   }
   return null;

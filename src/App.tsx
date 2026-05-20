@@ -71,6 +71,8 @@ import {
   isSmokeMode,
 } from "./lib/app/SmokeWorkspace";
 
+const DETACHED_STARTUP_QUIET_PERIOD_MS = 90_000;
+
 export default function App() {
   const smokeMode = isSmokeMode();
   if (smokeMode) {
@@ -181,14 +183,24 @@ export default function App() {
   useEffect(() => {
     if (smokeMode || !workspaceSessionReady) return;
 
-    void runDueBackgroundAnalysisAgents();
-    void runDuePipelineDefinitions();
-    const interval = window.setInterval(() => {
+    let intervalId: number | null = null;
+    const runDetachedSchedulers = () => {
+      if (document.visibilityState === "hidden") return;
       void runDueBackgroundAnalysisAgents();
       void runDuePipelineDefinitions();
-    }, 60_000);
+    };
 
-    return () => window.clearInterval(interval);
+    const quietPeriodTimer = window.setTimeout(() => {
+      runDetachedSchedulers();
+      intervalId = window.setInterval(runDetachedSchedulers, 60_000);
+    }, DETACHED_STARTUP_QUIET_PERIOD_MS);
+
+    return () => {
+      window.clearTimeout(quietPeriodTimer);
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+      }
+    };
   }, [smokeMode, workspaceSessionReady]);
 
   useEffect(() => {

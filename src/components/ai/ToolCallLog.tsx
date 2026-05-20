@@ -26,7 +26,7 @@ const NAMESPACE_COLOR: Record<string, string> = {
 };
 
 function getColor(toolName: string): string {
-  if (toolName.startsWith("stat__")) return NAMESPACE_COLOR.stat;
+  if (toolName.startsWith("stat__") || toolName.startsWith("analyze_loaded_")) return NAMESPACE_COLOR.stat;
   return NAMESPACE_COLOR[toolName] ?? NAMESPACE_COLOR.default;
 }
 
@@ -34,7 +34,7 @@ function ToolIcon({ toolName }: { toolName: string }) {
   if (toolName.startsWith("execute_sql") || toolName.startsWith("set_editor") || toolName.startsWith("open_table")) {
     return <Database className="w-3 h-3" />;
   }
-  if (toolName.startsWith("stat__") || toolName === "run_duckdb_analysis") {
+  if (toolName.startsWith("stat__") || toolName.startsWith("analyze_loaded_") || toolName === "run_duckdb_analysis") {
     return <BarChart2 className="w-3 h-3" />;
   }
   return <Cpu className="w-3 h-3" />;
@@ -59,7 +59,7 @@ function ToolRow({ entry, onApplySQL }: { entry: ToolLogEntry; onApplySQL?: (sql
   const [open, setOpen] = useState(false);
   const color = getColor(entry.toolName);
   const isRunning = entry.result === undefined;
-  const isStat = entry.toolName.startsWith("stat__");
+  const isStat = entry.toolName.startsWith("stat__") || entry.toolName.startsWith("analyze_loaded_");
   const sql = typeof entry.input?.sql === "string" ? entry.input.sql : null;
 
   return (

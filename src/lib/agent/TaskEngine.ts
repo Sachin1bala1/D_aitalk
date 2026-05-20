@@ -19,10 +19,10 @@ interface TaskExecutionRequest {
 
 const RESULT_PRODUCING_TOOLS = new Set(["execute_sql", "open_table", "run_duckdb_analysis"]);
 const MAX_AUTO_RETRIES = 1;
-const TASK_PLAN_TIMEOUT_MS = 6_000;
-const VERIFY_PLAN_TIMEOUT_MS = 4_000;
-const SINGLE_STEP_TIMEOUT_MS = 20_000;
-const SUBTASK_TIMEOUT_MS = 15_000;
+const TASK_PLAN_TIMEOUT_MS = 16_000;
+const VERIFY_PLAN_TIMEOUT_MS = 10_000;
+const SINGLE_STEP_TIMEOUT_MS = 45_000;
+const SUBTASK_TIMEOUT_MS = 35_000;
 
 function createAuditEntry(state: SubTaskStatus, note?: string, extras?: Partial<AuditEntry>): AuditEntry {
   return {
@@ -226,7 +226,7 @@ export function shouldSkipPlanning(
     return true;
   }
 
-  if (currentResults && currentResults.rowCount > 0 && currentResults.rowCount <= 1_000) {
+  if (currentResults && currentResults.rowCount > 0 && currentResults.rowCount <= 25_000) {
     if (
       /\b(show|pull|get|run|list|summarize|summarise|describe|analyze|analyse|plot|chart|visualize|visualise|correlate|compare)\b/.test(q)
     ) {

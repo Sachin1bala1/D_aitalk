@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "tauri:dev": "tauri dev",
+    "tauri:dev": "powershell -ExecutionPolicy Bypass -File .\\scripts\\start-tauri-dev.ps1",
     "tauri:build": "tauri build",
     "tauri:build:ci": "powershell -ExecutionPolicy Bypass -File .\\scripts\\windows-secure-build.ps1 -SkipNpmInstall -SkipLint",
     "tauri:build:secure": "powershell -ExecutionPolicy Bypass -File .\\scripts\\windows-secure-build.ps1",

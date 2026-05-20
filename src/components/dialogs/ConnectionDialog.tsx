@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Database, X, Link2, Trash2, History, Wifi } from "lucide-react";
+import { Database, X, Link2, Trash2, History, Wifi, Eye, EyeOff, User, KeyRound } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { invoke } from "@tauri-apps/api/core";
@@ -9,6 +9,12 @@ import {
   loadSavedConnectionsAsync,
   removeConnection,
 } from "../../lib/db/ConnectionStore";
+import {
+  applyStructuredAuthToConnectionString,
+  readStructuredAuthFromConnectionString,
+  stripPasswordFromConnectionString,
+  supportsStructuredAuth,
+} from "../../lib/db/connectionUrl";
 import { diagnoseConnection, DiagnosisResult } from "../../lib/connection/ConnectionDoctor";
 import { ConnectionDoctorPanel } from "./ConnectionDoctorPanel";
 import { loadApiKeysFromKeychain } from "../../lib/ai/types";
@@ -169,12 +175,17 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
   const [doctorSteps, setDoctorSteps] = useState<string[]>([]);
   const [doctorResult, setDoctorResult] = useState<DiagnosisResult | null>(null);
 
+  const [dbUsername, setDbUsername] = useState("");
+  const [dbPassword, setDbPassword] = useState("");
+  const [showDbPassword, setShowDbPassword] = useState(false);
+
   // PI Historian fields
   const [piUsername, setPiUsername] = useState("");
   const [piPassword, setPiPassword] = useState("");
   const [piVerifySsl, setPiVerifySsl] = useState(true);
 
   const isPIHistorian = driver === "p_i_historian";
+  const showStructuredAuth = supportsStructuredAuth(driver);
 
   useEffect(() => {
     if (open) {
@@ -185,6 +196,7 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
       setDriverManual(false);
       setNameManual(false);
       setSelectedSavedConnectionId(null);
+      setShowDbPassword(false);
     }
   }, [open]);
 
@@ -196,6 +208,16 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
       if (!driverManual) setDriver(parsed.driver);
       if (!nameManual && !displayName) setDisplayName(parsed.suggestedName);
     }
+
+    if (supportsStructuredAuth(parsed?.driver ?? driver)) {
+      const auth = readStructuredAuthFromConnectionString(value.trim());
+      if (auth) {
+        setDbUsername(auth.username);
+        if (auth.password) {
+          setDbPassword(auth.password);
+        }
+      }
+    }
   };
 
   const selectedDriver = DRIVER_OPTIONS.find((d) => d.value === driver)!;
@@ -206,17 +228,24 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
     setDriverManual(true);
     setDisplayName(config.display_name ?? "");
     setNameManual(true);
-    setConnectionString(config.pi_config?.base_url ?? config.connection_string ?? "");
     setTestStatus("idle");
+    setShowDbPassword(false);
 
     if (config.pi_config) {
+      setConnectionString(config.pi_config.base_url ?? config.connection_string ?? "");
       setPiUsername(config.pi_config.username ?? "");
       setPiPassword(config.pi_config.password ?? "");
       setPiVerifySsl(config.pi_config.verify_ssl ?? true);
+      setDbUsername("");
+      setDbPassword("");
     } else {
+      setConnectionString(stripPasswordFromConnectionString(config.connection_string ?? ""));
       setPiUsername("");
       setPiPassword("");
       setPiVerifySsl(true);
+      const auth = readStructuredAuthFromConnectionString(config.connection_string ?? "");
+      setDbUsername(auth?.username ?? "");
+      setDbPassword(auth?.password ?? "");
     }
   };
 
@@ -243,11 +272,19 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
   };
 
   const buildConfig = (): ConnectionConfig => {
+    const resolvedConnectionString =
+      showStructuredAuth && connectionString
+        ? applyStructuredAuthToConnectionString(connectionString, {
+            username: dbUsername,
+            password: dbPassword,
+          })
+        : connectionString;
+
     const draft: ConnectionConfig = {
       id: `conn-${Date.now()}`,
       display_name: displayName || selectedDriver.label,
       driver,
-      connection_string: connectionString,
+      connection_string: resolvedConnectionString,
       pool_min: 1,
       pool_max: 10,
       ...(isPIHistorian && {
@@ -495,6 +532,61 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                   />
                 </div>
               </div>
+
+              {showStructuredAuth && (
+                <div className="space-y-3 p-3 rounded-lg border border-[#262626] bg-[#111111]">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] uppercase tracking-widest font-bold text-white/50">
+                      Authentication
+                    </p>
+                    <span className="text-[10px] text-white/35">
+                      Saved securely in your OS credential vault
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] uppercase tracking-widest font-bold text-white/50">
+                        Username
+                      </label>
+                      <div className="relative">
+                        <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/20" />
+                        <input
+                          type="text"
+                          value={dbUsername}
+                          onChange={(e) => setDbUsername(e.target.value)}
+                          placeholder="Database username"
+                          className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:border-[#00d2ff]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] uppercase tracking-widest font-bold text-white/50">
+                        Password
+                      </label>
+                      <div className="relative">
+                        <KeyRound className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/20" />
+                        <input
+                          type={showDbPassword ? "text" : "password"}
+                          value={dbPassword}
+                          onChange={(e) => setDbPassword(e.target.value)}
+                          placeholder="Saved securely"
+                          className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg pl-10 pr-10 py-2.5 text-sm focus:outline-none focus:border-[#00d2ff]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowDbPassword((value) => !value)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors"
+                          title={showDbPassword ? "Hide password" : "Show password"}
+                        >
+                          {showDbPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* PI Historian fields */}
               {isPIHistorian && (

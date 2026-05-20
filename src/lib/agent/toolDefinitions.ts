@@ -281,13 +281,14 @@ export const AGENT_TOOLS: UnifiedTool[] = [
   {
     name: "create_chart",
     description:
-      "Open an editable chart in Graph Builder using the current query results. Prefer this when the user wants a plot they can continue refining. If the needed results are not already loaded, call execute_sql first.",
+      "Open an editable chart in Graph Builder using the current query results. Prefer this when the user wants a plot they can continue refining. If the needed results are not already loaded, call execute_sql first. When the user says 'by type', 'by group', 'colored by', or otherwise wants grouped series, set colorColumn as well.",
     parameters: {
       type: "object",
       properties: {
         chartType: { type: "string", enum: ["bar", "line", "scatter", "pie", "area"], description: "Chart type" },
         xColumn: { type: "string", description: "Column to use as the X axis / category" },
         yColumn: { type: "string", description: "Column to use as the Y axis / value" },
+        colorColumn: { type: "string", description: "Optional column to use for color grouping / legend splits" },
         title: { type: "string", description: "Optional chart title" },
         xLabel: { type: "string", description: "Optional X axis label override. Defaults to xColumn." },
         yLabel: { type: "string", description: "Optional Y axis label override. Defaults to yColumn." },
@@ -297,6 +298,25 @@ export const AGENT_TOOLS: UnifiedTool[] = [
   },
 
   // ── Pipeline ──────────────────────────────────────────────────────────────
+  {
+    name: "create_analysis_chart",
+    description:
+      "Open an editable chart in Graph Builder from analysis result rows produced in the current turn, such as feature importance rankings or correlation summaries. Use this when you want to plot computed results rather than the raw query table.",
+    parameters: {
+      type: "object",
+      properties: {
+        chartType: { type: "string", enum: ["bar", "line", "scatter", "pie", "area"], description: "Chart type" },
+        rows: { type: "array", items: { type: "object" } as any, description: "Analysis result rows to plot" } as any,
+        xKey: { type: "string", description: "Field name in rows to use on the X axis" },
+        yKey: { type: "string", description: "Field name in rows to use on the Y axis" },
+        colorKey: { type: "string", description: "Optional field name in rows to use for color grouping" },
+        title: { type: "string", description: "Optional chart title" },
+        xLabel: { type: "string", description: "Optional X axis label override" },
+        yLabel: { type: "string", description: "Optional Y axis label override" },
+      },
+      required: ["chartType", "rows", "xKey", "yKey"],
+    },
+  },
   {
     name: "create_pipeline",
     description: "Define a data pipeline that copies query results from one connection to a table in another.",
@@ -397,6 +417,65 @@ export const AGENT_TOOLS: UnifiedTool[] = [
 
   // ── Statistical Analysis (Pyodide WASM) ──────────────────────────────────
   ...STAT_TOOLS,
+  {
+    name: "analyze_loaded_correlation",
+    description:
+      "Analyze correlations directly from the currently loaded query results in the app. Prefer this over DuckDB when the needed rows are already loaded and the user asks what correlates with an output or wants a correlation view in chat.",
+    parameters: {
+      type: "object",
+      properties: {
+        targetColumn: {
+          type: "string",
+          description: "Optional target/output column. If provided, returns other loaded numeric columns ranked by correlation to this target.",
+        },
+        columns: {
+          type: "array",
+          items: { type: "string" } as any,
+          description: "Optional subset of loaded columns to analyze. Defaults to all loaded numeric columns.",
+        } as any,
+      },
+    },
+  },
+  {
+    name: "analyze_loaded_feature_importance",
+    description:
+      "Rank which loaded numeric columns most influence a target column using the currently loaded query results. Prefer this over refetching or DuckDB when the relevant rows are already in memory.",
+    parameters: {
+      type: "object",
+      properties: {
+        targetColumn: {
+          type: "string",
+          description: "The loaded numeric outcome column to explain, e.g. Tool wear [min].",
+        },
+        featureColumns: {
+          type: "array",
+          items: { type: "string" } as any,
+          description: "Optional loaded numeric input columns to test. Defaults to all other loaded numeric columns.",
+        } as any,
+      },
+      required: ["targetColumn"],
+    },
+  },
+  {
+    name: "analyze_loaded_regression",
+    description:
+      "Fit a multivariate regression model directly from the currently loaded query results. Use this when the user wants coefficient-style detail, overall explanatory power, or a more rigorous explanation of how much each factor matters.",
+    parameters: {
+      type: "object",
+      properties: {
+        targetColumn: {
+          type: "string",
+          description: "The loaded numeric outcome column to explain.",
+        },
+        featureColumns: {
+          type: "array",
+          items: { type: "string" } as any,
+          description: "Optional loaded numeric predictors to include. Defaults to all other loaded numeric columns.",
+        } as any,
+      },
+      required: ["targetColumn"],
+    },
+  },
 
   // ── UI ────────────────────────────────────────────────────────────────────
   {

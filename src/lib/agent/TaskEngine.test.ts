@@ -79,4 +79,17 @@ describe("TaskEngine approval handling", () => {
       }),
     ).toBe(true);
   });
+
+  it("skips multi-step planning for loaded analysis requests even above 1,000 rows", () => {
+    expect(
+      shouldSkipPlanning("what factors impact tool wear and plot it?", {
+        rows: [{ a: 1, b: 2 }],
+        fields: [{ name: "a" }, { name: "b" }],
+        rowCount: 10_000,
+        elapsedMs: 1,
+        queryId: "q-2",
+        source_tables: ["public.sample"],
+      }),
+    ).toBe(true);
+  });
 });

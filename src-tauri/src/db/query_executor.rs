@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use std::time::Instant;
 
 use futures::StreamExt;
@@ -13,6 +14,8 @@ use super::types::{ColumnMeta, DisplayType, QueryBatch};
 use crate::error::DbError;
 
 const BATCH_SIZE: usize = 500;
+const MAX_BATCH_BYTES: usize = 256 * 1024;
+const WINDOWS_EMIT_PAUSE_MS: u64 = 4;
 
 pub type CancelSet = Arc<Mutex<HashSet<String>>>;
 
@@ -53,8 +56,9 @@ async fn stream_postgres(
     cancelled: CancelSet,
 ) -> Result<(), DbError> {
     let start = Instant::now();
-    let mut stream = sqlx::query(sql).fetch(pool);
+    let mut stream = sqlx::query(sql).persistent(false).fetch(pool);
     let mut batch: Vec<Value> = Vec::with_capacity(BATCH_SIZE);
+    let mut batch_bytes = 0usize;
     let mut batch_index = 0u32;
     let mut total_rows = 0u64;
     let mut columns_sent = false;
@@ -72,10 +76,12 @@ async fn stream_postgres(
             columns_sent = true;
         }
 
-        batch.push(pg_row_to_json(&row, &columns));
+        let row_json = pg_row_to_json(&row, &columns);
+        batch_bytes += estimate_value_size(&row_json);
+        batch.push(row_json);
         total_rows += 1;
 
-        if batch.len() >= BATCH_SIZE {
+        if should_flush_batch(batch.len(), batch_bytes) {
             if is_cancelled(&cancelled, &query_id) {
                 emit_batch(&app, &query_id, batch_index + 1, batch, None, true,
                     start.elapsed().as_millis() as u64, total_rows)?;
@@ -87,6 +93,8 @@ async fn stream_postgres(
                 std::mem::take(&mut batch), None, false,
                 start.elapsed().as_millis() as u64, total_rows,
             )?;
+            maybe_pause_after_emit().await;
+            batch_bytes = 0;
         }
     }
 
@@ -108,6 +116,7 @@ async fn stream_mysql(
     let start = Instant::now();
     let mut stream = sqlx::query(sql).fetch(pool);
     let mut batch: Vec<Value> = Vec::with_capacity(BATCH_SIZE);
+    let mut batch_bytes = 0usize;
     let mut batch_index = 0u32;
     let mut total_rows = 0u64;
     let mut columns_sent = false;
@@ -135,10 +144,12 @@ async fn stream_mysql(
             let val: Value = row.try_get::<Value, _>(i).unwrap_or(Value::Null);
             obj.insert(name, val);
         }
-        batch.push(Value::Object(obj));
+        let row_json = Value::Object(obj);
+        batch_bytes += estimate_value_size(&row_json);
+        batch.push(row_json);
         total_rows += 1;
 
-        if batch.len() >= BATCH_SIZE {
+        if should_flush_batch(batch.len(), batch_bytes) {
             if is_cancelled(&cancelled, &query_id) {
                 emit_batch(&app, &query_id, batch_index + 1, batch, None, true,
                     start.elapsed().as_millis() as u64, total_rows)?;
@@ -150,6 +161,8 @@ async fn stream_mysql(
                 std::mem::take(&mut batch), None, false,
                 start.elapsed().as_millis() as u64, total_rows,
             )?;
+            maybe_pause_after_emit().await;
+            batch_bytes = 0;
         }
     }
 
@@ -169,6 +182,7 @@ async fn stream_sqlite(
     let start = Instant::now();
     let mut stream = sqlx::query(sql).fetch(pool);
     let mut batch: Vec<Value> = Vec::with_capacity(BATCH_SIZE);
+    let mut batch_bytes = 0usize;
     let mut batch_index = 0u32;
     let mut total_rows = 0u64;
     let mut columns_sent = false;
@@ -197,10 +211,12 @@ async fn stream_sqlite(
             let val: Value = row.try_get(i).unwrap_or(Value::Null);
             obj.insert(name, val);
         }
-        batch.push(Value::Object(obj));
+        let row_json = Value::Object(obj);
+        batch_bytes += estimate_value_size(&row_json);
+        batch.push(row_json);
         total_rows += 1;
 
-        if batch.len() >= BATCH_SIZE {
+        if should_flush_batch(batch.len(), batch_bytes) {
             if is_cancelled(&cancelled, &query_id) {
                 emit_batch(&app, &query_id, batch_index + 1, batch, None, true,
                     start.elapsed().as_millis() as u64, total_rows)?;
@@ -212,6 +228,8 @@ async fn stream_sqlite(
                 std::mem::take(&mut batch), None, false,
                 start.elapsed().as_millis() as u64, total_rows,
             )?;
+            maybe_pause_after_emit().await;
+            batch_bytes = 0;
         }
     }
 
@@ -268,6 +286,7 @@ async fn stream_mssql(
     }
 
     let mut batch: Vec<Value> = Vec::with_capacity(BATCH_SIZE);
+    let mut batch_bytes = 0usize;
     let mut batch_index = 0u32;
     let mut total_rows = 0u64;
 
@@ -280,10 +299,12 @@ async fn stream_mssql(
             tiberius::QueryItem::Row(r) => r,
             tiberius::QueryItem::Metadata(_) => continue,
         };
-        batch.push(mssql_row_to_json(&row));
+        let row_json = mssql_row_to_json(&row);
+        batch_bytes += estimate_value_size(&row_json);
+        batch.push(row_json);
         total_rows += 1;
 
-        if batch.len() >= BATCH_SIZE {
+        if should_flush_batch(batch.len(), batch_bytes) {
             if is_cancelled(&cancelled, &query_id) {
                 emit_batch(&app, &query_id, batch_index + 1, batch, None, true,
                     start.elapsed().as_millis() as u64, total_rows)?;
@@ -295,6 +316,8 @@ async fn stream_mssql(
                 std::mem::take(&mut batch), None, false,
                 start.elapsed().as_millis() as u64, total_rows,
             )?;
+            maybe_pause_after_emit().await;
+            batch_bytes = 0;
         }
     }
 
@@ -326,6 +349,7 @@ async fn stream_clickhouse(
         .map_err(|e| DbError::Other(format!("ClickHouse query error: {e}")))?;
 
     let mut batch: Vec<Value> = Vec::with_capacity(BATCH_SIZE);
+    let mut batch_bytes = 0usize;
     let mut batch_index = 0u32;
     let mut total_rows = 0u64;
     let mut columns_sent = false;
@@ -367,13 +391,17 @@ async fn stream_clickhouse(
                     }).collect();
                     emit_batch(&app, &query_id, 0, vec![], Some(cols), false, 0, 0)?;
                 }
-                batch.push(Value::Object(row_val));
+                let row_json = Value::Object(row_val);
+                batch_bytes += estimate_value_size(&row_json);
+                batch.push(row_json);
                 total_rows += 1;
 
-                if batch.len() >= BATCH_SIZE {
+                if should_flush_batch(batch.len(), batch_bytes) {
                     batch_index += 1;
                     emit_batch(&app, &query_id, batch_index, std::mem::take(&mut batch), None, false,
                         start.elapsed().as_millis() as u64, total_rows)?;
+                    maybe_pause_after_emit().await;
+                    batch_bytes = 0;
                 }
             }
         }
@@ -410,6 +438,7 @@ async fn stream_redis(
     emit_batch(&app, &query_id, 0, vec![], Some(columns), false, 0, 0)?;
 
     let mut batch: Vec<Value> = Vec::with_capacity(BATCH_SIZE);
+    let mut batch_bytes = 0usize;
     let mut batch_index = 0u32;
     let mut total_rows = 0u64;
     let mut cursor: i64 = 0;
@@ -456,13 +485,17 @@ async fn stream_redis(
             obj.insert("type".to_string(),  Value::from(key_type));
             obj.insert("ttl".to_string(),   if ttl < 0 { Value::Null } else { Value::from(ttl) });
             obj.insert("value".to_string(), Value::from(val_str));
-            batch.push(Value::Object(obj));
+            let row_json = Value::Object(obj);
+            batch_bytes += estimate_value_size(&row_json);
+            batch.push(row_json);
             total_rows += 1;
 
-            if batch.len() >= BATCH_SIZE {
+            if should_flush_batch(batch.len(), batch_bytes) {
                 batch_index += 1;
                 emit_batch(&app, &query_id, batch_index, std::mem::take(&mut batch), None, false,
                     start.elapsed().as_millis() as u64, total_rows)?;
+                maybe_pause_after_emit().await;
+                batch_bytes = 0;
             }
         }
 
@@ -499,6 +532,7 @@ async fn stream_mongodb(
         .map_err(|e| DbError::Other(format!("MongoDB find failed: {e}")))?;
 
     let mut batch: Vec<Value> = Vec::with_capacity(BATCH_SIZE);
+    let mut batch_bytes = 0usize;
     let mut batch_index = 0u32;
     let mut total_rows = 0u64;
     let mut first_batch = true;
@@ -515,10 +549,11 @@ async fn stream_mongodb(
         }
 
         let row = bson_doc_to_json(&doc);
+        batch_bytes += estimate_value_size(&row);
         batch.push(row);
         total_rows += 1;
 
-        if batch.len() >= BATCH_SIZE {
+        if should_flush_batch(batch.len(), batch_bytes) {
             batch_index += 1;
             // Emit column metadata derived from first document on first batch
             let cols = if first_batch {
@@ -529,6 +564,8 @@ async fn stream_mongodb(
             };
             emit_batch(&app, &query_id, batch_index, std::mem::take(&mut batch), cols, false,
                 start.elapsed().as_millis() as u64, total_rows)?;
+            maybe_pause_after_emit().await;
+            batch_bytes = 0;
         }
     }
 
@@ -631,6 +668,14 @@ fn emit_batch(
     .map_err(|e| DbError::Other(e.to_string()))
 }
 
+async fn maybe_pause_after_emit() {
+    if cfg!(target_os = "windows") {
+        tokio::time::sleep(Duration::from_millis(WINDOWS_EMIT_PAUSE_MS)).await;
+    } else {
+        tokio::task::yield_now().await;
+    }
+}
+
 fn extract_pg_columns(row: &sqlx::postgres::PgRow) -> Vec<ColumnMeta> {
     use sqlx::Row;
     (0..row.len())
@@ -668,6 +713,14 @@ fn pg_row_to_json(row: &sqlx::postgres::PgRow, columns: &[ColumnMeta]) -> Value 
         obj.insert(col.name.clone(), val);
     }
     Value::Object(obj)
+}
+
+fn should_flush_batch(batch_len: usize, batch_bytes: usize) -> bool {
+    batch_len >= BATCH_SIZE || batch_bytes >= MAX_BATCH_BYTES
+}
+
+fn estimate_value_size(value: &Value) -> usize {
+    serde_json::to_vec(value).map(|bytes| bytes.len()).unwrap_or(0)
 }
 
 fn pg_cell_to_json(row: &sqlx::postgres::PgRow, index: usize, type_name: &str) -> Value {
@@ -930,7 +983,7 @@ pub async fn execute_ddl(
 ) -> Result<u64, DbError> {
     match conn.as_ref() {
         ActiveConnection::Postgres(pool) => {
-            Ok(sqlx::query(sql).execute(pool).await?.rows_affected())
+            Ok(sqlx::query(sql).persistent(false).execute(pool).await?.rows_affected())
         }
         ActiveConnection::Mysql(pool) => {
             Ok(sqlx::query(sql).execute(pool).await?.rows_affected())

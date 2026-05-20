@@ -14,6 +14,7 @@
  */
 import { useSyncExternalStore } from "react";
 import type { ColumnMeta, QueryBatch } from "../db/DbClient";
+import type { QueryResults } from "../stores/WorkspaceStore";
 
 const MAX_ROWS = 2_000_000;
 
@@ -59,6 +60,22 @@ class RowStore {
   /** Mark streaming as done (e.g. on error). */
   finalize() {
     this.isStreaming = false;
+    this._notify();
+  }
+
+  /** Hydrate visible rows from persisted tab results when no live stream is active. */
+  hydrateFromQueryResults(results: QueryResults) {
+    this.rows = [...results.rows];
+    this.columns = results.fields.map((field) => ({
+      name: field.name,
+      type_name: "unknown",
+      display_type: { kind: "text" as const },
+      nullable: true,
+      is_primary_key: false,
+    }));
+    this.queryId = results.queryId;
+    this.isStreaming = false;
+    this.elapsedMs = results.elapsedMs;
     this._notify();
   }
 

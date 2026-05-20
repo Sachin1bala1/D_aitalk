@@ -763,6 +763,13 @@ export function VirtualTable({ isLoading }: VirtualTableProps = {}) {
   const lastSelectedRef = useRef<number | null>(null);
   const [rowDetailIdx, setRowDetailIdx] = useState<number | null>(null);
 
+  useEffect(() => {
+    if (isStreaming) return;
+    if (store.rows.length > 0) return;
+    if (!currentQueryResult || currentQueryResult.rowCount === 0) return;
+    rowStore.hydrateFromQueryResults(currentQueryResult);
+  }, [currentQueryResult, isStreaming, store.rows.length]);
+
   const headerScrollRef = useRef<HTMLDivElement>(null);
   const parentRef = useRef<HTMLDivElement>(null);
   const filterDebounce = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);

@@ -35,6 +35,7 @@ async fn introspect_postgres(pool: &sqlx::PgPool, connection_id: &str) -> Result
         ORDER BY t.table_schema, t.table_name
         "#,
     )
+    .persistent(false)
     .fetch_all(pool)
     .await?;
 
@@ -50,6 +51,7 @@ async fn introspect_postgres(pool: &sqlx::PgPool, connection_id: &str) -> Result
         FROM pg_stat_user_tables
         "#,
     )
+    .persistent(false)
     .fetch_all(pool)
     .await
     .unwrap_or_default()
@@ -115,6 +117,7 @@ async fn introspect_postgres(pool: &sqlx::PgPool, connection_id: &str) -> Result
         ORDER BY c.table_schema, c.table_name, c.ordinal_position
         "#,
     )
+    .persistent(false)
     .fetch_all(pool)
     .await?;
 
@@ -170,6 +173,7 @@ async fn introspect_postgres(pool: &sqlx::PgPool, connection_id: &str) -> Result
         LIMIT 500
         "#,
     )
+    .persistent(false)
     .fetch_all(pool)
     .await
     .unwrap_or_default();

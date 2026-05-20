@@ -3,6 +3,10 @@ import type { PyodideInterface } from "pyodide";
 
 export type PyodideStatus = "idle" | "loading" | "ready" | "error";
 
+const PYODIDE_VERSION = "0.29.3";
+const PYODIDE_INDEX_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
+const PYODIDE_PACKAGES = ["numpy", "scipy", "scikit-learn", "statsmodels"] as const;
+
 export class PyodideRuntime {
   private static _instance: PyodideRuntime | null = null;
   private pyodide: PyodideInterface | null = null;
@@ -26,10 +30,10 @@ export class PyodideRuntime {
 
     this._status = "loading";
     this.loadingPromise = loadPyodide({
-      indexURL: "https://cdn.jsdelivr.net/pyodide/v0.27.0/full/",
+      indexURL: PYODIDE_INDEX_URL,
     })
       .then(async (py) => {
-        await py.loadPackage(["numpy", "scipy"]);
+        await py.loadPackage([...PYODIDE_PACKAGES]);
         this.pyodide = py;
         this._status = "ready";
         return py;
@@ -64,3 +68,5 @@ export class PyodideRuntime {
     }
   }
 }
+
+export { PYODIDE_INDEX_URL, PYODIDE_PACKAGES, PYODIDE_VERSION };
