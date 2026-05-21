@@ -33,11 +33,17 @@ pub fn run() {
             cancelled_queries: Arc::new(Mutex::new(HashSet::new())),
             query_guards: Arc::new(Mutex::new(security::QueryGuardState::default())),
             memory_db: Arc::new(tokio::sync::Mutex::new(None)),
+            query_cache: db::query_cache::QueryCache::new(),
         })
         .setup(|app| {
             let store =
                 tauri::async_runtime::block_on(IntelligenceStore::initialize(&app.handle()))?;
             app.manage(store);
+            let app_handle = app.handle().clone();
+            let manager = app.state::<AppState>().connections.clone();
+            tokio::spawn(async move {
+                crate::db::health_monitor::run(app_handle, manager).await;
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -121,6 +127,9 @@ pub fn run() {
             commands::activate_license,
             commands::check_license,
             commands::remove_license,
+            commands::test_rest_connection,
+            commands::import_excel_file,
+            commands::clear_query_cache,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
