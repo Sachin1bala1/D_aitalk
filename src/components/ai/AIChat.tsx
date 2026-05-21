@@ -635,6 +635,18 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
                   {msg.streaming && (
                     <span className="inline-block w-1.5 h-4 bg-[#00d2ff] animate-pulse ml-0.5 align-middle" />
                   )}
+                  {msg.streaming && msg.toolLog && msg.toolLog.length > 0 && (
+                    <div className="text-[10px] text-white/40 font-mono mt-1">
+                      {(() => {
+                        const running = msg.toolLog.filter((t) => t.result === undefined);
+                        const done = msg.toolLog.filter((t) => t.result !== undefined);
+                        if (running.length > 0) {
+                          return `Running tool ${done.length + 1} of ${msg.toolLog.length}: ${running[0].toolName}\u2026`;
+                        }
+                        return `\u2713 ${done.length} tool${done.length !== 1 ? "s" : ""} completed`;
+                      })()}
+                    </div>
+                  )}
                   {msg.toolLog && msg.toolLog.length > 0 && (
                     <ToolCallLog entries={msg.toolLog} onApplySQL={onApplySQL} />
                   )}
