@@ -80,6 +80,16 @@ export interface PIConfig {
   verify_ssl: boolean;
 }
 
+export interface RestApiConfig {
+  url: string;
+  method: string;
+  auth_type: string;
+  auth_value: string;
+  auth_header: string;
+  response_path: string;
+  cache_ttl_secs: number;
+}
+
 export interface ConnectionConfig {
   id: string;
   display_name: string;
@@ -89,6 +99,7 @@ export interface ConnectionConfig {
   pool_max?: number;
   read_only?: boolean;
   pi_config?: PIConfig;
+  rest_config?: RestApiConfig;
 }
 
 export type DbDriver =
@@ -101,7 +112,8 @@ export type DbDriver =
   | "mongodb"
   | "redis"
   | "clickhouse"
-  | "p_i_historian";
+  | "p_i_historian"
+  | "rest_api";
 
 export interface QueryBatch {
   query_id: string;

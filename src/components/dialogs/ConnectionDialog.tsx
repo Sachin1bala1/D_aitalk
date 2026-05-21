@@ -83,6 +83,13 @@ const DRIVER_OPTIONS: { value: DbDriver; label: string; placeholder: string; gro
     placeholder: "https://pi-server/piwebapi",
     group: "Industrial",
   },
+  // ── API ───────────────────────────────────────────────────────────────────
+  {
+    value: "rest_api",
+    label: "REST API",
+    placeholder: "https://api.example.com/data",
+    group: "API",
+  },
 ];
 
 // ── URL auto-parser ────────────────────────────────────────────────────────────
@@ -184,7 +191,16 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
   const [piPassword, setPiPassword] = useState("");
   const [piVerifySsl, setPiVerifySsl] = useState(true);
 
+  // REST API fields
+  const [restUrl, setRestUrl] = useState("");
+  const [restAuthType, setRestAuthType] = useState("none");
+  const [restAuthValue, setRestAuthValue] = useState("");
+  const [restAuthHeader, setRestAuthHeader] = useState("");
+  const [restResponsePath, setRestResponsePath] = useState("$");
+  const [restTestResult, setRestTestResult] = useState<string | null>(null);
+
   const isPIHistorian = driver === "p_i_historian";
+  const isRestApi = driver === "rest_api";
   const showStructuredAuth = supportsStructuredAuth(driver);
 
   useEffect(() => {
@@ -284,7 +300,7 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
       id: `conn-${Date.now()}`,
       display_name: displayName || selectedDriver.label,
       driver,
-      connection_string: resolvedConnectionString,
+      connection_string: isRestApi ? restUrl : resolvedConnectionString,
       pool_min: 1,
       pool_max: 10,
       ...(isPIHistorian && {
@@ -293,6 +309,17 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
           username: piUsername,
           password: piPassword,
           verify_ssl: piVerifySsl,
+        },
+      }),
+      ...(isRestApi && {
+        rest_config: {
+          url: restUrl,
+          method: "GET",
+          auth_type: restAuthType,
+          auth_value: restAuthValue,
+          auth_header: restAuthHeader,
+          response_path: restResponsePath,
+          cache_ttl_secs: 60,
         },
       }),
     };
@@ -311,7 +338,8 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
   };
 
   const handleTestConnection = async () => {
-    if (!connectionString) return;
+    if (!connectionString && !isRestApi) return;
+    if (isRestApi) { await handleTestRest(); return; }
     setTestStatus("testing");
     try {
       if (isPIHistorian) {
@@ -338,8 +366,28 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
     }
   };
 
+  const handleTestRest = async () => {
+    setRestTestResult("Testing...");
+    try {
+      const result = await invoke<{ columns: unknown[]; rows: unknown[] }>("test_rest_connection", {
+        config: {
+          url: restUrl,
+          method: "GET",
+          auth_type: restAuthType,
+          auth_value: restAuthValue,
+          auth_header: restAuthHeader,
+          response_path: restResponsePath,
+          cache_ttl_secs: 0,
+        },
+      });
+      setRestTestResult(`Connected — ${result.rows.length} preview rows, ${result.columns.length} columns`);
+    } catch (err) {
+      setRestTestResult(`Error: ${err}`);
+    }
+  };
+
   const handleConnect = async () => {
-    if (!connectionString) return;
+    if (!connectionString && !isRestApi) return;
     setIsConnecting(true);
     setDoctorResult(null);
     setDoctorSteps([]);
@@ -482,7 +530,7 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                   onChange={(e) => { setDriver(e.target.value as DbDriver); setDriverManual(true); }}
                   className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#00d2ff] text-white"
                 >
-                  {(["SQL", "NoSQL", "Industrial"] as const).map((group) => (
+                  {(["SQL", "NoSQL", "Industrial", "API"] as const).map((group) => (
                     <optgroup key={group} label={group}>
                       {DRIVER_OPTIONS.filter((o) => o.group === group).map((opt) => (
                         <option key={opt.value} value={opt.value} className="bg-[#1a1a1a]">
@@ -588,6 +636,83 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                 </div>
               )}
 
+              {/* REST API fields */}
+              {isRestApi && (
+                <div className="space-y-3 p-3 rounded-lg border border-[#00d2ff]/20 bg-[#00d2ff]/5">
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-[#00d2ff]/60">REST API Configuration</p>
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-white/60 mb-1 block">API URL</label>
+                    <input
+                      type="text"
+                      className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-white/30"
+                      placeholder="https://api.example.com/data"
+                      value={restUrl}
+                      onChange={(e) => setRestUrl(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-white/60 mb-1 block">Auth Type</label>
+                    <select
+                      className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"
+                      value={restAuthType}
+                      onChange={(e) => setRestAuthType(e.target.value)}
+                    >
+                      <option value="none">None</option>
+                      <option value="bearer">Bearer Token</option>
+                      <option value="api_key">API Key</option>
+                      <option value="basic">Basic Auth</option>
+                    </select>
+                  </div>
+                  {restAuthType !== "none" && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-white/60 mb-1 block">
+                        {restAuthType === "api_key" ? "API Key" : restAuthType === "basic" ? "username:password" : "Token"}
+                      </label>
+                      <input
+                        type="password"
+                        className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-white/30"
+                        value={restAuthValue}
+                        onChange={(e) => setRestAuthValue(e.target.value)}
+                      />
+                    </div>
+                  )}
+                  {restAuthType === "api_key" && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-white/60 mb-1 block">Header Name</label>
+                      <input
+                        type="text"
+                        className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-white/30"
+                        placeholder="X-API-Key"
+                        value={restAuthHeader}
+                        onChange={(e) => setRestAuthHeader(e.target.value)}
+                      />
+                    </div>
+                  )}
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-white/60 mb-1 block">Response Path (JSONPath)</label>
+                    <input
+                      type="text"
+                      className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-white/30"
+                      placeholder="$ (root array) or $.data.items"
+                      value={restResponsePath}
+                      onChange={(e) => setRestResponsePath(e.target.value)}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleTestRest}
+                    className="w-full py-2 rounded bg-white/10 hover:bg-white/15 text-sm text-white/70 transition-colors"
+                  >
+                    Test Connection
+                  </button>
+                  {restTestResult && (
+                    <div className="text-xs font-mono bg-[#0d0d0d] border border-white/10 rounded p-2 text-white/60 max-h-32 overflow-auto">
+                      {restTestResult}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* PI Historian fields */}
               {isPIHistorian && (
                 <div className="space-y-3 p-3 rounded-lg border border-[#00d2ff]/20 bg-[#00d2ff]/5">
@@ -627,7 +752,7 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
               <div className="flex gap-2 pt-2">
                 <button
                   onClick={handleTestConnection}
-                  disabled={!connectionString || isConnecting || testStatus === "testing"}
+                  disabled={(!connectionString && !isRestApi) || isConnecting || testStatus === "testing"}
                   className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg border text-xs font-bold transition-colors disabled:opacity-40 ${
                     testStatus === "ok"
                       ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/5"
@@ -648,7 +773,7 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                 </button>
                 <button
                   onClick={handleConnect}
-                  disabled={!connectionString || isConnecting}
+                  disabled={(!connectionString && !isRestApi) || isConnecting}
                   className="flex-1 px-4 py-2.5 rounded-lg bg-[#00d2ff] text-black text-sm font-bold hover:opacity-90 disabled:opacity-40 transition-opacity"
                 >
                   {isConnecting ? "Connecting..." : "Connect"}

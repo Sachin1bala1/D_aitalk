@@ -6,7 +6,7 @@ export interface StructuredConnectionAuth {
 }
 
 export function supportsStructuredAuth(driver: DbDriver): boolean {
-  return driver !== "sqlite" && driver !== "p_i_historian";
+  return driver !== "sqlite" && driver !== "p_i_historian" && driver !== "rest_api";
 }
 
 export function readStructuredAuthFromConnectionString(
