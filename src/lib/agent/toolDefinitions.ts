@@ -285,13 +285,20 @@ export const AGENT_TOOLS: UnifiedTool[] = [
     parameters: {
       type: "object",
       properties: {
-        chartType: { type: "string", enum: ["bar", "line", "scatter", "pie", "area"], description: "Chart type" },
+        chartType: {
+          type: "string",
+          enum: ["bar", "line", "scatter", "pie", "area", "histogram", "box_plot", "heatmap", "waterfall", "control_chart"],
+          description: "Chart type. Use control_chart for time-series SPC analysis, histogram for distributions, box_plot for group comparisons, heatmap for 2D density, waterfall for cumulative deltas.",
+        },
         xColumn: { type: "string", description: "Column to use as the X axis / category" },
         yColumn: { type: "string", description: "Column to use as the Y axis / value" },
         colorColumn: { type: "string", description: "Optional column to use for color grouping / legend splits" },
         title: { type: "string", description: "Optional chart title" },
         xLabel: { type: "string", description: "Optional X axis label override. Defaults to xColumn." },
         yLabel: { type: "string", description: "Optional Y axis label override. Defaults to yColumn." },
+        ucl: { type: "number", description: "Upper control limit for control_chart. If omitted, computed as mean+3σ." },
+        lcl: { type: "number", description: "Lower control limit for control_chart. If omitted, computed as mean-3σ." },
+        centerLine: { type: "number", description: "Center line for control_chart. If omitted, computed as mean." },
       },
       required: ["chartType", "xColumn", "yColumn"],
     },
@@ -305,7 +312,11 @@ export const AGENT_TOOLS: UnifiedTool[] = [
     parameters: {
       type: "object",
       properties: {
-        chartType: { type: "string", enum: ["bar", "line", "scatter", "pie", "area"], description: "Chart type" },
+        chartType: {
+          type: "string",
+          enum: ["bar", "line", "scatter", "pie", "area", "histogram", "box_plot", "heatmap", "waterfall", "control_chart"],
+          description: "Chart type. Use control_chart for time-series SPC analysis, histogram for distributions, box_plot for group comparisons, heatmap for 2D density, waterfall for cumulative deltas.",
+        },
         rows: { type: "array", items: { type: "object" } as any, description: "Analysis result rows to plot" } as any,
         xKey: { type: "string", description: "Field name in rows to use on the X axis" },
         yKey: { type: "string", description: "Field name in rows to use on the Y axis" },
@@ -315,6 +326,19 @@ export const AGENT_TOOLS: UnifiedTool[] = [
         yLabel: { type: "string", description: "Optional Y axis label override" },
       },
       required: ["chartType", "rows", "xKey", "yKey"],
+    },
+  },
+  {
+    name: "explain_chart",
+    description:
+      "Ask the AI to explain the visible patterns in an existing chart artifact. Provide the artifactId. The AI will describe trends, anomalies, outliers, and statistical patterns in plain English.",
+    parameters: {
+      type: "object",
+      properties: {
+        artifactId: { type: "string", description: "ID of the chart artifact to explain" },
+        question: { type: "string", description: "Optional specific question about the chart, e.g. 'why is there a spike on Tuesday?'" },
+      },
+      required: ["artifactId"],
     },
   },
   {
