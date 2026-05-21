@@ -675,9 +675,10 @@ function PivotView({
 
 interface VirtualTableProps {
   isLoading?: boolean;
+  totalRows?: number;
 }
 
-export function VirtualTable({ isLoading }: VirtualTableProps = {}) {
+export function VirtualTable({ isLoading, totalRows }: VirtualTableProps = {}) {
   const store = useRowStore();
   const { rows, columns, isStreaming, elapsedMs } = store;
   const chartRequest = useWorkspaceStore((s) => s.chartRequest);
@@ -1779,6 +1780,16 @@ export function VirtualTable({ isLoading }: VirtualTableProps = {}) {
         open={insertRowOpen}
         onClose={() => setInsertRowOpen(false)}
       />
+
+      {/* Row count badge */}
+      {rows.length > 0 && !isStreaming && (
+        <div className="absolute bottom-2 right-3 z-10 text-[10px] text-white/40 font-mono pointer-events-none select-none">
+          {rows.length.toLocaleString()} row{rows.length !== 1 ? "s" : ""}
+          {totalRows !== undefined && totalRows > rows.length
+            ? ` of ${totalRows.toLocaleString()}`
+            : ""}
+        </div>
+      )}
     </div>
   );
 }
