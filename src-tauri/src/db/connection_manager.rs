@@ -16,6 +16,8 @@ pub enum ActiveConnection {
     Mongodb(mongodb::Client, String), // (client, default_db_name)
     Redis(redis::aio::ConnectionManager),
     ClickHouse(clickhouse::Client),
+    RestApi(Arc<tokio::sync::Mutex<super::rest_connector::RestConnector>>),
+    DuckDb(Arc<tokio::sync::Mutex<super::duckdb_engine::DuckDbEngine>>),
 }
 
 /// Wraps an active connection together with its optional SSH tunnel.
@@ -46,6 +48,41 @@ impl ConnectionManager {
             return Ok(());
         }
 
+        // REST API — store config and create connector.
+        if matches!(config.driver, DbDriver::RestApi) {
+            let rest_cfg = config.rest_config.clone().ok_or_else(|| {
+                DbError::Other("REST API connection requires rest_config".to_string())
+            })?;
+            let connector = super::rest_connector::RestConnector::new(rest_cfg)
+                .map_err(|e| DbError::Other(format!("REST connector init: {e}")))?;
+            let entry = ActiveEntry {
+                connection: Arc::new(ActiveConnection::RestApi(
+                    Arc::new(tokio::sync::Mutex::new(connector)),
+                )),
+                _tunnel: None,
+            };
+            let id = config.id.clone();
+            self.connections.write().await.insert(id.clone(), entry);
+            self.configs.write().await.insert(id, config);
+            return Ok(());
+        }
+
+        // DuckDB — path is the connection_string (file path or ":memory:")
+        if matches!(config.driver, DbDriver::DuckDb) {
+            let engine = super::duckdb_engine::DuckDbEngine::new_at_path(&config.connection_string)
+                .map_err(|e| DbError::Other(format!("DuckDB open failed: {e}")))?;
+            let entry = ActiveEntry {
+                connection: Arc::new(ActiveConnection::DuckDb(
+                    Arc::new(tokio::sync::Mutex::new(engine)),
+                )),
+                _tunnel: None,
+            };
+            let id = config.id.clone();
+            self.connections.write().await.insert(id.clone(), entry);
+            self.configs.write().await.insert(id, config);
+            return Ok(());
+        }
+
         // Open SSH tunnel if configured, rewriting the connection string to use local port
         let (effective_conn_str, tunnel) = if let Some(ref ssh) = config.ssh {
             let url = url::Url::parse(&config.connection_string)
@@ -58,7 +95,7 @@ impl ConnectionManager {
                 DbDriver::MongoDB => 27017,
                 DbDriver::Redis => 6379,
                 DbDriver::ClickHouse => 8123,
-                DbDriver::Sqlite | DbDriver::PIHistorian => 0,
+                DbDriver::Sqlite | DbDriver::PIHistorian | DbDriver::RestApi | DbDriver::DuckDb => 0,
             };
             let remote_port = url.port().unwrap_or(default_port);
 
@@ -200,6 +237,14 @@ impl ConnectionManager {
             DbDriver::PIHistorian => {
                 return Err(DbError::Other("PI Historian connections are HTTP-only and handled separately".to_string()));
             }
+            // RestApi is handled above before this match — unreachable here.
+            DbDriver::RestApi => {
+                return Err(DbError::Other("REST API connections are handled separately".to_string()));
+            }
+            // DuckDb is handled above before this match — unreachable here.
+            DbDriver::DuckDb => {
+                return Err(DbError::Other("DuckDB connections are handled separately".to_string()));
+            }
         };
 
         let id = config.id.clone();
@@ -226,6 +271,31 @@ impl ConnectionManager {
 
     pub async fn get_config(&self, id: &str) -> Option<ConnectionConfig> {
         self.configs.read().await.get(id).cloned()
+    }
+
+    /// Returns the IDs of all currently registered connections.
+    pub async fn list_connection_ids(&self) -> Vec<String> {
+        self.connections.read().await.keys().cloned().collect()
+    }
+
+    /// Sends a trivial query to verify the connection is alive.
+    /// Returns true if the connection responds, false on error.
+    pub async fn ping(&self, id: &str) -> bool {
+        let conns = self.connections.read().await;
+        let Some(entry) = conns.get(id) else { return false; };
+        match &*entry.connection {
+            ActiveConnection::Postgres(pool) => {
+                sqlx::query("SELECT 1").execute(pool).await.is_ok()
+            }
+            ActiveConnection::Mysql(pool) => {
+                sqlx::query("SELECT 1").execute(pool).await.is_ok()
+            }
+            ActiveConnection::Sqlite(pool) => {
+                sqlx::query("SELECT 1").execute(pool).await.is_ok()
+            }
+            // For drivers without a trivial ping, report alive
+            _ => true,
+        }
     }
 }
 
