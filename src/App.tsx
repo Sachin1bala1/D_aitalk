@@ -3,6 +3,7 @@ import { Toaster, toast } from "sonner";
 import { Database, Play, Save, FolderOpen, Plus, Settings, GitCommitVertical, RotateCcw, Square, Zap, Upload, AlignLeft, Rows3 } from "lucide-react";
 
 import { format as formatSql } from "sql-formatter";
+import { listen } from "@tauri-apps/api/event";
 import { useWorkspaceStore } from "./lib/stores/WorkspaceStore";
 import type { WorkspacePanel } from "./lib/stores/WorkspaceStore";
 import { DbClient } from "./lib/db/DbClient";
@@ -150,6 +151,19 @@ export default function App() {
     }
 
     registerHandlers();
+
+    // Listen for health monitor events from the Rust backend
+    let unsubDrop: (() => void) | undefined;
+    let unsubRestore: (() => void) | undefined;
+    void (async () => {
+      unsubDrop = await listen<{ connection_id: string }>("connection_dropped", (event) => {
+        useWorkspaceStore.getState().setConnectionHealth(event.payload.connection_id, "error");
+      });
+      unsubRestore = await listen<{ connection_id: string }>("connection_restored", (event) => {
+        useWorkspaceStore.getState().setConnectionHealth(event.payload.connection_id, "healthy");
+      });
+    })();
+
     void ensureAppPreferencesLoaded()
       .then((preferences) => {
         setShowWelcome(!preferences.onboardingDismissed);
@@ -179,6 +193,11 @@ export default function App() {
       .finally(() => {
         setWorkspaceSessionReady(true);
       });
+
+    return () => {
+      unsubDrop?.();
+      unsubRestore?.();
+    };
   }, [addConnection, hydrateWorkspaceSession, setActiveConnection, setSchema, smokeMode]);
 
   useEffect(() => {
