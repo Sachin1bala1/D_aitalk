@@ -10,6 +10,7 @@ import React, { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Upload, FileText, Table2, Database } from "lucide-react";
 import { toast } from "sonner";
+import { invoke } from "@tauri-apps/api/core";
 import { DbClient } from "../../lib/db/DbClient";
 
 interface FileImportDialogProps {
@@ -67,18 +68,26 @@ export function FileImportDialog({ open, onOpenChange, onImported }: FileImportD
       const ext = file.name.split(".").pop()?.toLowerCase();
       const path = nativePath ?? file.name;
 
-      if (ext === "parquet") {
+      if (ext === "xlsx" || ext === "xls") {
+        const result = await invoke<{ table_name: string; row_count: number; preview: unknown[] }>(
+          "import_excel_file",
+          { path, sheetName: null }
+        );
+        toast.success(`Imported "${result.table_name}" — ${result.row_count.toLocaleString()} rows`);
+        onImported(`SELECT * FROM "${result.table_name}" LIMIT 1000;`);
+      } else if (ext === "parquet") {
         await DbClient.duckdbLoadParquet(path, tableName.trim());
+        toast.success(`Imported "${tableName}" — ready to query`);
+        onImported(`SELECT * FROM "${tableName.trim()}" LIMIT 1000;`);
       } else if (ext === "csv" || ext === "tsv" || ext === "txt") {
         await DbClient.duckdbLoadCsv(path, tableName.trim());
+        toast.success(`Imported "${tableName}" — ready to query`);
+        onImported(`SELECT * FROM "${tableName.trim()}" LIMIT 1000;`);
       } else {
-        toast.error(`Unsupported file type: .${ext}. Use .parquet or .csv`);
+        toast.error(`Unsupported file type: .${ext}. Use .parquet, .csv, .xlsx, or .xls`);
         setIsImporting(false);
         return;
       }
-
-      toast.success(`Imported "${tableName}" — ready to query`);
-      onImported(`SELECT * FROM "${tableName.trim()}" LIMIT 1000;`);
       onOpenChange(false);
       setFile(null);
       setTableName("");
@@ -90,7 +99,7 @@ export function FileImportDialog({ open, onOpenChange, onImported }: FileImportD
   };
 
   const fileExt = file?.name.split(".").pop()?.toLowerCase();
-  const isSupported = fileExt === "parquet" || fileExt === "csv" || fileExt === "tsv";
+  const isSupported = fileExt === "parquet" || fileExt === "csv" || fileExt === "tsv" || fileExt === "xlsx" || fileExt === "xls";
 
   return (
     <AnimatePresence>
@@ -172,11 +181,11 @@ export function FileImportDialog({ open, onOpenChange, onImported }: FileImportD
                         Drop a file here or{" "}
                         <span className="text-[#00d2ff] hover:underline">browse</span>
                       </p>
-                      <p className="text-[11px] text-white/25 mt-1">.csv · .tsv · .parquet</p>
+                      <p className="text-[11px] text-white/25 mt-1">.csv · .tsv · .parquet · .xlsx · .xls</p>
                     </div>
                     <input
                       type="file"
-                      accept=".csv,.tsv,.txt,.parquet"
+                      accept=".csv,.tsv,.txt,.parquet,.xlsx,.xls"
                       onChange={handleFileInput}
                       className="hidden"
                     />
