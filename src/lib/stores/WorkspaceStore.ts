@@ -660,6 +660,7 @@ export interface WorkspaceState {
   updatePlanStep: (id: string, updates: Partial<PlanStep>) => void;
   removePlanStep: (id: string) => void;
   clearPlanQueue: () => void;
+  setPlanStepStatus: (id: string, status: "approved" | "rejected") => void;
 
   pushUndo: (entry: UndoEntry) => void;
   popUndo: () => UndoEntry | undefined;
@@ -807,6 +808,12 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     clearPlanQueue: () =>
       set((state) => {
         state.planQueue = [];
+      }),
+
+    setPlanStepStatus: (id, status) =>
+      set((state) => {
+        const step = state.planQueue.find((s) => s.id === id);
+        if (step) step.status = status;
       }),
 
     pushUndo: (entry) =>
