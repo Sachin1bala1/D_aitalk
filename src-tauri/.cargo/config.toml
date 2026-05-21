@@ -1,0 +1,8 @@
+# Force MSVC linker for the duckdb bundled build on Windows.
+# MinGW's g++ OOMs during DuckDB's C++ compilation; MSVC handles it fine.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "codegen-units=1"]
+
+[env]
+# Limit parallel codegen jobs for DuckDB's bundled build
+CARGO_BUILD_JOBS = "2"

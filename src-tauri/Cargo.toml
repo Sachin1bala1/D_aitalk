@@ -42,7 +42,8 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 sqlparser = "0.43"
 
-# duckdb = { version = "1", features = ["bundled"] }  # TODO: re-enable; bundled g++ OOM on Windows MinGW
+duckdb = { version = "1", features = ["bundled"] }
+lru = "0.12"
 keyring = "3"
 hmac = "0.12"
 sha2 = "0.10"
