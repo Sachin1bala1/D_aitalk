@@ -114,6 +114,18 @@ export async function withTimeout<T>(
 }
 
 /**
+ * Wraps a single tool dispatch with an 8-second hard timeout.
+ * Throws TimeoutError if the tool does not resolve in time.
+ */
+export function withToolTimeout<T>(
+  promise: Promise<T>,
+  toolName: string,
+  timeoutMs = 8_000,
+): Promise<T> {
+  return withTimeout(promise, timeoutMs, `Tool "${toolName}"`);
+}
+
+/**
  * Wraps an async function with exponential backoff retry.
  *
  * @param fn      The async function to execute (called with no args)
