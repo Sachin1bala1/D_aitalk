@@ -44,6 +44,8 @@ $storeTauriConfigPath = Join-Path $RepoRoot "src-tauri\tauri.store.conf.json"
 $releaseDocsRoot = Join-Path $RepoRoot "docs\release"
 $storeMetadataPath = Join-Path $releaseDocsRoot "store-metadata.json"
 $storeMetadataTemplatePath = Join-Path $releaseDocsRoot "store-metadata.template.json"
+$validateWorkflowPath = Join-Path $RepoRoot ".github\workflows\validate.yml"
+$windowsReleaseWorkflowPath = Join-Path $RepoRoot ".github\workflows\windows-release.yml"
 
 $requiredDocs = @(
   "README.md",
@@ -69,6 +71,8 @@ if (-not (Test-Path $tauriConfigPath)) {
 
 $package = Get-Content $packageJsonPath -Raw | ConvertFrom-Json
 $tauri = Get-Content $tauriConfigPath -Raw | ConvertFrom-Json
+$validateWorkflowRaw = if (Test-Path $validateWorkflowPath) { Get-Content $validateWorkflowPath -Raw } else { "" }
+$windowsReleaseWorkflowRaw = if (Test-Path $windowsReleaseWorkflowPath) { Get-Content $windowsReleaseWorkflowPath -Raw } else { "" }
 $storeTauri = $null
 if ((Test-Path $storeTauriConfigPath)) {
   $storeTauri = Get-Content $storeTauriConfigPath -Raw | ConvertFrom-Json
@@ -133,6 +137,26 @@ Check-Pass -Label "Bundle active" `
   -Passed ([bool]$tauri.bundle.active) `
   -PassDetail "bundle.active is true" `
   -FailDetail "bundle.active must be true for release packaging"
+
+Check-Pass -Label "Release scripts present" `
+  -Passed ($package.scripts.'tauri:build:secure' -and $package.scripts.'tauri:build:store' -and $package.scripts.'tauri:build:ci') `
+  -PassDetail "package.json defines tauri:build:secure, tauri:build:store, and tauri:build:ci" `
+  -FailDetail "package.json is missing one or more required Windows release scripts"
+
+Check-Pass -Label "Validation workflow runs frontend tests" `
+  -Passed ($validateWorkflowRaw -match "npm test") `
+  -PassDetail "validate.yml runs npm test" `
+  -FailDetail "validate.yml must run npm test"
+
+Check-Pass -Label "Validation workflow runs Rust tests" `
+  -Passed ($validateWorkflowRaw -match "cargo test --lib") `
+  -PassDetail "validate.yml runs cargo test --lib" `
+  -FailDetail "validate.yml must run cargo test --lib"
+
+Check-Pass -Label "Windows release workflow uses secure build path" `
+  -Passed ($windowsReleaseWorkflowRaw -match "windows-secure-build\.ps1" -or $windowsReleaseWorkflowRaw -match "tauri:build:ci") `
+  -PassDetail "windows-release.yml uses a defined release build path" `
+  -FailDetail "windows-release.yml must call windows-secure-build.ps1 or a defined tauri:build:ci script"
 
 Check-Pass -Label "Downgrade policy" `
   -Passed (-not [bool]$tauri.bundle.windows.allowDowngrades) `

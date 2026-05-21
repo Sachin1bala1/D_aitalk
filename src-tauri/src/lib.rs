@@ -26,6 +26,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(AppState {
             connections: Arc::new(ConnectionManager::new()),
             duckdb: Arc::new(duckdb),
@@ -72,6 +73,12 @@ pub fn run() {
             commands::db_clear_local_data,
             commands::save_connections,
             commands::load_connections,
+            commands::save_workspace_session,
+            commands::load_workspace_session,
+            commands::clear_workspace_session,
+            commands::save_app_document,
+            commands::load_app_document,
+            commands::delete_app_document,
             commands::store_api_key,
             commands::get_api_key,
             commands::delete_api_key,

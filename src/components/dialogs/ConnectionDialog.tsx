@@ -1,10 +1,20 @@
 import React, { useState, useEffect } from "react";
-import { Database, X, Link2, Trash2, History, Wifi } from "lucide-react";
+import { Database, X, Link2, Trash2, History, Wifi, Eye, EyeOff, User, KeyRound } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { invoke } from "@tauri-apps/api/core";
 import { DbClient, ConnectionConfig, DbDriver } from "../../lib/db/DbClient";
-import { loadSavedConnectionsAsync, removeConnection } from "../../lib/db/ConnectionStore";
+import {
+  loadConnectionWithPassword,
+  loadSavedConnectionsAsync,
+  removeConnection,
+} from "../../lib/db/ConnectionStore";
+import {
+  applyStructuredAuthToConnectionString,
+  readStructuredAuthFromConnectionString,
+  stripPasswordFromConnectionString,
+  supportsStructuredAuth,
+} from "../../lib/db/connectionUrl";
 import { diagnoseConnection, DiagnosisResult } from "../../lib/connection/ConnectionDoctor";
 import { ConnectionDoctorPanel } from "./ConnectionDoctorPanel";
 import { loadApiKeysFromKeychain } from "../../lib/ai/types";
@@ -155,6 +165,7 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
   const [isConnecting, setIsConnecting] = useState(false);
   const [testStatus, setTestStatus] = useState<"idle" | "testing" | "ok" | "fail">("idle");
   const [savedConns, setSavedConns] = useState<ConnectionConfig[]>([]);
+  const [selectedSavedConnectionId, setSelectedSavedConnectionId] = useState<string | null>(null);
   // tracks whether user manually changed driver/name so auto-parse doesn't override
   const [driverManual, setDriverManual] = useState(false);
   const [nameManual, setNameManual] = useState(false);
@@ -164,12 +175,17 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
   const [doctorSteps, setDoctorSteps] = useState<string[]>([]);
   const [doctorResult, setDoctorResult] = useState<DiagnosisResult | null>(null);
 
+  const [dbUsername, setDbUsername] = useState("");
+  const [dbPassword, setDbPassword] = useState("");
+  const [showDbPassword, setShowDbPassword] = useState(false);
+
   // PI Historian fields
   const [piUsername, setPiUsername] = useState("");
   const [piPassword, setPiPassword] = useState("");
   const [piVerifySsl, setPiVerifySsl] = useState(true);
 
   const isPIHistorian = driver === "p_i_historian";
+  const showStructuredAuth = supportsStructuredAuth(driver);
 
   useEffect(() => {
     if (open) {
@@ -179,6 +195,8 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
       // Reset manual flags when dialog reopens
       setDriverManual(false);
       setNameManual(false);
+      setSelectedSavedConnectionId(null);
+      setShowDbPassword(false);
     }
   }, [open]);
 
@@ -190,16 +208,55 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
       if (!driverManual) setDriver(parsed.driver);
       if (!nameManual && !displayName) setDisplayName(parsed.suggestedName);
     }
+
+    if (supportsStructuredAuth(parsed?.driver ?? driver)) {
+      const auth = readStructuredAuthFromConnectionString(value.trim());
+      if (auth) {
+        setDbUsername(auth.username);
+        if (auth.password) {
+          setDbPassword(auth.password);
+        }
+      }
+    }
   };
 
   const selectedDriver = DRIVER_OPTIONS.find((d) => d.value === driver)!;
 
+  const applySavedConnectionToForm = (config: ConnectionConfig) => {
+    setSelectedSavedConnectionId(config.id);
+    setDriver(config.driver);
+    setDriverManual(true);
+    setDisplayName(config.display_name ?? "");
+    setNameManual(true);
+    setTestStatus("idle");
+    setShowDbPassword(false);
+
+    if (config.pi_config) {
+      setConnectionString(config.pi_config.base_url ?? config.connection_string ?? "");
+      setPiUsername(config.pi_config.username ?? "");
+      setPiPassword(config.pi_config.password ?? "");
+      setPiVerifySsl(config.pi_config.verify_ssl ?? true);
+      setDbUsername("");
+      setDbPassword("");
+    } else {
+      setConnectionString(stripPasswordFromConnectionString(config.connection_string ?? ""));
+      setPiUsername("");
+      setPiPassword("");
+      setPiVerifySsl(true);
+      const auth = readStructuredAuthFromConnectionString(config.connection_string ?? "");
+      setDbUsername(auth?.username ?? "");
+      setDbPassword(auth?.password ?? "");
+    }
+  };
+
   const handleQuickConnect = async (config: ConnectionConfig) => {
     setIsConnecting(true);
     try {
-      await DbClient.connect(config);
-      onConnect(config.id, config);
-      toast.success(`Connected to ${config.display_name}`);
+      const hydrated = (await loadConnectionWithPassword(config.id)) ?? config;
+      applySavedConnectionToForm(hydrated);
+      await DbClient.connect(hydrated);
+      onConnect(hydrated.id, hydrated);
+      toast.success(`Connected to ${hydrated.display_name}`);
       onOpenChange(false);
     } catch (error: any) {
       toast.error(error.message ?? "Reconnection failed");
@@ -215,11 +272,19 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
   };
 
   const buildConfig = (): ConnectionConfig => {
+    const resolvedConnectionString =
+      showStructuredAuth && connectionString
+        ? applyStructuredAuthToConnectionString(connectionString, {
+            username: dbUsername,
+            password: dbPassword,
+          })
+        : connectionString;
+
     const draft: ConnectionConfig = {
       id: `conn-${Date.now()}`,
       display_name: displayName || selectedDriver.label,
       driver,
-      connection_string: connectionString,
+      connection_string: resolvedConnectionString,
       pool_min: 1,
       pool_max: 10,
       ...(isPIHistorian && {
@@ -233,14 +298,15 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
     };
 
     const existing = savedConns.find((conn) => sameSavedConnection(conn, draft));
-    if (!existing) return draft;
+    const resolvedId = existing?.id ?? selectedSavedConnectionId;
+    if (!resolvedId) return draft;
 
     return {
       ...draft,
-      id: existing.id,
-      display_name: displayName || existing.display_name || draft.display_name,
-      pool_min: existing.pool_min ?? draft.pool_min,
-      pool_max: existing.pool_max ?? draft.pool_max,
+      id: resolvedId,
+      display_name: displayName || existing?.display_name || draft.display_name,
+      pool_min: existing?.pool_min ?? draft.pool_min,
+      pool_max: existing?.pool_max ?? draft.pool_max,
     };
   };
 
@@ -287,9 +353,9 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
       const msg = error instanceof Error ? error.message : String(error);
       // Launch Connection Doctor instead of just toasting
       setDoctorRunning(true);
-      // Prefer OS keychain key (set via Provider Settings), fall back to seeded localStorage key
+      // Prefer the OS keychain key configured via Provider Settings
       const keychainKeys = await loadApiKeysFromKeychain().catch(() => ({} as Record<string, string>));
-      const nvidiaKey = (keychainKeys as Record<string, string>)["nvidia"] || localStorage.getItem("nvidia_api_key") || undefined;
+      const nvidiaKey = (keychainKeys as Record<string, string>)["nvidia"] || undefined;
       try {
         const result = await diagnoseConnection(
           config,
@@ -365,21 +431,40 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                     {savedConns.map((conn) => (
                       <button
                         key={conn.id}
-                        onClick={() => handleQuickConnect(conn)}
+                        onClick={async () => {
+                          const hydrated = (await loadConnectionWithPassword(conn.id)) ?? conn;
+                          applySavedConnectionToForm(hydrated);
+                        }}
                         disabled={isConnecting}
-                        className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[#1a1a1a] border border-[#262626] hover:border-[#00d2ff]/30 text-left transition-colors group disabled:opacity-40"
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-left transition-colors group disabled:opacity-40 ${
+                          selectedSavedConnectionId === conn.id
+                            ? "bg-[#00d2ff]/8 border-[#00d2ff]/30"
+                            : "bg-[#1a1a1a] border-[#262626] hover:border-[#00d2ff]/30"
+                        }`}
                       >
                         <div className="min-w-0">
                           <p className="text-xs font-semibold text-white/80 truncate">{conn.display_name}</p>
                           <p className="text-[10px] text-white/25 font-mono truncate">{conn.driver} · {conn.connection_string.replace(/:[^:@]+@/, ":***@")}</p>
                         </div>
-                        <button
-                          onClick={(e) => handleRemoveSaved(conn.id, e)}
-                          className="shrink-0 opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 rounded text-white/20 hover:text-red-400 transition-all"
-                          title="Remove saved connection"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
+                        <div className="shrink-0 flex items-center gap-1">
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await handleQuickConnect(conn);
+                            }}
+                            className="p-1 rounded text-white/25 hover:text-[#00d2ff] hover:bg-[#00d2ff]/10 transition-colors"
+                            title="Reconnect now"
+                          >
+                            <Wifi className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={(e) => handleRemoveSaved(conn.id, e)}
+                            className="p-1 hover:bg-red-500/20 rounded text-white/20 hover:text-red-400 transition-all"
+                            title="Remove saved connection"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -447,6 +532,61 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                   />
                 </div>
               </div>
+
+              {showStructuredAuth && (
+                <div className="space-y-3 p-3 rounded-lg border border-[#262626] bg-[#111111]">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] uppercase tracking-widest font-bold text-white/50">
+                      Authentication
+                    </p>
+                    <span className="text-[10px] text-white/35">
+                      Saved securely in your OS credential vault
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] uppercase tracking-widest font-bold text-white/50">
+                        Username
+                      </label>
+                      <div className="relative">
+                        <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/20" />
+                        <input
+                          type="text"
+                          value={dbUsername}
+                          onChange={(e) => setDbUsername(e.target.value)}
+                          placeholder="Database username"
+                          className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:border-[#00d2ff]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] uppercase tracking-widest font-bold text-white/50">
+                        Password
+                      </label>
+                      <div className="relative">
+                        <KeyRound className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/20" />
+                        <input
+                          type={showDbPassword ? "text" : "password"}
+                          value={dbPassword}
+                          onChange={(e) => setDbPassword(e.target.value)}
+                          placeholder="Saved securely"
+                          className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg pl-10 pr-10 py-2.5 text-sm focus:outline-none focus:border-[#00d2ff]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowDbPassword((value) => !value)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors"
+                          title={showDbPassword ? "Hide password" : "Show password"}
+                        >
+                          {showDbPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* PI Historian fields */}
               {isPIHistorian && (

@@ -6,6 +6,10 @@ import React, { useEffect, useRef, useState } from "react";
 import { X, Loader2 } from "lucide-react";
 import { DbClient, FullSchema } from "../../lib/db/DbClient";
 import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
+import {
+  loadAppPreferencesSync,
+  updateAppPreferences,
+} from "../../lib/app/AppPreferencesStore";
 
 type TabId = "columns" | "indexes" | "foreign_keys" | "ddl" | "data";
 
@@ -23,8 +27,8 @@ export function ObjectPropertiesPanel({
   const selectedTableNode = useWorkspaceStore((s) => s.selectedTableNode);
 
   const [activeTab, setActiveTab] = useState<TabId>("columns");
-  const [panelHeight, setPanelHeight] = useState<number>(() =>
-    parseInt(localStorage.getItem("daitalk_props_panel_height") ?? "280", 10)
+  const [panelHeight, setPanelHeight] = useState<number>(
+    () => loadAppPreferencesSync().objectPropertiesPanelHeight,
   );
 
   // DDL tab state
@@ -88,7 +92,9 @@ export function ObjectPropertiesPanel({
         window.innerHeight * 0.6
       );
       setPanelHeight(newHeight);
-      localStorage.setItem("daitalk_props_panel_height", String(Math.round(newHeight)));
+      updateAppPreferences({
+        objectPropertiesPanelHeight: Math.round(newHeight),
+      });
     };
     const onMouseUp = () => {
       document.removeEventListener("mousemove", onMouseMove);

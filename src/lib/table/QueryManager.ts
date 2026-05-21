@@ -160,8 +160,11 @@ async function reexecute() {
   try {
     const response = await DbClient.executeStreaming(view.connectionId, effectiveSql);
     const queryId = response.query_id;
+    const sourceTables = response.source_tables;
     updateQueryView({ currentQueryId: queryId }, tab.id);
     rowStore.reset(queryId);
+    const allRows: Record<string, unknown>[] = [];
+    let fields: { name: string }[] = [];
 
     const unlisten = await listen<QueryBatch>("query_batch", (event) => {
       const batch = event.payload;
@@ -169,11 +172,31 @@ async function reexecute() {
 
       rowStore.appendBatch(batch);
 
+      if (batch.columns && fields.length === 0) {
+        fields = batch.columns.map((column) => ({ name: column.name }));
+      }
+
       if (batch.columns && (view.columns.length === 0 || currentQueryView()?.columns.length === 0)) {
         updateQueryView({ columns: batch.columns.map((column) => column.name) }, tab.id);
       }
 
-      if (batch.is_final || batch.error) {
+      allRows.push(...batch.rows);
+
+      if (batch.error) {
+        rowStore.finalize();
+        unlisten();
+        return;
+      }
+
+      if (batch.is_final) {
+        useWorkspaceStore.getState().setQueryResults({
+          rows: allRows,
+          fields,
+          rowCount: allRows.length,
+          elapsedMs: batch.total_elapsed_ms,
+          queryId,
+          source_tables: sourceTables,
+        }, tab.id);
         rowStore.finalize();
         unlisten();
       }

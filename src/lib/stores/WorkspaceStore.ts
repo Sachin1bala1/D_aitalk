@@ -10,6 +10,9 @@ import type {
   Hypothesis,
   ConfidenceDeclaration,
 } from "../agent/commands";
+import type { ReviewDossier } from "../review/DataChangeReviewEngine";
+import type { Task, TaskCheckpoint } from "../agent/TaskState";
+import type { PersistedAiSessionState } from "../ai/AiSessionState";
 import type { WorkingMemoryState } from "../memory/WorkingMemory";
 import { DEFAULT_WORKING_MEMORY } from "../memory/WorkingMemory";
 import type { QueryRuntimeHandle, QuerySessionState } from "../query/runtime";
@@ -17,7 +20,7 @@ import type { ImpactMap } from '../agent/harness/ImpactMapEngine';
 
 export type AgentMode = "plan" | "auto";
 export type QueryTabType = "sql_editor" | "table_viewer";
-export type TabType = QueryTabType | "dashboard";
+export type TabType = QueryTabType | "dashboard" | "artifact_chart" | "artifact_query" | "artifact_report";
 export type DashboardWidgetType =
   | "table"
   | "metric"
@@ -33,6 +36,9 @@ export interface PlanStep {
   commandType: string;
   humanReadable: string;
   sqlPreview?: string;
+  review?: ReviewDossier;
+  taskId?: string;
+  subtaskId?: string;
   riskLevel: "safe" | "caution" | "destructive";
   status: "pending" | "approved" | "rejected" | "executing" | "done" | "failed";
   errorMessage?: string;
@@ -120,6 +126,7 @@ export interface ChartRequest {
 
 export interface GraphBuilderRequest {
   requestId: string;
+  artifactId?: string | null;
   chartType: string;
   xColumn: string;
   yColumn: string;
@@ -128,6 +135,116 @@ export interface GraphBuilderRequest {
   title?: string;
   xLabel?: string;
   yLabel?: string;
+}
+
+export interface ArtifactLineage {
+  connectionId: string | null;
+  sql: string;
+  queryId: string | null;
+  sourceTables: string[];
+  sourceTabId: string | null;
+}
+
+export interface ChartArtifactOptions {
+  showDataPoints: boolean;
+  showTrendLine: boolean;
+  logScaleX: boolean;
+  logScaleY: boolean;
+  xAxisMode: "auto" | "fit" | "zero" | "manual";
+  yAxisMode: "auto" | "fit" | "zero" | "manual";
+  xAxisMin: string;
+  xAxisMax: string;
+  yAxisMin: string;
+  yAxisMax: string;
+  xAxisLabel: string;
+  yAxisLabel: string;
+  refLineValue: string;
+  refLineLabel: string;
+  confidenceInterval: "none" | "95" | "99";
+}
+
+export interface ChartArtifactAssignments {
+  x: string | null;
+  y: string | null;
+  color: string | null;
+  size: string | null;
+  facet: string | null;
+}
+
+export interface ChartArtifact {
+  id: string;
+  kind: "chart";
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+  lineage: ArtifactLineage;
+  snapshot: DashboardDatasourceSnapshot;
+  chart: {
+    chartType: string;
+    assignments: ChartArtifactAssignments;
+    options: ChartArtifactOptions;
+  };
+}
+
+export interface QueryArtifact {
+  id: string;
+  kind: "query";
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+  lineage: ArtifactLineage;
+  snapshot: DashboardDatasourceSnapshot;
+}
+
+export interface ReportArtifact {
+  id: string;
+  kind: "report";
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+  connectionName: string;
+  sourceArtifactIds: string[];
+  sourceArtifactRevisionIds: Record<string, string | null>;
+  sectionBindings: ReportSectionBinding[];
+  spec: import("../reports/ReportBuilder").ReportSpec;
+}
+
+export type AnalysisArtifact = ChartArtifact | QueryArtifact | ReportArtifact;
+
+export interface ReportSectionBinding {
+  sectionKey: string;
+  sectionType: "executive_summary" | "analysis" | "data_table";
+  sourceArtifactIds: string[];
+  sourceArtifactRevisionIds: Record<string, string | null>;
+}
+
+export interface ArtifactRevision {
+  id: string;
+  artifactId: string;
+  recordedAt: number;
+  artifact: AnalysisArtifact;
+}
+
+export interface ArtifactHeadState {
+  headRevisionId: string | null;
+  hasUncommittedChanges: boolean;
+}
+
+export function getLatestArtifactRevision(
+  revisions: ArtifactRevision[] | undefined,
+): ArtifactRevision | null {
+  if (!revisions || revisions.length === 0) return null;
+  return revisions[revisions.length - 1] ?? null;
+}
+
+export function getLatestArtifactRevisionId(
+  revisions: ArtifactRevision[] | undefined,
+): string | null {
+  return getLatestArtifactRevision(revisions)?.id ?? null;
+}
+
+function areArtifactsEquivalent(left: AnalysisArtifact, right: AnalysisArtifact): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 export interface DashboardTabStateData {
@@ -145,6 +262,7 @@ export interface TabStateBase {
   queryResults: QueryResults | null;
   isExecuting: boolean;
   queryView: QueryViewState;
+  restoredSnapshotAt?: number | null;
 }
 
 export interface QueryTabState extends TabStateBase {
@@ -156,9 +274,50 @@ export interface DashboardTabState extends TabStateBase {
   dashboard: DashboardTabStateData;
 }
 
-export type TabState = QueryTabState | DashboardTabState;
+export interface ArtifactChartTabState extends TabStateBase {
+  type: "artifact_chart";
+  artifactId: string;
+}
+
+export interface ArtifactQueryTabState extends TabStateBase {
+  type: "artifact_query";
+  artifactId: string;
+}
+
+export interface ArtifactReportTabState extends TabStateBase {
+  type: "artifact_report";
+  artifactId: string;
+}
+
+export type TabState =
+  | QueryTabState
+  | DashboardTabState
+  | ArtifactChartTabState
+  | ArtifactQueryTabState
+  | ArtifactReportTabState;
 
 export type QueryTabInput = Omit<QueryTabState, "queryView"> & {
+  queryView?: QueryViewState;
+};
+
+export type CreateArtifactChartTabInput = Omit<
+  ArtifactChartTabState,
+  "type" | "queryView"
+> & {
+  queryView?: QueryViewState;
+};
+
+export type CreateArtifactQueryTabInput = Omit<
+  ArtifactQueryTabState,
+  "type" | "queryView"
+> & {
+  queryView?: QueryViewState;
+};
+
+export type CreateArtifactReportTabInput = Omit<
+  ArtifactReportTabState,
+  "type" | "queryView"
+> & {
   queryView?: QueryViewState;
 };
 
@@ -170,18 +329,182 @@ export type CreateDashboardTabInput = Omit<
   queryView?: QueryViewState;
 };
 
-export type AddTabInput = QueryTabInput | ({ type: "dashboard" } & CreateDashboardTabInput);
+export type AddTabInput =
+  | QueryTabInput
+  | ({ type: "dashboard" } & CreateDashboardTabInput)
+  | ({ type: "artifact_chart" } & CreateArtifactChartTabInput)
+  | ({ type: "artifact_query" } & CreateArtifactQueryTabInput)
+  | ({ type: "artifact_report" } & CreateArtifactReportTabInput);
 
 export type TabStateUpdate = Partial<
   Pick<
     TabStateBase,
-    "title" | "connectionId" | "sql" | "queryResults" | "isExecuting" | "queryView"
+    "title" | "connectionId" | "sql" | "queryResults" | "isExecuting" | "queryView" | "restoredSnapshotAt"
   >
 >;
 
 export type DashboardTabUpdate = Partial<Pick<DashboardTabState, "title" | "connectionId">> & {
   dashboard?: Partial<DashboardTabStateData>;
 };
+
+export type WorkspacePanel =
+  | "history"
+  | "agent"
+  | "background_agents"
+  | "artifacts"
+  | "pipelines"
+  | "erd"
+  | "snippets"
+  | "search"
+  | "sessions"
+  | "overview"
+  | "founder"
+  | "memory"
+  | "harness";
+
+export interface PersistedQueryViewState {
+  baseSql: string;
+  connectionId: string | null;
+  effectiveSql: string;
+  sort: SortState | null;
+  globalFilter: string;
+  nullFilter: string | null;
+  columnFilters: Record<string, string>;
+  columns: string[];
+  currentQueryId: string | null;
+}
+
+export interface PersistedTabStateBase {
+  id: string;
+  type: TabType;
+  title: string;
+  connectionId: string | null;
+  sql: string;
+  queryResults: QueryResults | null;
+  queryView: PersistedQueryViewState;
+  restoredSnapshotAt?: number | null;
+}
+
+export type PersistedTabState =
+  | (PersistedTabStateBase & { type: QueryTabType })
+  | (PersistedTabStateBase & { type: "dashboard"; dashboard: DashboardTabStateData })
+  | (PersistedTabStateBase & { type: "artifact_chart"; artifactId: string })
+  | (PersistedTabStateBase & { type: "artifact_query"; artifactId: string })
+  | (PersistedTabStateBase & { type: "artifact_report"; artifactId: string });
+
+export interface WorkspaceSessionSnapshot {
+  version: 4;
+  savedAt: number;
+  activeConnectionId: string | null;
+  activeTabId: string;
+  activePanel: WorkspacePanel;
+  graphBuilderRequest: GraphBuilderRequest | null;
+  artifacts: Record<string, AnalysisArtifact>;
+  artifactRevisions: Record<string, ArtifactRevision[]>;
+  artifactHeads: Record<string, ArtifactHeadState>;
+  tabs: PersistedTabState[];
+  selectedTableNode: { schema: string; table: string } | null;
+  aiSession: PersistedAiSessionState | null;
+  taskCheckpoint: TaskCheckpoint | null;
+}
+
+function createArtifactId(kind: AnalysisArtifact["kind"]) {
+  return `artifact-${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function inferReportSectionBindings(artifact: ReportArtifact): ReportSectionBinding[] {
+  const bindings: ReportSectionBinding[] = [];
+  if (artifact.sourceArtifactIds.length > 0) {
+    bindings.push({
+      sectionKey: "executive_summary",
+      sectionType: "executive_summary",
+      sourceArtifactIds: artifact.sourceArtifactIds,
+      sourceArtifactRevisionIds: Object.fromEntries(
+        artifact.sourceArtifactIds.map((artifactId) => [
+          artifactId,
+          artifact.sourceArtifactRevisionIds[artifactId] ?? null,
+        ]),
+      ),
+    });
+  }
+
+  for (const artifactId of artifact.sourceArtifactIds) {
+    const section = artifact.spec.sections.find(
+      (candidate) =>
+        (candidate.type === "analysis" && candidate.chartId === artifactId) ||
+        (candidate.type === "data_table" && candidate.title === artifact.name),
+    );
+    bindings.push({
+      sectionKey: `artifact:${artifactId}`,
+      sectionType: section?.type === "analysis" ? "analysis" : "data_table",
+      sourceArtifactIds: [artifactId],
+      sourceArtifactRevisionIds: {
+        [artifactId]: artifact.sourceArtifactRevisionIds[artifactId] ?? null,
+      },
+    });
+  }
+
+  return bindings;
+}
+
+function normalizeArtifact(artifact: AnalysisArtifact): AnalysisArtifact {
+  if (artifact.kind !== "report") return artifact;
+  return {
+    ...artifact,
+    sectionBindings:
+      artifact.sectionBindings && artifact.sectionBindings.length > 0
+        ? artifact.sectionBindings
+        : inferReportSectionBindings(artifact),
+  };
+}
+
+function normalizeArtifactRevision(revision: ArtifactRevision): ArtifactRevision {
+  return {
+    ...revision,
+    artifact: normalizeArtifact(revision.artifact),
+  };
+}
+
+function cloneArtifactForDuplicate(artifact: AnalysisArtifact): AnalysisArtifact {
+  const now = Date.now();
+  const copyName = artifact.name.endsWith(" Copy") ? artifact.name : `${artifact.name} Copy`;
+
+  if (artifact.kind === "query") {
+    return {
+      ...artifact,
+      id: createArtifactId("query"),
+      name: copyName,
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  if (artifact.kind === "chart") {
+    return {
+      ...artifact,
+      id: createArtifactId("chart"),
+      name: copyName,
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  return {
+    ...artifact,
+    id: createArtifactId("report"),
+    name: copyName,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function restoreQueryViewState(input: PersistedQueryViewState): QueryViewState {
+  return {
+    ...input,
+    runtimeHandle: null,
+    sessionState: null,
+  };
+}
 
 export const createDefaultQueryViewState = (
   sql = "",
@@ -220,7 +543,19 @@ export function isDashboardTab(tab: TabState): tab is DashboardTabState {
 }
 
 export function isQueryTab(tab: TabState): tab is QueryTabState {
-  return tab.type !== "dashboard";
+  return tab.type === "sql_editor" || tab.type === "table_viewer";
+}
+
+export function isArtifactChartTab(tab: TabState): tab is ArtifactChartTabState {
+  return tab.type === "artifact_chart";
+}
+
+export function isArtifactQueryTab(tab: TabState): tab is ArtifactQueryTabState {
+  return tab.type === "artifact_query";
+}
+
+export function isArtifactReportTab(tab: TabState): tab is ArtifactReportTabState {
+  return tab.type === "artifact_report";
 }
 
 function createTabState(tab: AddTabInput): TabState {
@@ -233,6 +568,30 @@ function createTabState(tab: AddTabInput): TabState {
       queryView:
         tab.queryView ?? createDefaultQueryViewState("", tab.connectionId),
       dashboard: createDefaultDashboardTabStateData(tab.dashboard),
+    };
+  }
+
+  if (tab.type === "artifact_chart") {
+    return {
+      ...tab,
+      queryView:
+        tab.queryView ?? createDefaultQueryViewState(tab.sql, tab.connectionId),
+    };
+  }
+
+  if (tab.type === "artifact_query") {
+    return {
+      ...tab,
+      queryView:
+        tab.queryView ?? createDefaultQueryViewState(tab.sql, tab.connectionId),
+    };
+  }
+
+  if (tab.type === "artifact_report") {
+    return {
+      ...tab,
+      queryView:
+        tab.queryView ?? createDefaultQueryViewState(tab.sql, tab.connectionId),
     };
   }
 
@@ -252,6 +611,7 @@ const DEFAULT_TAB: QueryTabState = {
   queryResults: null,
   isExecuting: false,
   queryView: createDefaultQueryViewState(),
+  restoredSnapshotAt: null,
 };
 
 export interface WorkspaceState {
@@ -280,6 +640,17 @@ export interface WorkspaceState {
     estimatedRows: number;
   } | null;
   setGogChartRequest: (req: WorkspaceState["gogChartRequest"]) => void;
+  artifacts: Record<string, AnalysisArtifact>;
+  artifactRevisions: Record<string, ArtifactRevision[]>;
+  artifactHeads: Record<string, ArtifactHeadState>;
+  updateArtifactDraft: (artifact: AnalysisArtifact) => void;
+  commitArtifactRevision: (artifact: AnalysisArtifact) => ArtifactRevision;
+  saveCurrentArtifactDraftAsRevision: (artifactId: string) => ArtifactRevision | null;
+  discardArtifactDraftChanges: (artifactId: string) => void;
+  restoreArtifactRevisionAsDraft: (artifactId: string, revisionId: string) => void;
+  duplicateArtifactFromRevision: (artifactId: string, revisionId: string) => AnalysisArtifact | null;
+  removeArtifact: (artifactId: string) => void;
+  hydrateWorkspaceSession: (snapshot: WorkspaceSessionSnapshot) => void;
 
   tabs: TabState[];
   activeTabId: string;
@@ -311,6 +682,9 @@ export interface WorkspaceState {
   resetTabQueryView: (sql: string, connectionId: string | null, tabId?: string) => void;
 
   createDashboardTab: (tab: CreateDashboardTabInput) => void;
+  createArtifactChartTab: (tab: CreateArtifactChartTabInput) => void;
+  createArtifactQueryTab: (tab: CreateArtifactQueryTabInput) => void;
+  createArtifactReportTab: (tab: CreateArtifactReportTabInput) => void;
   updateDashboardTab: (tabId: string, updates: DashboardTabUpdate) => void;
   upsertDashboardDatasourceSnapshot: (
     tabId: string,
@@ -352,19 +726,29 @@ export interface WorkspaceState {
   pendingChatInput: string | null;
   setPendingChatInput: (text: string) => void;
   clearPendingChatInput: () => void;
+  aiSession: PersistedAiSessionState | null;
+  setAiSession: (session: PersistedAiSessionState | null) => void;
+  clearAiSession: () => void;
+  taskCheckpoint: TaskCheckpoint | null;
+  pendingTaskResume: TaskCheckpoint | null;
+  setTaskCheckpoint: (checkpoint: TaskCheckpoint | null) => void;
+  abandonTaskCheckpoint: () => void;
+  clearTaskCheckpoint: () => void;
+  requestPendingTaskResume: (checkpoint: TaskCheckpoint | null) => void;
+  clearPendingTaskResume: () => void;
 
   selectedTableNode: { schema: string; table: string } | null;
   setSelectedTableNode: (node: { schema: string; table: string } | null) => void;
 
-  currentTask: { userGoal: string; status: string } | null;
-  setCurrentTask: (task: { userGoal: string; status: string } | null) => void;
+  currentTask: Task | null;
+  setCurrentTask: (task: Task | null) => void;
 
   impactMapResolution: ImpactMap | null;
   setImpactMapResolution: (map: ImpactMap | null) => void;
 }
 
 export const useWorkspaceStore = create<WorkspaceState>()(
-  immer((set) => ({
+  immer<WorkspaceState>((set, get) => ({
     agentMode: "auto",
     planQueue: [],
     undoStack: [],
@@ -379,6 +763,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     chartRequest: null,
     graphBuilderRequest: null,
     gogChartRequest: null,
+    artifacts: {},
+    artifactRevisions: {},
+    artifactHeads: {},
 
     tabs: [DEFAULT_TAB],
     activeTabId: "tab-1",
@@ -389,6 +776,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     hypothesisProblemFrame: null,
     activeConfidence: null,
     pendingChatInput: null,
+    aiSession: null,
+    taskCheckpoint: null,
+    pendingTaskResume: null,
     selectedTableNode: null,
     currentTask: null,
     impactMapResolution: null,
@@ -396,7 +786,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     setAgentMode: (mode) =>
       set((state) => {
         state.agentMode = mode;
-        if (mode === "auto") state.planQueue = [];
       }),
 
     addPlanStep: (step) =>
@@ -458,6 +847,164 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     setGogChartRequest: (req) =>
       set((state) => {
         state.gogChartRequest = req;
+      }),
+
+    updateArtifactDraft: (artifact) =>
+      set((state) => {
+        const normalizedArtifact = normalizeArtifact(artifact);
+        const headRevision = getLatestArtifactRevision(state.artifactRevisions[artifact.id]);
+        state.artifacts[artifact.id] = normalizedArtifact;
+        state.artifactHeads[artifact.id] = {
+          headRevisionId: headRevision?.id ?? null,
+          hasUncommittedChanges: headRevision
+            ? !areArtifactsEquivalent(headRevision.artifact, normalizedArtifact)
+            : false,
+        };
+      }),
+
+    commitArtifactRevision: (artifact) => {
+      const normalizedArtifact = normalizeArtifact(artifact);
+      const revision: ArtifactRevision = {
+        id: `artifact-revision-${artifact.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        artifactId: artifact.id,
+        recordedAt: Date.now(),
+        artifact: normalizedArtifact,
+      };
+      set((state) => {
+        const existing = state.artifactRevisions[artifact.id] ?? [];
+        state.artifactRevisions[artifact.id] = [...existing, revision].slice(-25);
+        state.artifacts[artifact.id] = normalizedArtifact;
+        state.artifactHeads[artifact.id] = {
+          headRevisionId: revision.id,
+          hasUncommittedChanges: false,
+        };
+      });
+      return revision;
+    },
+
+    saveCurrentArtifactDraftAsRevision: (artifactId) => {
+      const artifact = get().artifacts[artifactId];
+      if (!artifact) return null;
+      return get().commitArtifactRevision({
+        ...artifact,
+        updatedAt: Date.now(),
+      });
+    },
+
+    discardArtifactDraftChanges: (artifactId) =>
+      set((state) => {
+        const headRevision = getLatestArtifactRevision(state.artifactRevisions[artifactId]);
+        if (!headRevision) return;
+        state.artifacts[artifactId] = headRevision.artifact;
+        state.artifactHeads[artifactId] = {
+          headRevisionId: headRevision.id,
+          hasUncommittedChanges: false,
+        };
+      }),
+
+    restoreArtifactRevisionAsDraft: (artifactId, revisionId) =>
+      set((state) => {
+        const revisions = state.artifactRevisions[artifactId] ?? [];
+        const targetRevision = revisions.find((revision) => revision.id === revisionId);
+        const headRevision = getLatestArtifactRevision(revisions);
+        if (!targetRevision) return;
+
+        state.artifacts[artifactId] = {
+          ...targetRevision.artifact,
+          updatedAt: Date.now(),
+        };
+        state.artifactHeads[artifactId] = {
+          headRevisionId: headRevision?.id ?? null,
+          hasUncommittedChanges: headRevision
+            ? !areArtifactsEquivalent(headRevision.artifact, targetRevision.artifact)
+            : false,
+        };
+      }),
+
+    duplicateArtifactFromRevision: (artifactId, revisionId) => {
+      const sourceRevisions = get().artifactRevisions[artifactId] ?? [];
+      const targetRevision = sourceRevisions.find((revision) => revision.id === revisionId);
+      if (!targetRevision) return null;
+
+      const duplicatedArtifact = cloneArtifactForDuplicate(targetRevision.artifact);
+      const initialRevision: ArtifactRevision = {
+        id: `artifact-revision-${duplicatedArtifact.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        artifactId: duplicatedArtifact.id,
+        recordedAt: Date.now(),
+        artifact: duplicatedArtifact,
+      };
+
+      set((state) => {
+        state.artifacts[duplicatedArtifact.id] = duplicatedArtifact;
+        state.artifactRevisions[duplicatedArtifact.id] = [initialRevision];
+        state.artifactHeads[duplicatedArtifact.id] = {
+          headRevisionId: initialRevision.id,
+          hasUncommittedChanges: false,
+        };
+      });
+
+      return duplicatedArtifact;
+    },
+
+    removeArtifact: (artifactId) =>
+      set((state) => {
+        delete state.artifacts[artifactId];
+        delete state.artifactRevisions[artifactId];
+        delete state.artifactHeads[artifactId];
+      }),
+
+    hydrateWorkspaceSession: (snapshot) =>
+      set((state) => {
+        state.activeConnectionId = snapshot.activeConnectionId;
+        state.graphBuilderRequest = snapshot.graphBuilderRequest;
+        state.artifacts = Object.fromEntries(
+          Object.entries(snapshot.artifacts).map(([artifactId, artifact]) => [
+            artifactId,
+            normalizeArtifact(artifact),
+          ]),
+        );
+        state.artifactRevisions = Object.fromEntries(
+          Object.entries(snapshot.artifactRevisions).map(([artifactId, revisions]) => [
+            artifactId,
+            revisions.map(normalizeArtifactRevision),
+          ]),
+        );
+        state.artifactHeads = snapshot.artifactHeads;
+        state.selectedTableNode = snapshot.selectedTableNode;
+        state.aiSession = snapshot.aiSession ?? null;
+        state.taskCheckpoint = snapshot.taskCheckpoint
+          ? {
+              ...snapshot.taskCheckpoint,
+              lifecycle:
+                snapshot.taskCheckpoint.lifecycle === "running"
+                  ? "interrupted"
+                  : snapshot.taskCheckpoint.lifecycle,
+              interruptedAt:
+                snapshot.taskCheckpoint.lifecycle === "running"
+                  ? snapshot.savedAt
+                  : snapshot.taskCheckpoint.interruptedAt,
+              updatedAt: snapshot.savedAt,
+            }
+          : null;
+        state.tabs = snapshot.tabs.length > 0
+          ? snapshot.tabs.map((tab) => {
+              const queryView = restoreQueryViewState(tab.queryView);
+              const baseState = {
+                ...tab,
+                isExecuting: false,
+                queryView,
+                restoredSnapshotAt:
+                  tab.type === "sql_editor" || tab.type === "table_viewer"
+                    ? (tab.queryResults ? snapshot.savedAt : null)
+                    : (tab.restoredSnapshotAt ?? null),
+              };
+              return createTabState(baseState as AddTabInput);
+            })
+          : [DEFAULT_TAB];
+        state.activeTabId = state.tabs.some((tab) => tab.id === snapshot.activeTabId)
+          ? snapshot.activeTabId
+          : state.tabs[0].id;
+        state.currentTask = null;
       }),
 
     setActiveConnection: (id) =>
@@ -562,6 +1109,39 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           createTabState({
             ...tab,
             type: "dashboard",
+          })
+        );
+        state.activeTabId = tab.id;
+      }),
+
+    createArtifactChartTab: (tab) =>
+      set((state) => {
+        state.tabs.push(
+          createTabState({
+            ...tab,
+            type: "artifact_chart",
+          })
+        );
+        state.activeTabId = tab.id;
+      }),
+
+    createArtifactQueryTab: (tab) =>
+      set((state) => {
+        state.tabs.push(
+          createTabState({
+            ...tab,
+            type: "artifact_query",
+          })
+        );
+        state.activeTabId = tab.id;
+      }),
+
+    createArtifactReportTab: (tab) =>
+      set((state) => {
+        state.tabs.push(
+          createTabState({
+            ...tab,
+            type: "artifact_report",
           })
         );
         state.activeTabId = tab.id;
@@ -683,7 +1263,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       set((state) => {
         const id = tabId ?? state.activeTabId;
         const tab = state.tabs.find((candidate) => candidate.id === id);
-        if (tab) tab.queryResults = results;
+        if (tab) {
+          tab.queryResults = results;
+          tab.restoredSnapshotAt = null;
+        }
       }),
 
     setTabExecuting: (executing, tabId) =>
@@ -751,6 +1334,48 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     clearPendingChatInput: () =>
       set((state) => {
         state.pendingChatInput = null;
+      }),
+
+    setAiSession: (session) =>
+      set((state) => {
+        state.aiSession = session;
+      }),
+
+    clearAiSession: () =>
+      set((state) => {
+        state.aiSession = null;
+      }),
+
+    setTaskCheckpoint: (checkpoint) =>
+      set((state) => {
+        state.taskCheckpoint = checkpoint;
+      }),
+
+    abandonTaskCheckpoint: () =>
+      set((state) => {
+        if (!state.taskCheckpoint) return;
+        state.taskCheckpoint = {
+          ...state.taskCheckpoint,
+          lifecycle: "abandoned",
+          interruptedAt: state.taskCheckpoint.interruptedAt ?? Date.now(),
+          updatedAt: Date.now(),
+          resumeEligible: false,
+        };
+      }),
+
+    clearTaskCheckpoint: () =>
+      set((state) => {
+        state.taskCheckpoint = null;
+      }),
+
+    requestPendingTaskResume: (checkpoint) =>
+      set((state) => {
+        state.pendingTaskResume = checkpoint;
+      }),
+
+    clearPendingTaskResume: () =>
+      set((state) => {
+        state.pendingTaskResume = null;
       }),
 
     setSelectedTableNode: (node) =>

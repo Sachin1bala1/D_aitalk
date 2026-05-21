@@ -12,6 +12,17 @@ import type { ConnectionConfig } from "./DbClient";
 import { DbClient } from "./DbClient";
 
 const LS_KEY = "daitalk_connections_v1";
+let warnedNativeFallback = false;
+
+function isDesktopRuntime(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+function warnNativeFallback(message: string): void {
+  if (!isDesktopRuntime() || warnedNativeFallback) return;
+  warnedNativeFallback = true;
+  toast.warning(message);
+}
 
 function normalizeConnectionString(raw: string): string {
   if (!raw) return "";
@@ -189,7 +200,7 @@ export async function loadSavedConnectionsAsync(): Promise<ConnectionConfig[]> {
     }
     return [];
   } catch {
-    // Tauri not available (browser dev mode) — fall back to localStorage
+    warnNativeFallback("Native connection storage unavailable; using legacy local backup.");
     return lsLoad();
   }
 }
@@ -234,11 +245,12 @@ export async function persistConnections(configs: ConnectionConfig[]): Promise<v
   );
 
   const sanitized = hydrated.map(stripPassword);
-  lsSave(sanitized);
   try {
     await DbClient.saveConnections(hydrated);
+    localStorage.removeItem(LS_KEY);
   } catch {
-    // Non-fatal: localStorage copy already saved
+    lsSave(sanitized);
+    warnNativeFallback("Could not persist connections natively; saved to legacy local backup.");
   }
 }
 
@@ -268,11 +280,12 @@ export async function migrateCredentials(): Promise<void> {
     );
 
     if (migrated > 0) {
-      lsSave(sanitized);
       try {
         await DbClient.saveConnections(sanitized);
+        localStorage.removeItem(LS_KEY);
       } catch {
-        // best-effort
+        lsSave(sanitized);
+        warnNativeFallback("Credential migration completed, but native connection storage is unavailable.");
       }
       toast.success("Credentials migrated to secure storage");
     }

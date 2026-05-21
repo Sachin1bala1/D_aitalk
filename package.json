@@ -8,12 +8,16 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "tauri:dev": "tauri dev",
+    "tauri:dev": "powershell -ExecutionPolicy Bypass -File .\\scripts\\start-tauri-dev.ps1",
     "tauri:build": "tauri build",
+    "tauri:build:ci": "powershell -ExecutionPolicy Bypass -File .\\scripts\\windows-secure-build.ps1 -SkipNpmInstall -SkipLint",
+    "tauri:build:secure": "powershell -ExecutionPolicy Bypass -File .\\scripts\\windows-secure-build.ps1",
+    "tauri:build:store": "tauri build --config src-tauri/tauri.store.conf.json",
     "lint": "tsc --noEmit",
     "integration:start": "powershell -ExecutionPolicy Bypass -File .\\scripts\\start-integration-branch.ps1",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:smoke": "node --max-old-space-size=4096 ./node_modules/vitest/vitest.mjs run src/App.smoke.test.tsx"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.27.0",
@@ -23,6 +27,7 @@
     "@tanstack/react-table": "^8.21.0",
     "@tanstack/react-virtual": "^3.13.0",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-updater": "^2",
     "@tauri-apps/plugin-shell": "^2",
     "@xyflow/react": "^12.10.2",
     "class-variance-authority": "^0.7.1",

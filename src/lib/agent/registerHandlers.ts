@@ -17,6 +17,10 @@ import { useWorkspaceStore } from "../stores/WorkspaceStore";
 import { ScaleRouter } from "../dashboard/ScaleRouter";
 import { BinQueryBuilder } from "../dashboard/BinQueryBuilder";
 import type { GoGSpec } from "../dashboard/GoGSpec";
+import {
+  createChartArtifact,
+  createDefaultChartArtifactOptions,
+} from "../artifacts/chartArtifacts";
 import type { QueryBatch } from "../db/DbClient";
 import type {
   SetEditorContentCmd,
@@ -36,10 +40,18 @@ import type {
   UpdateCellCmd,
   RunDuckDbAnalysisCmd,
   RunStatToolCmd,
+  AnalyzeLoadedCorrelationCmd,
+  AnalyzeLoadedFeatureImportanceCmd,
+  AnalyzeLoadedRegressionCmd,
   RunUserToolCmd,
   CreateChartCmd,
+  CreateAnalysisChartCmd,
   CreateGoGChartCmd,
   CreatePipelineCmd,
+  ListPipelinesCmd,
+  RunPipelineCmd,
+  SearchWorkspaceCmd,
+  ProposeWorkspaceRuleCmd,
   NotifyUserCmd,
   DeclareHypothesesCmd,
   DeclareConfidenceCmd,
@@ -52,34 +64,413 @@ import { useUserToolStore } from "../stores/UserToolStore";
 import { fillTemplate } from "../tools/user.tools";
 import { PyodideRuntime } from "../pyodide/PyodideRuntime";
 import { STAT_KERNELS } from "../pyodide/stat_kernels";
+import {
+  createPipelineDefinition,
+  ensurePipelinesLoaded,
+  getPipelineRuns,
+  inspectPipelines,
+  runPipelineDefinition,
+} from "../pipelines/PipelineStore";
+import { ensureHistoryLoaded, loadHistory } from "../../components/history/QueryHistory";
+import {
+  ensureBackgroundAgentsLoaded,
+  listBackgroundAgentEnvironments,
+  getBackgroundAgentRuns,
+  listBackgroundAgents,
+  listBackgroundAgentApprovals,
+} from "../backgroundAgents/BackgroundAgentStore";
+import { EpisodicMemory } from "../memory/EpisodicMemory";
+import { useWorkspaceRuleStore } from "../memory/WorkspaceRuleStore";
+import {
+  buildWorkspaceSearchDocuments,
+  searchWorkspaceDocuments,
+  type WorkspaceSearchDocumentKind,
+} from "../search/workspaceSemanticIndex";
+
+const STREAMING_QUERY_TIMEOUT_MS = 15_000;
+const DUCKDB_QUERY_TIMEOUT_MS = 15_000;
+
+function asNumericArray(values: unknown): number[] | null {
+  if (!Array.isArray(values)) return null;
+  const numeric = values
+    .map((value) => (typeof value === "number" ? value : Number(value)))
+    .filter((value) => Number.isFinite(value));
+  return numeric.length === values.length && numeric.length > 1 ? numeric : null;
+}
+
+function asNumericMatrix(values: unknown): number[][] | null {
+  if (!Array.isArray(values) || values.length === 0) return null;
+  const rows: number[][] = [];
+  for (const row of values) {
+    if (!Array.isArray(row) || row.length === 0) return null;
+    const numericRow = row
+      .map((value) => (typeof value === "number" ? value : Number(value)))
+      .filter((value) => Number.isFinite(value));
+    if (numericRow.length !== row.length) return null;
+    rows.push(numericRow);
+  }
+  return rows.length > 1 ? rows : null;
+}
+
+function pearsonCorrelation(x: number[], y: number[]): number {
+  if (x.length !== y.length || x.length < 2) return 0;
+  const meanX = x.reduce((sum, value) => sum + value, 0) / x.length;
+  const meanY = y.reduce((sum, value) => sum + value, 0) / y.length;
+  let numerator = 0;
+  let sumSqX = 0;
+  let sumSqY = 0;
+  for (let index = 0; index < x.length; index += 1) {
+    const dx = x[index]! - meanX;
+    const dy = y[index]! - meanY;
+    numerator += dx * dy;
+    sumSqX += dx * dx;
+    sumSqY += dy * dy;
+  }
+  const denominator = Math.sqrt(sumSqX * sumSqY);
+  return denominator > 0 ? numerator / denominator : 0;
+}
+
+function buildFeatureImportanceFallback(params: Record<string, unknown>): unknown | null {
+  const matrix = asNumericMatrix(params.X);
+  const target = asNumericArray(params.y);
+  if (!matrix || !target || matrix.length !== target.length) return null;
+
+  const featureNames = Array.isArray(params.feature_names)
+    ? params.feature_names.map((name, index) => String(name ?? `feature_${index}`))
+    : matrix[0]!.map((_, index) => `feature_${index}`);
+
+  const importances = featureNames
+    .map((feature, featureIndex) => {
+      const series = matrix.map((row) => row[featureIndex] ?? 0);
+      const correlation = pearsonCorrelation(series, target);
+      return {
+        feature,
+        importance: Number(Math.abs(correlation).toFixed(6)),
+        correlation: Number(correlation.toFixed(6)),
+      };
+    })
+    .sort((left, right) => right.importance - left.importance);
+
+  return {
+    importances,
+    top_features: importances.slice(0, 5).map((item) => item.feature),
+    model_type: "correlation_proxy",
+    n_features: featureNames.length,
+    n_samples: target.length,
+    note: "Fallback ranking used because the Pyodide Random Forest path was unavailable.",
+  };
+}
+
+function getActiveQueryResults() {
+  const state = useWorkspaceStore.getState();
+  const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId) ?? null;
+  return activeTab?.queryResults ?? null;
+}
+
+function inferLoadedNumericColumns(
+  rows: Record<string, unknown>[],
+  fields: Array<{ name: string }>,
+): string[] {
+  return fields
+    .map((field) => field.name)
+    .filter((column) =>
+      rows.some((row) => {
+        const value = row[column];
+        return value !== null && value !== undefined && Number.isFinite(Number(value));
+      }),
+    );
+}
+
+function coerceLoadedNumericVector(
+  rows: Record<string, unknown>[],
+  column: string,
+): Array<number | null> {
+  return rows.map((row) => {
+    const value = row[column];
+    if (value === null || value === undefined || value === "") return null;
+    const numeric = typeof value === "number" ? value : Number(value);
+    return Number.isFinite(numeric) ? numeric : null;
+  });
+}
+
+function buildLoadedCorrelationResult(args: {
+  rows: Record<string, unknown>[];
+  fields: Array<{ name: string }>;
+  targetColumn?: string;
+  columns?: string[];
+}): unknown | null {
+  const numericColumns = inferLoadedNumericColumns(args.rows, args.fields);
+  const requestedColumns = (args.columns ?? numericColumns).filter((column) => numericColumns.includes(column));
+
+  if (args.targetColumn) {
+    if (!numericColumns.includes(args.targetColumn)) return null;
+    const targetVector = coerceLoadedNumericVector(args.rows, args.targetColumn);
+    const features = requestedColumns.length > 0
+      ? requestedColumns.filter((column) => column !== args.targetColumn)
+      : numericColumns.filter((column) => column !== args.targetColumn);
+
+    const ranked = features
+      .map((feature) => {
+        const featureVector = coerceLoadedNumericVector(args.rows, feature);
+        const pairedX: number[] = [];
+        const pairedY: number[] = [];
+        for (let index = 0; index < targetVector.length; index += 1) {
+          const x = featureVector[index];
+          const y = targetVector[index];
+          if (x == null || y == null) continue;
+          pairedX.push(x);
+          pairedY.push(y);
+        }
+        const correlation = pairedX.length >= 2 ? pearsonCorrelation(pairedX, pairedY) : 0;
+        return {
+          feature,
+          correlation: Number(correlation.toFixed(6)),
+          strength: Number(Math.abs(correlation).toFixed(6)),
+          samples: pairedX.length,
+        };
+      })
+      .sort((left, right) => right.strength - left.strength);
+
+    return {
+      targetColumn: args.targetColumn,
+      rankedCorrelations: ranked,
+      topFeatures: ranked.slice(0, 5).map((item) => item.feature),
+      n_features: ranked.length,
+      n_samples: args.rows.length,
+      analysis_type: "target_correlation_ranking",
+    };
+  }
+
+  const columns = requestedColumns.slice(0, 8);
+  if (columns.length < 2) return null;
+  const matrix = columns.map((left) => ({
+    column: left,
+    correlations: columns.map((right) => {
+      if (left === right) return { column: right, correlation: 1 };
+      const leftVector = coerceLoadedNumericVector(args.rows, left);
+      const rightVector = coerceLoadedNumericVector(args.rows, right);
+      const pairedLeft: number[] = [];
+      const pairedRight: number[] = [];
+      for (let index = 0; index < leftVector.length; index += 1) {
+        const l = leftVector[index];
+        const r = rightVector[index];
+        if (l == null || r == null) continue;
+        pairedLeft.push(l);
+        pairedRight.push(r);
+      }
+      const correlation = pairedLeft.length >= 2 ? pearsonCorrelation(pairedLeft, pairedRight) : 0;
+      return { column: right, correlation: Number(correlation.toFixed(6)) };
+    }),
+  }));
+
+  return {
+    columns,
+    matrix,
+    n_samples: args.rows.length,
+    analysis_type: "correlation_matrix",
+  };
+}
+
+async function buildLoadedFeatureImportanceResult(args: {
+  rows: Record<string, unknown>[];
+  fields: Array<{ name: string }>;
+  targetColumn: string;
+  featureColumns?: string[];
+}): Promise<unknown | null> {
+  const numericColumns = inferLoadedNumericColumns(args.rows, args.fields);
+  if (!numericColumns.includes(args.targetColumn)) return null;
+
+  const features = (args.featureColumns?.length ? args.featureColumns : numericColumns)
+    .filter((column) => column !== args.targetColumn)
+    .filter((column) => numericColumns.includes(column));
+  if (features.length === 0) return null;
+
+  const matrix: number[][] = [];
+  const target: number[] = [];
+  for (const row of args.rows) {
+    const rowValues = features.map((feature) => {
+      const raw = row[feature];
+      const numeric = typeof raw === "number" ? raw : Number(raw);
+      return Number.isFinite(numeric) ? numeric : null;
+    });
+    const targetRaw = row[args.targetColumn];
+    const targetValue = typeof targetRaw === "number" ? targetRaw : Number(targetRaw);
+    if (!Number.isFinite(targetValue) || rowValues.some((value) => value == null)) continue;
+    matrix.push(rowValues as number[]);
+    target.push(targetValue);
+  }
+
+  if (matrix.length < 3) return null;
+
+  try {
+    const rawResult = await PyodideRuntime.getInstance().run(STAT_KERNELS.feature_importance, {
+      X: matrix,
+      y: target,
+      feature_names: features,
+      n_estimators: 100,
+      random_state: 42,
+    });
+    return enrichFeatureImportanceResult(rawResult, matrix, target, features, args.targetColumn);
+  } catch {
+    return enrichFeatureImportanceResult(buildFeatureImportanceFallback({
+      X: matrix,
+      y: target,
+      feature_names: features,
+    }), matrix, target, features, args.targetColumn);
+  }
+}
+
+async function buildLoadedRegressionResult(args: {
+  rows: Record<string, unknown>[];
+  fields: Array<{ name: string }>;
+  targetColumn: string;
+  featureColumns?: string[];
+}): Promise<unknown | null> {
+  const numericColumns = inferLoadedNumericColumns(args.rows, args.fields);
+  if (!numericColumns.includes(args.targetColumn)) return null;
+
+  const features = (args.featureColumns?.length ? args.featureColumns : numericColumns)
+    .filter((column) => column !== args.targetColumn)
+    .filter((column) => numericColumns.includes(column));
+  if (features.length === 0) return null;
+
+  const matrix: number[][] = [];
+  const target: number[] = [];
+  for (const row of args.rows) {
+    const rowValues = features.map((feature) => {
+      const raw = row[feature];
+      const numeric = typeof raw === "number" ? raw : Number(raw);
+      return Number.isFinite(numeric) ? numeric : null;
+    });
+    const targetRaw = row[args.targetColumn];
+    const targetValue = typeof targetRaw === "number" ? targetRaw : Number(targetRaw);
+    if (!Number.isFinite(targetValue) || rowValues.some((value) => value == null)) continue;
+    matrix.push(rowValues as number[]);
+    target.push(targetValue);
+  }
+
+  if (matrix.length < 3) return null;
+
+  try {
+    const raw = await PyodideRuntime.getInstance().run(STAT_KERNELS.multi_regression, {
+      X: matrix,
+      y: target,
+      feature_names: features,
+      cv_folds: 5,
+    });
+    return enrichRegressionResult(raw, matrix, target, features, args.targetColumn);
+  } catch {
+    return null;
+  }
+}
+
+function enrichRegressionResult(
+  rawResult: unknown,
+  matrix: number[][],
+  target: number[],
+  features: string[],
+  targetColumn: string,
+): unknown {
+  const base = rawResult && typeof rawResult === "object" ? { ...(rawResult as Record<string, unknown>) } : {};
+  const coefficients = Array.isArray(base.coefficients)
+    ? (base.coefficients as Array<Record<string, unknown>>)
+    : [];
+  const enriched = features.map((feature, featureIndex) => {
+    const coefEntry = coefficients.find((item) => String(item.feature) === feature);
+    const coefficient = Number(coefEntry?.coef ?? 0);
+    const featureVector = matrix.map((row) => row[featureIndex] ?? 0);
+    const correlation = pearsonCorrelation(featureVector, target);
+    const vif = Number(coefEntry?.vif ?? 0);
+    const significance = Math.abs(correlation) >= 0.7 ? "high"
+      : Math.abs(correlation) >= 0.4 ? "medium"
+      : "low";
+    return {
+      feature,
+      coefficient: Number(coefficient.toFixed(6)),
+      correlation: Number(correlation.toFixed(6)),
+      effect_direction: coefficient > 0 ? "positive" : coefficient < 0 ? "negative" : "neutral",
+      significance_band: significance,
+      vif: Number.isFinite(vif) ? Number(vif.toFixed(6)) : null,
+    };
+  }).sort((left, right) => Math.abs(right.coefficient) - Math.abs(left.coefficient));
+
+  return {
+    ...base,
+    target_column: targetColumn,
+    enriched_coefficients: enriched,
+    summary:
+      enriched.length > 0
+        ? `${enriched[0]!.feature} shows the strongest modeled effect on ${targetColumn} with a ${enriched[0]!.effect_direction} coefficient of ${enriched[0]!.coefficient}. Model R² is ${Number(Number(base.r_squared ?? 0).toFixed(4))}.`
+        : `No multivariate regression explanation was derived for ${targetColumn}.`,
+  };
+}
+
+function enrichFeatureImportanceResult(
+  rawResult: unknown,
+  matrix: number[][],
+  target: number[],
+  features: string[],
+  targetColumn: string,
+): unknown {
+  const base = rawResult && typeof rawResult === "object" ? { ...(rawResult as Record<string, unknown>) } : {};
+  const importances = Array.isArray(base.importances)
+    ? (base.importances as Array<Record<string, unknown>>)
+    : [];
+  const totalImportance = importances.reduce((sum, item) => {
+    const value = Number(item.importance ?? 0);
+    return sum + (Number.isFinite(value) ? value : 0);
+  }, 0);
+
+  const detailedFactors = features.map((feature, featureIndex) => {
+    const featureVector = matrix.map((row) => row[featureIndex] ?? 0);
+    const correlation = pearsonCorrelation(featureVector, target);
+    const importanceEntry = importances.find((item) => String(item.feature) === feature);
+    const importance = Number(importanceEntry?.importance ?? Math.abs(correlation));
+    const contributionPct = totalImportance > 0 ? (importance / totalImportance) * 100 : 0;
+    return {
+      feature,
+      importance: Number(importance.toFixed(6)),
+      contribution_pct: Number(contributionPct.toFixed(2)),
+      correlation: Number(correlation.toFixed(6)),
+      effect_direction: correlation > 0 ? "positive" : correlation < 0 ? "negative" : "neutral",
+      effect_strength: Number(Math.abs(correlation).toFixed(6)),
+    };
+  }).sort((left, right) => right.importance - left.importance);
+
+  return {
+    ...base,
+    target_column: targetColumn,
+    top_features: detailedFactors.slice(0, 5).map((item) => item.feature),
+    detailed_factors: detailedFactors,
+    summary:
+      detailedFactors.length > 0
+        ? `${detailedFactors[0]!.feature} is the strongest driver of ${targetColumn} with ${detailedFactors[0]!.contribution_pct}% relative importance and a ${detailedFactors[0]!.effect_direction} relationship.`
+        : `No significant loaded factors were derived for ${targetColumn}.`,
+  };
+}
 
 export function registerHandlers() {
-  // ── SQL ───────────────────────────────────────────────────────────────────
-
-  commandBus.register<SetEditorContentCmd>("set_editor_content", async (cmd) => {
-    useWorkspaceStore.getState().setEditorSql(cmd.sql);
-    return { success: true, result: "SQL written to editor" };
-  });
-
-  commandBus.register<ExecuteSqlCmd>("execute_sql", async (cmd) => {
+  const runStreamingQuery = async (connectionId: string, sql: string): Promise<CommandResult> => {
     const { setEditorSql, setTabExecuting, setQueryResults } =
       useWorkspaceStore.getState();
 
-    setEditorSql(cmd.sql);
+    setEditorSql(sql);
     setTabExecuting(true);
-    QueryManager.setBaseQuery(cmd.sql, cmd.connectionId);
+    QueryManager.setBaseQuery(sql, connectionId);
 
     try {
-      return new Promise((resolve) => {
+      return await new Promise((resolve) => {
         const allRows: Record<string, unknown>[] = [];
         let fields: { name: string }[] = [];
         let queryId: string | null = null;
         let sourceTables: string[] = [];
         let settled = false;
+        let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
 
         const finish = (payload: CommandResult) => {
           if (settled) return;
           settled = true;
+          if (timeoutHandle) clearTimeout(timeoutHandle);
           unlistenFn?.();
           resolve(payload);
         };
@@ -91,6 +482,9 @@ export function registerHandlers() {
         };
 
         let unlistenFn: (() => void) | null = null;
+        timeoutHandle = setTimeout(() => {
+          onError("Query execution timed out. Try narrowing the query, lowering the row count, or running a more targeted aggregate first.");
+        }, STREAMING_QUERY_TIMEOUT_MS);
         listen<QueryBatch>("query_batch", (event) => {
           const batch = event.payload;
           if (!queryId || batch.query_id !== queryId) return;
@@ -129,7 +523,7 @@ export function registerHandlers() {
         }).then(async (fn) => {
           unlistenFn = fn;
           try {
-            const response = await DbClient.executeStreaming(cmd.connectionId, cmd.sql);
+            const response = await DbClient.executeStreaming(connectionId, sql);
             queryId = response.query_id;
             sourceTables = response.source_tables;
             rowStore.reset(queryId);
@@ -145,6 +539,16 @@ export function registerHandlers() {
       rowStore.finalize();
       return { success: false, error: e.message ?? "Query failed" };
     }
+  };
+  // ── SQL ───────────────────────────────────────────────────────────────────
+
+  commandBus.register<SetEditorContentCmd>("set_editor_content", async (cmd) => {
+    useWorkspaceStore.getState().setEditorSql(cmd.sql);
+    return { success: true, result: "SQL written to editor" };
+  });
+
+  commandBus.register<ExecuteSqlCmd>("execute_sql", async (cmd) => {
+    return runStreamingQuery(cmd.connectionId, cmd.sql);
   });
 
   commandBus.register<CancelQueryCmd>("cancel_query", async () => {
@@ -156,8 +560,12 @@ export function registerHandlers() {
   // ── Navigation ────────────────────────────────────────────────────────────
 
   commandBus.register<OpenTableCmd>("open_table", async (cmd) => {
-    const { activeConnectionId, connections } = useWorkspaceStore.getState();
-    const conn = connections.find((c) => c.id === (activeConnectionId ?? ""));
+    const state = useWorkspaceStore.getState();
+    const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId) ?? null;
+    const effectiveConnectionId = activeTab?.connectionId ?? state.activeConnectionId;
+    const { connections } = state;
+    if (!effectiveConnectionId) return { success: false, error: "No active connection" };
+    const conn = connections.find((c) => c.id === effectiveConnectionId);
     const driver = conn?.driver ?? "postgres";
 
     let sql: string;
@@ -171,8 +579,16 @@ export function registerHandlers() {
       sql = `SELECT * FROM "${cmd.schema}"."${cmd.table}" LIMIT 500;`;
     }
 
-    useWorkspaceStore.getState().setEditorSql(sql);
-    return { success: true, result: `Opened ${cmd.schema}.${cmd.table}` };
+    const result = await runStreamingQuery(effectiveConnectionId, sql);
+    if (!result.success) return result;
+    return {
+      success: true,
+      result: {
+        ...(typeof result.result === "object" && result.result !== null ? result.result : {}),
+        openedTable: `${cmd.schema}.${cmd.table}`,
+        message: `Opened ${cmd.schema}.${cmd.table} and loaded preview rows`,
+      },
+    };
   });
 
   commandBus.register<OpenNewTabCmd>("open_new_tab", async (cmd) => {
@@ -370,11 +786,95 @@ export function registerHandlers() {
       const result = await PyodideRuntime.getInstance().run(kernelCode, cmd.params);
       return { success: true, result };
     } catch (e: any) {
+      if (cmd.method === "feature_importance") {
+        const fallback = buildFeatureImportanceFallback(cmd.params);
+        if (fallback) {
+          return { success: true, result: fallback };
+        }
+      }
       return { success: false, error: e.message ?? "Stat kernel failed" };
     }
   });
 
   // ── User-Defined Tools ────────────────────────────────────────────────────
+
+  commandBus.register<AnalyzeLoadedCorrelationCmd>("analyze_loaded_correlation", async (cmd) => {
+    const currentResults = getActiveQueryResults();
+    if (!currentResults || currentResults.rowCount === 0) {
+      return {
+        success: false,
+        error: "No query results are currently loaded. Execute a query first, then analyze the loaded rows.",
+      };
+    }
+
+    const result = buildLoadedCorrelationResult({
+      rows: currentResults.rows,
+      fields: currentResults.fields,
+      targetColumn: cmd.targetColumn,
+      columns: cmd.columns,
+    });
+
+    if (!result) {
+      return {
+        success: false,
+        error: "Could not derive numeric loaded columns for correlation analysis. Ensure the active results include numeric fields.",
+      };
+    }
+
+    return { success: true, result };
+  });
+
+  commandBus.register<AnalyzeLoadedFeatureImportanceCmd>("analyze_loaded_feature_importance", async (cmd) => {
+    const currentResults = getActiveQueryResults();
+    if (!currentResults || currentResults.rowCount === 0) {
+      return {
+        success: false,
+        error: "No query results are currently loaded. Execute a query first, then analyze the loaded rows.",
+      };
+    }
+
+    const result = await buildLoadedFeatureImportanceResult({
+      rows: currentResults.rows,
+      fields: currentResults.fields,
+      targetColumn: cmd.targetColumn,
+      featureColumns: cmd.featureColumns,
+    });
+
+    if (!result) {
+      return {
+        success: false,
+        error: `Could not compute feature ranking from the loaded results for ${cmd.targetColumn}. Ensure the active results contain that numeric target and at least one numeric feature column.`,
+      };
+    }
+
+    return { success: true, result };
+  });
+
+  commandBus.register<AnalyzeLoadedRegressionCmd>("analyze_loaded_regression", async (cmd) => {
+    const currentResults = getActiveQueryResults();
+    if (!currentResults || currentResults.rowCount === 0) {
+      return {
+        success: false,
+        error: "No query results are currently loaded. Execute a query first, then analyze the loaded rows.",
+      };
+    }
+
+    const result = await buildLoadedRegressionResult({
+      rows: currentResults.rows,
+      fields: currentResults.fields,
+      targetColumn: cmd.targetColumn,
+      featureColumns: cmd.featureColumns,
+    });
+
+    if (!result) {
+      return {
+        success: false,
+        error: `Could not compute regression detail from the loaded results for ${cmd.targetColumn}. Ensure the active results contain that numeric target and enough numeric feature columns.`,
+      };
+    }
+
+    return { success: true, result };
+  });
 
   commandBus.register<RunUserToolCmd>("run_user_tool", async (cmd) => {
     const tool = useUserToolStore.getState().tools.find((t) => t.id === cmd.toolId);
@@ -456,6 +956,21 @@ export function registerHandlers() {
 
       return new Promise((resolve) => {
         let unlistenFn: (() => void) | null = null;
+        let settled = false;
+        const finish = (payload: CommandResult) => {
+          if (settled) return;
+          settled = true;
+          if (timeoutHandle) clearTimeout(timeoutHandle);
+          unlistenFn?.();
+          resolve(payload);
+        };
+        const timeoutHandle = setTimeout(() => {
+          rowStore.finalize();
+          finish({
+            success: false,
+            error: "DuckDB analysis timed out. Try reducing the data volume or using a narrower SQL query first.",
+          });
+        }, DUCKDB_QUERY_TIMEOUT_MS);
 
         listen<QueryBatch>("query_batch", (event) => {
           const batch = event.payload;
@@ -464,12 +979,10 @@ export function registerHandlers() {
           rowStore.appendBatch(batch);
 
           if (batch.error) {
-            unlistenFn?.();
             rowStore.finalize();
-            resolve({ success: false, error: batch.error });
+            finish({ success: false, error: batch.error });
           } else if (batch.is_final) {
-            unlistenFn?.();
-            resolve({ success: true, result: `DuckDB analysis complete: ${batch.rows_so_far} rows` });
+            finish({ success: true, result: `DuckDB analysis complete: ${batch.rows_so_far} rows` });
           }
         }).then((fn) => {
           unlistenFn = fn;
@@ -493,7 +1006,7 @@ export function registerHandlers() {
   // ── Charts (stub — renders in future ChartPanel) ──────────────────────────
 
   commandBus.register<CreateChartCmd>("create_chart", async (cmd) => {
-    const { activeTabId, tabs } = useWorkspaceStore.getState();
+    const { activeTabId, tabs, commitArtifactRevision } = useWorkspaceStore.getState();
     const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
     const currentResults = activeTab?.queryResults ?? null;
 
@@ -505,7 +1018,9 @@ export function registerHandlers() {
     }
 
     const availableColumns = new Set(currentResults.fields.map((field) => field.name));
-    const missing = [cmd.xColumn, cmd.yColumn].filter((column) => !availableColumns.has(column));
+    const missing = [cmd.xColumn, cmd.yColumn, cmd.colorColumn]
+      .filter((column): column is string => Boolean(column))
+      .filter((column) => !availableColumns.has(column));
     if (missing.length > 0) {
       return {
         success: false,
@@ -513,11 +1028,34 @@ export function registerHandlers() {
       };
     }
 
+    const artifact = createChartArtifact({
+      name: cmd.title ?? `${cmd.yColumn} by ${cmd.xColumn}`,
+      chartType: cmd.chartType,
+      assignments: {
+        x: cmd.xColumn,
+        y: cmd.yColumn,
+        color: cmd.colorColumn ?? null,
+        size: null,
+        facet: null,
+      },
+      options: createDefaultChartArtifactOptions({
+        xLabel: cmd.xLabel ?? cmd.xColumn,
+        yLabel: cmd.yLabel ?? cmd.yColumn,
+      }),
+      results: currentResults,
+      sql: activeTab?.sql ?? "",
+      connectionId: activeTab?.connectionId ?? null,
+      sourceTabId: activeTab?.id ?? null,
+    });
+    commitArtifactRevision(artifact);
+
     useWorkspaceStore.getState().setGraphBuilderRequest({
       requestId: `gb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      artifactId: artifact.id,
       chartType: cmd.chartType,
       xColumn: cmd.xColumn,
       yColumn: cmd.yColumn,
+      colorColumn: cmd.colorColumn,
       title: cmd.title,
       xLabel: cmd.xLabel ?? cmd.xColumn,
       yLabel: cmd.yLabel ?? cmd.yColumn,
@@ -527,15 +1065,88 @@ export function registerHandlers() {
       success: true,
       result: {
         target: "graph_builder",
+        artifactId: artifact.id,
         chartType: cmd.chartType,
         rowCount: currentResults.rowCount,
-        columns: [cmd.xColumn, cmd.yColumn],
+        columns: [cmd.xColumn, cmd.yColumn, cmd.colorColumn].filter(Boolean),
         message: `Opened ${cmd.chartType} graph in Graph Builder`,
       },
     };
   });
 
   // ── Grammar-of-Graphics charts (billion-scale) ────────────────────────────
+
+  commandBus.register<CreateAnalysisChartCmd>("create_analysis_chart", async (cmd) => {
+    if (!Array.isArray(cmd.rows) || cmd.rows.length === 0) {
+      return { success: false, error: "No analysis rows were provided to plot." };
+    }
+
+    const availableColumns = new Set(Object.keys(cmd.rows[0] ?? {}));
+    const missing = [cmd.xKey, cmd.yKey, cmd.colorKey]
+      .filter((column): column is string => Boolean(column))
+      .filter((column) => !availableColumns.has(column));
+    if (missing.length > 0) {
+      return {
+        success: false,
+        error: `The provided analysis rows do not include: ${missing.join(", ")}.`,
+      };
+    }
+
+    const fields = Array.from(availableColumns).map((name) => ({ name }));
+    const now = Date.now();
+    const snapshotResults = {
+      rows: cmd.rows,
+      fields,
+      rowCount: cmd.rows.length,
+      elapsedMs: 0,
+      queryId: `analysis-chart-${now}`,
+      source_tables: ["analysis.output"],
+    };
+
+    const artifact = createChartArtifact({
+      name: cmd.title ?? `${cmd.yKey} by ${cmd.xKey}`,
+      chartType: cmd.chartType,
+      assignments: {
+        x: cmd.xKey,
+        y: cmd.yKey,
+        color: cmd.colorKey ?? null,
+        size: null,
+        facet: null,
+      },
+      options: createDefaultChartArtifactOptions({
+        xLabel: cmd.xLabel ?? cmd.xKey,
+        yLabel: cmd.yLabel ?? cmd.yKey,
+      }),
+      results: snapshotResults,
+      sql: "",
+      connectionId: null,
+      sourceTabId: null,
+    });
+    useWorkspaceStore.getState().commitArtifactRevision(artifact);
+    useWorkspaceStore.getState().setGraphBuilderRequest({
+      requestId: `gb-analysis-${now}-${Math.random().toString(36).slice(2, 8)}`,
+      artifactId: artifact.id,
+      chartType: cmd.chartType,
+      xColumn: cmd.xKey,
+      yColumn: cmd.yKey,
+      colorColumn: cmd.colorKey,
+      title: cmd.title,
+      xLabel: cmd.xLabel ?? cmd.xKey,
+      yLabel: cmd.yLabel ?? cmd.yKey,
+    });
+
+    return {
+      success: true,
+      result: {
+        target: "graph_builder",
+        artifactId: artifact.id,
+        chartType: cmd.chartType,
+        rowCount: cmd.rows.length,
+        columns: [cmd.xKey, cmd.yKey, cmd.colorKey].filter(Boolean),
+        message: `Opened ${cmd.chartType} analysis graph in Graph Builder`,
+      },
+    };
+  });
 
   commandBus.register<CreateGoGChartCmd>("create_gog_chart", async (cmd) => {
     const { activeConnectionId } = useWorkspaceStore.getState();
@@ -706,15 +1317,163 @@ export function registerHandlers() {
     };
   });
 
-  // ── Pipeline (stub — wires to future PipelinePanel) ──────────────────────
+  // ── UI ────────────────────────────────────────────────────────────────────
 
   commandBus.register<CreatePipelineCmd>("create_pipeline", async (cmd) => {
-    // TODO: wire to PipelinePanel when implemented
-    toast.info(`Pipeline "${cmd.name}": ${cmd.sourceQuery} → ${cmd.targetTable}`);
-    return { success: true, result: `Pipeline "${cmd.name}" registered` };
+    try {
+      await ensurePipelinesLoaded();
+      const pipeline = await createPipelineDefinition({
+        name: cmd.name,
+        sourceConnectionId: cmd.sourceConnectionId,
+        sourceQuery: cmd.sourceQuery,
+        targetConnectionId: cmd.targetConnectionId,
+        targetTable: cmd.targetTable,
+      });
+      toast.success(`Pipeline "${pipeline.name}" saved`);
+      return {
+        success: true,
+        result: {
+          id: pipeline.id,
+          name: pipeline.name,
+          targetTable: pipeline.targetTable,
+          sourceConnectionId: pipeline.sourceConnectionId,
+          targetConnectionId: pipeline.targetConnectionId,
+        },
+      };
+    } catch (error: any) {
+      return { success: false, error: error?.message ?? "Failed to save pipeline" };
+    }
   });
 
-  // ── UI ────────────────────────────────────────────────────────────────────
+  commandBus.register<ListPipelinesCmd>("list_pipelines", async () => {
+    try {
+      await ensurePipelinesLoaded();
+      return {
+        success: true,
+        result: inspectPipelines(),
+      };
+    } catch (error: any) {
+      return { success: false, error: error?.message ?? "Failed to list pipelines" };
+    }
+  });
+
+  commandBus.register<RunPipelineCmd>("run_pipeline", async (cmd) => {
+    try {
+      await ensurePipelinesLoaded();
+      const run = await runPipelineDefinition(cmd.pipelineId);
+      toast.success("Pipeline run completed", {
+        description: `${run.rowCount ?? 0} row${run.rowCount === 1 ? "" : "s"} materialized to ${run.targetTable}.`,
+      });
+      return {
+        success: true,
+        result: run,
+      };
+    } catch (error: any) {
+      toast.error("Pipeline run failed", {
+        description: error?.message ?? "Unable to complete pipeline run.",
+      });
+      return { success: false, error: error?.message ?? "Failed to run pipeline" };
+    }
+  });
+
+  commandBus.register<SearchWorkspaceCmd>("search_workspace", async (cmd) => {
+    try {
+      await Promise.all([
+        ensurePipelinesLoaded(),
+        ensureBackgroundAgentsLoaded(),
+        ensureHistoryLoaded(),
+        useWorkspaceRuleStore.getState().ensureLoaded(),
+      ]);
+      const workspace = useWorkspaceStore.getState();
+      const docs = buildWorkspaceSearchDocuments({
+        schemas: workspace.schemas,
+        connections: workspace.connections,
+        artifacts: workspace.artifacts,
+        pipelines: inspectPipelines().pipelines,
+        pipelineRuns: inspectPipelines().pipelines.flatMap((pipeline) => getPipelineRuns(pipeline.id)),
+        backgroundAgents: listBackgroundAgents(),
+        backgroundAgentEnvironments: listBackgroundAgentEnvironments(),
+        backgroundAgentRuns: listBackgroundAgents().flatMap((agent) => getBackgroundAgentRuns(agent.id)),
+        backgroundAgentApprovals: listBackgroundAgentApprovals(),
+        queryHistory: loadHistory().map((entry) => ({
+          query_id: entry.id,
+          sql: entry.sql,
+          source_table: null,
+          source_tables: [],
+          row_count: entry.rowCount,
+          duration_ms: entry.elapsedMs,
+          success: !entry.error,
+          error_message: entry.error ?? null,
+          executed_at: new Date(entry.timestamp).toISOString(),
+        })),
+        memoryEpisodes: await EpisodicMemory.getRecent(50).catch(() => []),
+        workspaceRules: useWorkspaceRuleStore.getState().rules,
+      });
+
+      const kindsByScope: Record<
+        NonNullable<SearchWorkspaceCmd["kind"]>,
+        WorkspaceSearchDocumentKind[]
+      > = {
+        schema: ["schema_table", "schema_view", "schema_column", "schema_index"],
+        artifacts: ["artifact_query", "artifact_chart", "artifact_report"],
+        pipelines: ["pipeline", "pipeline_run"],
+        background_agents: ["background_agent", "background_agent_run", "background_agent_approval"],
+        history: ["query_history"],
+        memory: ["memory_episode", "workspace_rule"],
+      };
+      return {
+        success: true,
+        result: searchWorkspaceDocuments(docs, cmd.query, {
+          limit: cmd.limit ?? 8,
+          kinds: cmd.kind ? kindsByScope[cmd.kind] : undefined,
+          connectionId: cmd.connectionId ?? null,
+          recentDays: cmd.recentDays ?? null,
+        }).map((match) => ({
+          id: match.document.id,
+          kind: match.document.kind,
+          title: match.document.title,
+          subtitle: match.document.subtitle,
+          score: Math.round(match.score),
+          action: match.document.action.type,
+          snippet: match.snippet,
+          reasons: match.reasons,
+          related: match.relatedDocuments.slice(0, 3),
+        })),
+      };
+    } catch (error: any) {
+      return { success: false, error: error?.message ?? "Failed to search workspace" };
+    }
+  });
+
+  commandBus.register<ProposeWorkspaceRuleCmd>("propose_workspace_rule", async (cmd) => {
+    try {
+      await useWorkspaceRuleStore.getState().ensureLoaded();
+      const rule = useWorkspaceRuleStore.getState().createRule({
+        title: cmd.title,
+        instruction: cmd.instruction,
+        kind: cmd.kind,
+        scope: cmd.scope,
+        connectionId: cmd.scope === "connection" ? cmd.connectionId ?? useWorkspaceStore.getState().activeConnectionId ?? null : null,
+        source: "agent",
+        status: "suggested",
+        rationale: cmd.rationale ?? null,
+        evidence: cmd.evidence ?? [],
+      });
+      toast.info("AI suggested a workspace rule", {
+        description: `${rule.title} is waiting for review in Memory.`,
+      });
+      return {
+        success: true,
+        result: {
+          id: rule.id,
+          title: rule.title,
+          status: rule.status,
+        },
+      };
+    } catch (error: any) {
+      return { success: false, error: error?.message ?? "Failed to suggest workspace rule" };
+    }
+  });
 
   commandBus.register<NotifyUserCmd>("notify_user", async (cmd) => {
     const fn = {

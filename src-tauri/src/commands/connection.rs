@@ -57,7 +57,11 @@ pub async fn db_ping(
 
     match conn.as_ref() {
         ActiveConnection::Postgres(pool) => {
-            sqlx::query("SELECT 1").execute(pool).await.map_err(|e| e.to_string())?;
+            sqlx::query("SELECT 1")
+                .persistent(false)
+                .execute(pool)
+                .await
+                .map_err(|e| e.to_string())?;
         }
         ActiveConnection::Mysql(pool) => {
             sqlx::query("SELECT 1").execute(pool).await.map_err(|e| e.to_string())?;

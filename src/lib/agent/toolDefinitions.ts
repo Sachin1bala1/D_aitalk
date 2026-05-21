@@ -5,6 +5,56 @@
 import type { UnifiedTool } from "../ai/types";
 import { STAT_TOOLS } from "../tools/stat.tools";
 
+export const CREATE_TASK_PLAN_TOOL: UnifiedTool = {
+  name: "create_task_plan",
+  description:
+    "Declare a short ordered read-only plan for a user goal that requires multiple analysis or lookup steps. Use only for safe investigative work.",
+  parameters: {
+    type: "object",
+    properties: {
+      subtasks: {
+        type: "array",
+        items: { type: "string" } as any,
+        description: "Ordered list of focused read-only subtasks",
+      } as any,
+    },
+    required: ["subtasks"],
+  },
+};
+
+export const VERIFY_RESULT_TOOL: UnifiedTool = {
+  name: "verify_result",
+  description:
+    "Declare the minimum deterministic checks needed to confirm a read-only subtask produced usable tabular evidence.",
+  parameters: {
+    type: "object",
+    properties: {
+      description: {
+        type: "string",
+        description: "What this verification is checking",
+      },
+      sql: {
+        type: "string",
+        description: "Optional SQL that produced the result being verified",
+      },
+      expectedMinRows: {
+        type: "number",
+        description: "Minimum acceptable row count for this result",
+      },
+      expectedColumns: {
+        type: "array",
+        items: { type: "string" } as any,
+        description: "Columns that must be present for the result to be useful",
+      } as any,
+      requireResults: {
+        type: "boolean",
+        description: "Whether a tabular result is required to consider the subtask complete",
+      },
+    },
+    required: ["description"],
+  },
+};
+
 export const AGENT_TOOLS: UnifiedTool[] = [
   // ── SQL ───────────────────────────────────────────────────────────────────
   {
@@ -22,7 +72,7 @@ export const AGENT_TOOLS: UnifiedTool[] = [
   {
     name: "execute_sql",
     description:
-      "Execute a SQL SELECT query against the active database and return results. Use for read-only queries to fetch data, answer questions, or validate assumptions.",
+      "Execute a SQL SELECT query against the active database and return results. Use this whenever the user asks to pull rows, fetch the first N records, answer a question from table data, or validate assumptions.",
     parameters: {
       type: "object",
       properties: {
@@ -35,7 +85,7 @@ export const AGENT_TOOLS: UnifiedTool[] = [
   // ── Navigation ────────────────────────────────────────────────────────────
   {
     name: "open_table",
-    description: "Open a database table in the editor with SELECT * LIMIT 500.",
+    description: "Open a database table and load a default SELECT * LIMIT 500 preview. Use this only for a generic table preview when the user did not ask for a specific SQL shape or row count.",
     parameters: {
       type: "object",
       properties: {
@@ -231,13 +281,14 @@ export const AGENT_TOOLS: UnifiedTool[] = [
   {
     name: "create_chart",
     description:
-      "Open an editable chart in Graph Builder using the current query results. Prefer this when the user wants a plot they can continue refining. If the needed results are not already loaded, call execute_sql first.",
+      "Open an editable chart in Graph Builder using the current query results. Prefer this when the user wants a plot they can continue refining. If the needed results are not already loaded, call execute_sql first. When the user says 'by type', 'by group', 'colored by', or otherwise wants grouped series, set colorColumn as well.",
     parameters: {
       type: "object",
       properties: {
         chartType: { type: "string", enum: ["bar", "line", "scatter", "pie", "area"], description: "Chart type" },
         xColumn: { type: "string", description: "Column to use as the X axis / category" },
         yColumn: { type: "string", description: "Column to use as the Y axis / value" },
+        colorColumn: { type: "string", description: "Optional column to use for color grouping / legend splits" },
         title: { type: "string", description: "Optional chart title" },
         xLabel: { type: "string", description: "Optional X axis label override. Defaults to xColumn." },
         yLabel: { type: "string", description: "Optional Y axis label override. Defaults to yColumn." },
@@ -247,6 +298,25 @@ export const AGENT_TOOLS: UnifiedTool[] = [
   },
 
   // ── Pipeline ──────────────────────────────────────────────────────────────
+  {
+    name: "create_analysis_chart",
+    description:
+      "Open an editable chart in Graph Builder from analysis result rows produced in the current turn, such as feature importance rankings or correlation summaries. Use this when you want to plot computed results rather than the raw query table.",
+    parameters: {
+      type: "object",
+      properties: {
+        chartType: { type: "string", enum: ["bar", "line", "scatter", "pie", "area"], description: "Chart type" },
+        rows: { type: "array", items: { type: "object" } as any, description: "Analysis result rows to plot" } as any,
+        xKey: { type: "string", description: "Field name in rows to use on the X axis" },
+        yKey: { type: "string", description: "Field name in rows to use on the Y axis" },
+        colorKey: { type: "string", description: "Optional field name in rows to use for color grouping" },
+        title: { type: "string", description: "Optional chart title" },
+        xLabel: { type: "string", description: "Optional X axis label override" },
+        yLabel: { type: "string", description: "Optional Y axis label override" },
+      },
+      required: ["chartType", "rows", "xKey", "yKey"],
+    },
+  },
   {
     name: "create_pipeline",
     description: "Define a data pipeline that copies query results from one connection to a table in another.",
@@ -262,9 +332,150 @@ export const AGENT_TOOLS: UnifiedTool[] = [
       required: ["name", "sourceConnectionId", "sourceQuery", "targetConnectionId", "targetTable"],
     },
   },
+  {
+    name: "list_pipelines",
+    description: "List saved pipelines with their latest run status and output artifact linkage.",
+    parameters: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "run_pipeline",
+    description:
+      "Execute a saved pipeline. This replaces the target table contents with the current source query output and should be treated as a write operation.",
+    parameters: {
+      type: "object",
+      properties: {
+        pipelineId: { type: "string", description: "Saved pipeline id to execute" },
+      },
+      required: ["pipelineId"],
+    },
+  },
+  {
+    name: "search_workspace",
+    description:
+      "Search the full Daitalk workspace across schema objects, artifacts, pipelines, background agents, query history, memory, and approved workspace rules.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "What to find in the workspace" },
+        limit: { type: "number", description: "Optional max results to return" },
+        kind: {
+          type: "string",
+          enum: ["schema", "artifacts", "pipelines", "background_agents", "history", "memory"],
+          description: "Optional workspace slice to search first",
+        },
+        connectionId: {
+          type: "string",
+          description: "Optional connection id to scope the search",
+        },
+        recentDays: {
+          type: "number",
+          description: "Optional recency window in days",
+        },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "propose_workspace_rule",
+    description:
+      "Suggest a durable workspace rule or operating preference for future sessions. Use this when the user expresses a stable preference, governance constraint, or reporting convention that should be explicitly approved and remembered.",
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Short human-readable rule title" },
+        instruction: { type: "string", description: "Concrete guidance the agent should follow in future sessions" },
+        kind: {
+          type: "string",
+          enum: ["analysis", "sql", "safety", "reporting"],
+          description: "Rule category",
+        },
+        scope: {
+          type: "string",
+          enum: ["workspace", "connection"],
+          description: "Whether the rule applies globally or only to the active connection",
+        },
+        connectionId: {
+          type: "string",
+          description: "Connection id for connection-scoped rules",
+        },
+        rationale: {
+          type: "string",
+          description: "Why this rule should be proposed",
+        },
+        evidence: {
+          type: "array",
+          items: { type: "string" } as any,
+          description: "Optional supporting evidence or quoted user preferences",
+        } as any,
+      },
+      required: ["title", "instruction", "kind", "scope"],
+    },
+  },
 
   // ── Statistical Analysis (Pyodide WASM) ──────────────────────────────────
   ...STAT_TOOLS,
+  {
+    name: "analyze_loaded_correlation",
+    description:
+      "Analyze correlations directly from the currently loaded query results in the app. Prefer this over DuckDB when the needed rows are already loaded and the user asks what correlates with an output or wants a correlation view in chat.",
+    parameters: {
+      type: "object",
+      properties: {
+        targetColumn: {
+          type: "string",
+          description: "Optional target/output column. If provided, returns other loaded numeric columns ranked by correlation to this target.",
+        },
+        columns: {
+          type: "array",
+          items: { type: "string" } as any,
+          description: "Optional subset of loaded columns to analyze. Defaults to all loaded numeric columns.",
+        } as any,
+      },
+    },
+  },
+  {
+    name: "analyze_loaded_feature_importance",
+    description:
+      "Rank which loaded numeric columns most influence a target column using the currently loaded query results. Prefer this over refetching or DuckDB when the relevant rows are already in memory.",
+    parameters: {
+      type: "object",
+      properties: {
+        targetColumn: {
+          type: "string",
+          description: "The loaded numeric outcome column to explain, e.g. Tool wear [min].",
+        },
+        featureColumns: {
+          type: "array",
+          items: { type: "string" } as any,
+          description: "Optional loaded numeric input columns to test. Defaults to all other loaded numeric columns.",
+        } as any,
+      },
+      required: ["targetColumn"],
+    },
+  },
+  {
+    name: "analyze_loaded_regression",
+    description:
+      "Fit a multivariate regression model directly from the currently loaded query results. Use this when the user wants coefficient-style detail, overall explanatory power, or a more rigorous explanation of how much each factor matters.",
+    parameters: {
+      type: "object",
+      properties: {
+        targetColumn: {
+          type: "string",
+          description: "The loaded numeric outcome column to explain.",
+        },
+        featureColumns: {
+          type: "array",
+          items: { type: "string" } as any,
+          description: "Optional loaded numeric predictors to include. Defaults to all other loaded numeric columns.",
+        } as any,
+      },
+      required: ["targetColumn"],
+    },
+  },
 
   // ── UI ────────────────────────────────────────────────────────────────────
   {

@@ -2,7 +2,7 @@
  * AgentLoop — provider-agnostic agentic loop.
  *
  * Works with any AIProvider (Claude, Gemini, OpenAI, NVIDIA NIM).
- * Dispatches tool calls through CommandBus, handles Plan Mode queuing.
+ * Dispatches tool calls through CommandBus and enforces approval gating.
  */
 import { commandBus } from "./CommandBus";
 import { AGENT_TOOLS } from "./toolDefinitions";
@@ -13,10 +13,11 @@ import { userToolToUnifiedTool } from "../tools/user.tools";
 import { statToolToKernelKey } from "../tools/stat.tools";
 import type { CommandResult } from "./CommandBus";
 import { useWorkspaceStore } from "../stores/WorkspaceStore";
+import type { WorkspaceRule } from "../memory/WorkspaceRuleStore";
 import type { FullSchema } from "../db/DbClient";
 import type { QueryResults } from "../stores/WorkspaceStore";
 import type { AIProvider, ConversationTurn, ToolCall } from "../ai/types";
-import { withRetry } from "../ai/resilience";
+import { withRetry, withTimeout } from "../ai/resilience";
 import { ContextEngine } from './harness/ContextEngine';
 import { DATAIQ_HOOKS, detectStruggle } from './harness/HarnessLifecycle';
 import type { SessionContext } from './harness/HarnessLifecycle';
@@ -30,6 +31,7 @@ export interface MemoryContext {
   recentEpisodes: import("../memory/EpisodicMemory").Episode[];
   priorityParams: string[];
   expertiseLevel: string;
+  workspaceRules?: WorkspaceRule[];
   customerBrief?: Array<{
     name: string;
     company?: string | null;
@@ -90,6 +92,10 @@ export function isVisualizationRequest(question: string): boolean {
   return /\b(plot|chart|graph|visuali[sz]e|scatter|histogram|bar chart|line chart)\b/i.test(question);
 }
 
+const RESULT_FETCHING_TOOL_NAMES = new Set(["execute_sql", "open_table", "run_duckdb_analysis"]);
+const FAST_MODE_ROUND_TIMEOUT_MS = 22_000;
+const DEEP_MODE_ROUND_TIMEOUT_MS = 45_000;
+
 export function isUnderspecifiedVisualizationRequest(question: string): boolean {
   if (!isVisualizationRequest(question)) return false;
   const q = question.toLowerCase().trim();
@@ -118,6 +124,33 @@ export function inferNumericColumns(currentResults: QueryResults | null): string
     });
 }
 
+function buildLoadedResultsProfile(currentResults: QueryResults | null): string | null {
+  if (!currentResults) return null;
+  const numeric = inferNumericColumns(currentResults);
+  const categorical = currentResults.fields
+    .map((field) => field.name)
+    .filter((name) => !numeric.includes(name))
+    .slice(0, 8);
+
+  const numericSummary = numeric.slice(0, 8).map((column) => {
+    const values = currentResults.rows
+      .map((row) => row[column])
+      .filter((value) => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value)))
+      .map((value) => Number(value));
+    if (values.length === 0) return null;
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    return `${column}: n=${values.length}, min=${Number(min.toFixed(4))}, max=${Number(max.toFixed(4))}`;
+  }).filter(Boolean);
+
+  return [
+    `LOADED RESULT PROFILE: ${currentResults.rowCount} in-memory row${currentResults.rowCount === 1 ? "" : "s"} available for direct analysis.`,
+    numeric.length > 0 ? `Numeric columns: ${numeric.join(", ")}` : null,
+    categorical.length > 0 ? `Other columns: ${categorical.join(", ")}` : null,
+    numericSummary.length > 0 ? `Numeric ranges: ${numericSummary.join(" | ")}` : null,
+  ].filter(Boolean).join("\n");
+}
+
 export function buildVisualizationClarifier(
   question: string,
   currentResults: QueryResults | null,
@@ -138,6 +171,69 @@ export function buildVisualizationClarifier(
   }
 
   return "Which columns or relationship do you want plotted? Please tell me the X and Y fields, or name the table plus the columns to use.";
+}
+
+function buildCompactSchemaSummary(schema: FullSchema | null): string | null {
+  if (!schema) return null;
+  const tableLines = schema.tables
+    .slice(0, 12)
+    .map((t) => {
+      const key = `${t.schema}.${t.name}`;
+      const cols = (schema.columns[key] ?? []).slice(0, 8).map((c) => c.name).join(", ");
+      return `- ${key}${cols ? `: ${cols}` : ""}`;
+    })
+    .join("\n");
+  return `DATABASE SCHEMA (${schema.driver}):\n${tableLines}`;
+}
+
+function buildFastSystemPrompt(
+  schema: FullSchema | null,
+  currentSQL: string | null,
+  currentResults: QueryResults | null,
+  agentMode: "plan" | "auto",
+  memoryContext?: MemoryContext,
+): string {
+  const parts: string[] = [];
+  parts.push("You are APEX inside Daitalk, a desktop SQL IDE. Be fast, accurate, and pragmatic for routine requests.");
+  parts.push(
+    `FAST MODE RULES:
+- Prefer one focused tool call.
+- Use execute_sql for live data requests like show, pull, get, run, count, summarize, and plot.
+- Do not stop after only writing SQL into the editor if the user asked you to run it.
+- If results are already loaded and a chart is requested, prefer create_chart.
+- Avoid multi-step plans unless the request is clearly investigative or ambiguous.
+- Keep the answer concise and evidence-based.`,
+  );
+  parts.push(
+    agentMode === "plan"
+      ? "PLAN MODE: destructive commands queue for approval."
+      : "AUTO MODE: safe commands run immediately; destructive commands still require approval.",
+  );
+
+  const schemaSummary = buildCompactSchemaSummary(schema);
+  if (schemaSummary) parts.push(schemaSummary);
+
+  if (currentSQL) {
+    parts.push(`CURRENT SQL:\n\`\`\`sql\n${currentSQL}\n\`\`\``);
+  }
+
+  if (currentResults) {
+    const cols = currentResults.fields.map((f) => f.name).join(", ");
+    const sample = JSON.stringify(currentResults.rows.slice(0, 2), null, 2);
+    parts.push(`LAST RESULTS: ${currentResults.rowCount} rows. Columns: ${cols}\nSample:\n${sample}`);
+    const profile = buildLoadedResultsProfile(currentResults);
+    if (profile) parts.push(profile);
+  }
+
+  if (memoryContext?.workspaceRules?.length) {
+    const lines = memoryContext.workspaceRules
+      .slice(0, 4)
+      .map((rule) => `- ${rule.title}: ${rule.instruction}`)
+      .join("\n");
+    parts.push(`APPROVED RULES:\n${lines}`);
+  }
+
+  return parts.join("\n\n");
 }
 
 // ── Column Type Resolver ──────────────────────────────────────────────────────
@@ -178,6 +274,10 @@ function buildSystemPrompt(
   queryDepth?: 'fast' | 'deep',
   harnessAdditions?: string | null
 ): string {
+  if (queryDepth === "fast") {
+    return buildFastSystemPrompt(schema, currentSQL, currentResults, agentMode, memoryContext);
+  }
+
   const parts: string[] = [];
 
   if (queryDepth === 'deep') {
@@ -199,7 +299,7 @@ You operate in ${agentMode.toUpperCase()} MODE.
 ${
   agentMode === "plan"
     ? "PLAN MODE: Destructive commands (delete_rows, drop_column, rename_table, bulk_transform) are queued for user approval before executing. Safe commands run immediately."
-    : "AUTO MODE: All commands execute immediately. Always explain destructive operations in your text response before calling those tools."
+    : "AUTO MODE: Safe and caution-level commands can execute immediately. Destructive commands (delete_rows, drop_column, rename_table, bulk_transform) are still queued for explicit user approval before executing."
 }`
   );
 
@@ -275,6 +375,8 @@ WHERE clause extraction rules:
     parts.push(
       `LAST QUERY RESULTS: ${currentResults.rowCount} rows in ${currentResults.elapsedMs}ms\nColumns: ${cols}\nSample:\n${sample}`
     );
+    const profile = buildLoadedResultsProfile(currentResults);
+    if (profile) parts.push(profile);
   }
 
   // Driver-specific guidance
@@ -355,15 +457,25 @@ For any question about anomalies, quality issues, process upsets, or unexplained
 
   parts.push(`GUIDELINES:
 - Explain what you are doing before calling tools
+- For basic statistics, correlations, parameter-ranking, and other read-only exploratory questions, prefer one focused execute_sql pass over a long multi-step decomposition
+- If relevant rows are already loaded in LAST QUERY RESULTS, prefer analyze_loaded_correlation or analyze_loaded_feature_importance before reaching for DuckDB.
 - Use execute_sql to fetch data for answering questions
+- If the user asks for a specific number of rows, filters, ordering, or "pull/show/get data", use execute_sql instead of open_table
+- Use open_table only for a generic default preview of a table when no specific SQL shape was requested
 - Use set_editor_content when the user wants to review SQL before running
+- For requests that ask you to run, execute, pull, fetch, or show live data, do not end by telling the user to click Run in the editor. Either execute the safe read query or clearly state why execution failed.
 - Quote all SQL identifiers: "schema"."table"."column"
 - Never call delete_rows or drop_column without explicit user confirmation
+- When the user states a durable preference, governance rule, or reporting convention that should persist across sessions, call propose_workspace_rule so it can be explicitly reviewed and approved
 
 ## Visualization Execution Rules
 - If the user asks for a plot/chart and the request is underspecified, ask a clarifying question instead of guessing.
 - If the needed rows are already loaded in LAST QUERY RESULTS, prefer create_chart so the plot opens in editable Graph Builder.
+- If the needed rows are already loaded and the user asks which factors drive an outcome, what correlates with it, or what is most important, use analyze_loaded_correlation or analyze_loaded_feature_importance before fetching more data.
+- If the user wants coefficient-style detail, how much each factor matters, or a more rigorous explanation of the effect sizes, use analyze_loaded_regression on the loaded rows.
 - If no suitable rows are loaded yet, execute_sql first, then create_chart using the returned columns.
+- If the user says "by type", "by group", "colored by", or wants separate categories in the same plot, pass that grouping column as colorColumn when calling create_chart.
+- If you are plotting computed analysis outputs such as feature rankings, percent importance, or correlation summaries, use create_analysis_chart instead of create_chart.
 - Use create_gog_chart only when aggregation/binning is genuinely required.
 - Never say a chart was created unless the chart tool returned success.
 - If a chart tool fails, choose the next valid fallback and continue in the same turn before concluding.
@@ -385,6 +497,18 @@ For any question about anomalies, quality issues, process upsets, or unexplained
     if (memoryContext.priorityParams.length > 0) {
       parts.push(
         `## User Priority Parameters\nBased on past sessions, this user frequently analyzes: ${memoryContext.priorityParams.join(", ")}\nCalibrated expertise level: ${memoryContext.expertiseLevel}`
+      );
+    }
+    if (memoryContext.workspaceRules && memoryContext.workspaceRules.length > 0) {
+      const lines = memoryContext.workspaceRules
+        .slice(0, 8)
+        .map((rule) => {
+          const scope = rule.scope === "connection" && rule.connectionId ? `connection=${rule.connectionId}` : "workspace";
+          return `- [${rule.kind} · ${scope}] ${rule.title}: ${rule.instruction}`;
+        })
+        .join("\n");
+      parts.push(
+        `## Approved Workspace Rules\nThese are explicitly approved user or team preferences and must be followed unless the user overrides them in the current session.\n${lines}`
       );
     }
     if (memoryContext.customerBrief && memoryContext.customerBrief.length > 0) {
@@ -415,6 +539,25 @@ For any question about anomalies, quality issues, process upsets, or unexplained
   return parts.join("\n\n");
 }
 
+function getRoundTimeoutMs(
+  providerId: string,
+  model: string,
+  queryDepth: "fast" | "deep",
+  userMessage: string,
+): number {
+  let timeoutMs = queryDepth === "fast" ? FAST_MODE_ROUND_TIMEOUT_MS : DEEP_MODE_ROUND_TIMEOUT_MS;
+  const lowerProvider = providerId.toLowerCase();
+  const lowerModel = model.toLowerCase();
+  const wordCount = userMessage.trim().split(/\s+/).filter(Boolean).length;
+
+  if (wordCount > 20) timeoutMs += 4_000;
+  if (queryDepth === "deep") timeoutMs += Math.min(wordCount, 40) * 250;
+  if (lowerProvider.includes("ollama") || lowerProvider.includes("nim")) timeoutMs += 8_000;
+  if (lowerModel.includes("opus") || lowerModel.includes("gpt-5") || lowerModel.includes("claude")) timeoutMs += 6_000;
+
+  return Math.min(timeoutMs, 75_000);
+}
+
 // ── Tool input → AgentCommand ─────────────────────────────────────────────────
 
 function toolCallToCommand(
@@ -422,6 +565,30 @@ function toolCallToCommand(
   connectionId: string | null
 ): AgentCommand | null {
   const i = tc.input;
+  if (tc.name === "analyze_loaded_correlation") {
+    return {
+      type: "analyze_loaded_correlation",
+      targetColumn: i.targetColumn as string | undefined,
+      columns: i.columns as string[] | undefined,
+      risk: "safe",
+    };
+  }
+  if (tc.name === "analyze_loaded_feature_importance") {
+    return {
+      type: "analyze_loaded_feature_importance",
+      targetColumn: i.targetColumn as string,
+      featureColumns: i.featureColumns as string[] | undefined,
+      risk: "safe",
+    };
+  }
+  if (tc.name === "analyze_loaded_regression") {
+    return {
+      type: "analyze_loaded_regression",
+      targetColumn: i.targetColumn as string,
+      featureColumns: i.featureColumns as string[] | undefined,
+      risk: "safe",
+    };
+  }
   // Route all stat__* tool calls through run_stat_tool
   if (tc.name.startsWith("stat__")) {
     return {
@@ -539,6 +706,20 @@ function toolCallToCommand(
         chartType: i.chartType as "bar" | "line" | "scatter" | "pie" | "area",
         xColumn: i.xColumn as string,
         yColumn: i.yColumn as string,
+        colorColumn: i.colorColumn as string | undefined,
+        title: i.title as string | undefined,
+        xLabel: i.xLabel as string | undefined,
+        yLabel: i.yLabel as string | undefined,
+        risk: "safe",
+      };
+    case "create_analysis_chart":
+      return {
+        type: "create_analysis_chart",
+        chartType: i.chartType as "bar" | "line" | "scatter" | "pie" | "area",
+        rows: i.rows as Record<string, unknown>[],
+        xKey: i.xKey as string,
+        yKey: i.yKey as string,
+        colorKey: i.colorKey as string | undefined,
         title: i.title as string | undefined,
         xLabel: i.xLabel as string | undefined,
         yLabel: i.yLabel as string | undefined,
@@ -570,6 +751,39 @@ function toolCallToCommand(
         targetConnectionId: i.targetConnectionId as string,
         targetTable: i.targetTable as string,
         risk: "caution",
+      };
+    case "list_pipelines":
+      return {
+        type: "list_pipelines",
+        risk: "safe",
+      };
+    case "run_pipeline":
+      return {
+        type: "run_pipeline",
+        pipelineId: i.pipelineId as string,
+        risk: "destructive",
+      };
+    case "search_workspace":
+      return {
+        type: "search_workspace",
+        query: i.query as string,
+        limit: i.limit as number | undefined,
+        kind: i.kind as "schema" | "artifacts" | "pipelines" | "background_agents" | "history" | "memory" | undefined,
+        connectionId: i.connectionId as string | undefined,
+        recentDays: i.recentDays as number | undefined,
+        risk: "safe",
+      };
+    case "propose_workspace_rule":
+      return {
+        type: "propose_workspace_rule",
+        title: i.title as string,
+        instruction: i.instruction as string,
+        kind: i.kind as "analysis" | "sql" | "safety" | "reporting",
+        scope: i.scope as "workspace" | "connection",
+        connectionId: i.connectionId as string | null | undefined,
+        rationale: i.rationale as string | undefined,
+        evidence: i.evidence as string[] | undefined,
+        risk: "safe",
       };
     case "notify_user":
       return {
@@ -634,7 +848,7 @@ export async function runAgentLoop(
   userMessage: string,
   history: ConversationTurn[],
   options: AgentLoopOptions
-): Promise<{ finalText: string; updatedHistory: ConversationTurn[]; queryDepth: 'fast' | 'deep' }> {
+): Promise<{ finalText: string; updatedHistory: ConversationTurn[]; queryDepth: 'fast' | 'deep'; pendingApprovalSteps: string[] }> {
   const {
     provider,
     model,
@@ -648,7 +862,8 @@ export async function runAgentLoop(
     onPlanQueued,
   } = options;
 
-  const { agentMode, addPlanStep } = useWorkspaceStore.getState();
+  const { agentMode, addPlanStep, currentTask } = useWorkspaceStore.getState();
+  const currentSubtask = currentTask?.subtasks[currentTask.currentIndex] ?? null;
   const queryDepth = classifyQueryDepth(userMessage);
   const clarifier = buildVisualizationClarifier(userMessage, currentResults);
   if (clarifier) {
@@ -657,7 +872,7 @@ export async function runAgentLoop(
       { role: "user", text: userMessage },
       { role: "assistant", text: clarifier },
     ];
-    return { finalText: clarifier, updatedHistory: updatedHistory.slice(-40), queryDepth };
+    return { finalText: clarifier, updatedHistory: updatedHistory.slice(-40), queryDepth, pendingApprovalSteps: [] };
   }
 
   let harnessAdditions: string | null = null;
@@ -704,19 +919,28 @@ export async function runAgentLoop(
 
   const userToolDefs = useUserToolStore.getState().tools.map(userToolToUnifiedTool);
   const allTools = [...AGENT_TOOLS, ...userToolDefs];
+  const roundTimeoutMs = getRoundTimeoutMs(provider.id, model, queryDepth, userMessage);
 
   let finalText = "";
-  const MAX_ROUNDS = 10;
+  const pendingApprovalSteps: string[] = [];
+  const MAX_ROUNDS = queryDepth === "fast" ? 4 : 8;
+  const toolSignatureCounts = new Map<string, number>();
+  let resultFetchingAttempts = 0;
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const { text, toolCalls, stopReason } = await withRetry(
-      () => provider.stream({
-        system,
-        history: working,
-        model,
-        tools: allTools,
-        onToken,
-      }),
+      () =>
+        withTimeout(
+          provider.stream({
+            system,
+            history: working,
+            model,
+            tools: allTools,
+            onToken,
+          }),
+          roundTimeoutMs,
+          "Agent model round",
+        ),
       {
         maxAttempts: 3,
         baseDelayMs: 1_000,
@@ -739,6 +963,32 @@ export async function runAgentLoop(
     const toolResults: ConversationTurn["toolResults"] = [];
 
     for (const tc of toolCalls) {
+      const toolSignature = `${tc.name}:${JSON.stringify(tc.input ?? {})}`;
+      const priorSignatureCount = toolSignatureCounts.get(toolSignature) ?? 0;
+      toolSignatureCounts.set(toolSignature, priorSignatureCount + 1);
+
+      if (RESULT_FETCHING_TOOL_NAMES.has(tc.name)) {
+        if (queryDepth === "fast" && resultFetchingAttempts >= 2) {
+          toolResults!.push({
+            toolCallId: tc.id,
+            name: tc.name,
+            content: "Skipped additional data-fetch attempt because this fast analysis already exhausted its live-query budget. Use the currently loaded results or answer with the best available evidence.",
+            isError: true,
+          });
+          continue;
+        }
+
+        if (priorSignatureCount >= 1) {
+          toolResults!.push({
+            toolCallId: tc.id,
+            name: tc.name,
+            content: "Skipped duplicate data-fetch attempt. Do not repeat the same live query path; summarize the current evidence or choose a narrower alternative.",
+            isError: true,
+          });
+          continue;
+        }
+      }
+
       const cmd = toolCallToCommand(tc, connectionId);
 
       if (!cmd) {
@@ -771,13 +1021,12 @@ export async function runAgentLoop(
 
       let result: CommandResult;
 
-      // Generate impact map for any command in plan mode
       if (agentMode === "plan") {
         const impactMap = ImpactMapEngine.fromCommands([cmd], connectionId);
         useWorkspaceStore.getState().setImpactMapResolution(impactMap);
       }
 
-      if (agentMode === "plan" && isDestructive(cmd)) {
+      if (isDestructive(cmd)) {
         const stepId = `plan-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         const description = describeCommand(cmd);
 
@@ -785,12 +1034,25 @@ export async function runAgentLoop(
           id: stepId,
           commandType: cmd.type,
           humanReadable: description,
+          sqlPreview:
+            "sql" in cmd && typeof cmd.sql === "string"
+              ? cmd.sql
+              : cmd.type === "delete_rows"
+                ? `DELETE FROM "${cmd.schema}"."${cmd.table}" WHERE ${cmd.where};`
+                : cmd.type === "drop_column"
+                  ? `ALTER TABLE "${cmd.schema}"."${cmd.table}" DROP COLUMN "${cmd.columnName}";`
+                  : cmd.type === "rename_table"
+                    ? `ALTER TABLE "${cmd.schema}"."${cmd.oldName}" RENAME TO "${cmd.newName}";`
+                    : undefined,
+          taskId: currentTask?.id,
+          subtaskId: currentSubtask?.id,
           riskLevel: cmd.risk,
           status: "pending",
           command: cmd, // stored so PlanQueue can dispatch on approval
         });
 
         onPlanQueued(stepId, description);
+        pendingApprovalSteps.push(stepId);
 
         result = {
           success: true,
@@ -798,6 +1060,9 @@ export async function runAgentLoop(
         };
       } else {
         result = await commandBus.dispatch(cmd);
+        if (RESULT_FETCHING_TOOL_NAMES.has(tc.name)) {
+          resultFetchingAttempts += 1;
+        }
 
         // Push to undo stack on successful non-safe mutations
         if (result.success && cmd.risk !== "safe") {
@@ -852,6 +1117,7 @@ export async function runAgentLoop(
     errorCount: sessionCtx.errorsSoFar.length,
   });
 
+  // Trim to last 40 turns to keep context manageable
   const compacted = ContextEngine.compactHistory(working);
-  return { finalText, updatedHistory: compacted, queryDepth };
+  return { finalText, updatedHistory: compacted, queryDepth, pendingApprovalSteps };
 }

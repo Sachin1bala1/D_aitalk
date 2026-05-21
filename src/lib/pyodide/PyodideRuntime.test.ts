@@ -33,12 +33,14 @@ describe("PyodideRuntime", () => {
     const mockPy = makeMockPyodide({ mean: 42.0 });
     (loadPyodide as ReturnType<typeof vi.fn>).mockResolvedValue(mockPy);
 
-    const { PyodideRuntime } = await import("./PyodideRuntime.js");
+    const { PyodideRuntime, PYODIDE_INDEX_URL, PYODIDE_PACKAGES } = await import("./PyodideRuntime.js");
     const runtime = PyodideRuntime.getInstance();
     const result = await runtime.run("result\nresult", {});
 
     expect(result).toEqual({ mean: 42.0 });
     expect(runtime.getStatus()).toBe("ready");
+    expect(loadPyodide).toHaveBeenCalledWith({ indexURL: PYODIDE_INDEX_URL });
+    expect(mockPy.loadPackage).toHaveBeenCalledWith([...PYODIDE_PACKAGES]);
   });
 
   it("singleton: loadPyodide called only once across multiple run() calls", async () => {

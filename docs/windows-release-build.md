@@ -67,7 +67,7 @@ Recommended controls:
 ## Verification Checklist
 
 - `npm run lint` passes
-- `npm run tauri:build:ci` completes on CI
+- `powershell -ExecutionPolicy Bypass -File .\scripts\windows-secure-build.ps1 -SkipNpmInstall -SkipLint` completes on CI
 - generated `.exe` and `.msi` are signed on release jobs
 - installer runs on a clean Windows machine without Node.js or Rust installed
 - application starts, connects to a test database, and loads schema/query views

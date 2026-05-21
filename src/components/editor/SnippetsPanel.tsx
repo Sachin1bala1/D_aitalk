@@ -7,13 +7,15 @@
  * - Delete button per snippet
  * - Edit name inline (double-click)
  */
-import React, { useState, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { BookMarked, Plus, Trash2, Play, Search, X, Tag, Clock } from "lucide-react";
 import { toast } from "sonner";
 import {
   loadSnippets,
+  ensureSnippetsLoaded,
   addSnippet,
   deleteSnippet,
+  subscribeSnippets,
   updateSnippet,
   type Snippet,
 } from "../../lib/snippets/SnippetStore";
@@ -61,6 +63,14 @@ export function SnippetsPanel({ currentSQL, onInsert, driver }: SnippetsPanelPro
   const saveInputRef = useRef<HTMLInputElement>(null);
 
   const reload = () => setSnippets(loadSnippets());
+
+  useEffect(() => {
+    const unsubscribe = subscribeSnippets(() => {
+      setSnippets(loadSnippets());
+    });
+    void ensureSnippetsLoaded().then(setSnippets);
+    return unsubscribe;
+  }, []);
 
   const handleSave = () => {
     if (!draftName.trim()) { toast.error("Snippet name is required"); return; }

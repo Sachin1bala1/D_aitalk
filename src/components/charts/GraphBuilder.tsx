@@ -5,7 +5,6 @@
  * control_chart, pareto, area, violin (treated as box), bubble.
  *
  * Selection: shift+click to add a point to the selection.
- * TODO: lasso select
  */
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
@@ -1426,7 +1425,7 @@ export function GraphBuilder({
 
   const handleContainerClick = useCallback(
     (_e: React.MouseEvent) => {
-      // TODO: lasso select — shift+click on the chart area
+      // Reserved for future chart-surface gestures. Selection is currently point-based.
     },
     []
   );

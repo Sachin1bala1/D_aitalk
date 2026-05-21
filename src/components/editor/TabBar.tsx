@@ -10,7 +10,7 @@ import { X, Plus } from "lucide-react";
 import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
 
 export function TabBar() {
-  const { tabs, activeTabId, setActiveTab, closeTab, addTab, updateTab, activeConnectionId } =
+  const { tabs, activeTabId, setActiveTab, closeTab, addTab, updateTab, activeConnectionId, connections } =
     useWorkspaceStore();
 
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -77,6 +77,10 @@ export function TabBar() {
       {tabs.map((tab) => {
         const isActive = tab.id === activeTabId;
         const isRenaming = renamingId === tab.id;
+        const isDisconnected =
+          !!tab.connectionId && !connections.some((connection) => connection.id === tab.connectionId);
+        const hasRestoredSnapshot =
+          (tab.type === "sql_editor" || tab.type === "table_viewer") && !!tab.restoredSnapshotAt;
 
         return (
           <div
@@ -113,13 +117,25 @@ export function TabBar() {
                 style={{ maxWidth: 120 }}
               />
             ) : (
-              <span
-                className="text-[11px] font-medium truncate"
-                onDoubleClick={(e) => { e.stopPropagation(); startRename(tab); }}
-                title="Double-click to rename"
-              >
-                {tab.title}
-              </span>
+              <div className="flex min-w-0 items-center gap-1.5">
+                <span
+                  className="text-[11px] font-medium truncate"
+                  onDoubleClick={(e) => { e.stopPropagation(); startRename(tab); }}
+                  title="Double-click to rename"
+                >
+                  {tab.title}
+                </span>
+                {hasRestoredSnapshot && (
+                  <span className="shrink-0 rounded border border-amber-500/20 bg-amber-500/5 px-1 py-0.5 text-[8px] font-mono uppercase tracking-widest text-amber-300/70">
+                    snapshot
+                  </span>
+                )}
+                {isDisconnected && (
+                  <span className="shrink-0 rounded border border-red-500/20 bg-red-500/5 px-1 py-0.5 text-[8px] font-mono uppercase tracking-widest text-red-300/70">
+                    offline
+                  </span>
+                )}
+              </div>
             )}
 
             {/* Close button */}

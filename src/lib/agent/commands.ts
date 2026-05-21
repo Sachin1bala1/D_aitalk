@@ -166,6 +166,27 @@ export interface RunStatToolCmd {
   risk: "safe";
 }
 
+export interface AnalyzeLoadedCorrelationCmd {
+  type: "analyze_loaded_correlation";
+  targetColumn?: string;
+  columns?: string[];
+  risk: "safe";
+}
+
+export interface AnalyzeLoadedFeatureImportanceCmd {
+  type: "analyze_loaded_feature_importance";
+  targetColumn: string;
+  featureColumns?: string[];
+  risk: "safe";
+}
+
+export interface AnalyzeLoadedRegressionCmd {
+  type: "analyze_loaded_regression";
+  targetColumn: string;
+  featureColumns?: string[];
+  risk: "safe";
+}
+
 // ── User-Defined Tools ────────────────────────────────────────────────────────
 
 export interface RunUserToolCmd {
@@ -184,6 +205,20 @@ export interface CreateChartCmd {
   chartType: "bar" | "line" | "scatter" | "pie" | "area";
   xColumn: string;
   yColumn: string;
+  colorColumn?: string;
+  title?: string;
+  xLabel?: string;
+  yLabel?: string;
+  risk: "safe";
+}
+
+export interface CreateAnalysisChartCmd {
+  type: "create_analysis_chart";
+  chartType: "bar" | "line" | "scatter" | "pie" | "area";
+  rows: Record<string, unknown>[];
+  xKey: string;
+  yKey: string;
+  colorKey?: string;
   title?: string;
   xLabel?: string;
   yLabel?: string;
@@ -224,6 +259,39 @@ export interface CreatePipelineCmd {
   targetConnectionId: string;
   targetTable: string;
   risk: "caution";
+}
+
+export interface ListPipelinesCmd {
+  type: "list_pipelines";
+  risk: "safe";
+}
+
+export interface RunPipelineCmd {
+  type: "run_pipeline";
+  pipelineId: string;
+  risk: "destructive";
+}
+
+export interface SearchWorkspaceCmd {
+  type: "search_workspace";
+  query: string;
+  limit?: number;
+  kind?: "schema" | "artifacts" | "pipelines" | "background_agents" | "history" | "memory";
+  connectionId?: string;
+  recentDays?: number;
+  risk: "safe";
+}
+
+export interface ProposeWorkspaceRuleCmd {
+  type: "propose_workspace_rule";
+  title: string;
+  instruction: string;
+  kind: "analysis" | "sql" | "safety" | "reporting";
+  scope: "workspace" | "connection";
+  connectionId?: string | null;
+  rationale?: string;
+  evidence?: string[];
+  risk: "safe";
 }
 
 // ── Confidence Scoring ────────────────────────────────────────────────────────
@@ -302,10 +370,18 @@ export type AgentCommand =
   | UpdateCellCmd
   | RunDuckDbAnalysisCmd
   | RunStatToolCmd
+  | AnalyzeLoadedCorrelationCmd
+  | AnalyzeLoadedFeatureImportanceCmd
+  | AnalyzeLoadedRegressionCmd
   | RunUserToolCmd
   | CreateChartCmd
+  | CreateAnalysisChartCmd
   | CreateGoGChartCmd
   | CreatePipelineCmd
+  | ListPipelinesCmd
+  | RunPipelineCmd
+  | SearchWorkspaceCmd
+  | ProposeWorkspaceRuleCmd
   | NotifyUserCmd
   | DeclareHypothesesCmd
   | DeclareConfidenceCmd
@@ -321,6 +397,7 @@ export const DESTRUCTIVE_COMMANDS = new Set<CommandType>([
   "rename_table",
   "delete_rows",
   "bulk_transform",
+  "run_pipeline",
 ]);
 
 export function isDestructive(cmd: AgentCommand): boolean {
@@ -345,11 +422,21 @@ export function describeCommand(cmd: AgentCommand): string {
     case "insert_row": return `INSERT INTO ${cmd.schema}.${cmd.table}`;
     case "update_cell": return `UPDATE ${cmd.schema}.${cmd.table} SET ${cmd.column} WHERE ${cmd.pkColumn}=${cmd.pkValue}`;
     case "run_stat_tool": return `Stat analysis: ${cmd.method}`;
+    case "analyze_loaded_correlation": return cmd.targetColumn
+      ? `Correlation ranking against ${cmd.targetColumn}`
+      : `Correlation matrix from loaded results`;
+    case "analyze_loaded_feature_importance": return `Feature ranking for ${cmd.targetColumn} from loaded results`;
+    case "analyze_loaded_regression": return `Regression model for ${cmd.targetColumn} from loaded results`;
     case "run_user_tool": return `User tool: ${cmd.toolId}`;
     case "run_duckdb_analysis": return `DuckDB: ${cmd.sql.slice(0, 60)}…`;
     case "create_chart": return `Open ${cmd.chartType} graph in Graph Builder: ${cmd.xColumn} vs ${cmd.yColumn}`;
+    case "create_analysis_chart": return `Open ${cmd.chartType} analysis chart: ${cmd.xKey} vs ${cmd.yKey}`;
     case "create_gog_chart": return `Create GoG ${cmd.geom} chart: ${cmd.x}${cmd.y ? ` vs ${cmd.y}` : ""} from ${cmd.schema ?? "public"}.${cmd.table}`;
     case "create_pipeline": return `Create pipeline "${cmd.name}" → ${cmd.targetTable}`;
+    case "list_pipelines": return `List saved pipelines`;
+    case "run_pipeline": return `Run pipeline ${cmd.pipelineId}`;
+    case "search_workspace": return `Search workspace for "${cmd.query}"`;
+    case "propose_workspace_rule": return `Propose workspace rule "${cmd.title}"`;
     case "close_tab": return cmd.tabId ? `Close tab ${cmd.tabId}` : `Close active tab`;
     case "notify_user": return `Notify: ${cmd.message}`;
     case "declare_hypotheses": return `Declare ${cmd.hypotheses.length} hypothesis${cmd.hypotheses.length !== 1 ? "es" : ""}: ${cmd.problemFrame.slice(0, 60)}`;

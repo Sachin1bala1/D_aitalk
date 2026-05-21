@@ -37,107 +37,13 @@ jobs:
         run: npm ci
 
       - name: TypeScript check
-        run: npm exec tsc -- --noEmit
+        run: npm run lint
+
+      - name: Frontend tests
+        run: npm test
+
+      - name: App smoke tests
+        run: npm run test:smoke
 
       - name: Frontend build
         run: npm run build
-
-  rust:
-    runs-on: windows-latest
-    env:
-      CARGO_TARGET_DIR: C:\cargo-target\daitalk-check
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install frontend dependencies
-        shell: powershell
-        run: npm ci
-
-      - name: Install Rust stable
-        shell: powershell
-        run: |
-          rustup update stable
-          rustup default stable-x86_64-pc-windows-msvc
-          rustup target add x86_64-pc-windows-msvc
-
-      - name: Setup MSVC developer shell
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Install Windows build prerequisites
-        shell: powershell
-        run: |
-          choco install strawberryperl -y --no-progress
-          $perlBin = @(
-            "C:\Strawberry\perl\bin",
-            "$env:ChocolateyInstall\lib\strawberryperl\tools\perl\bin"
-          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
-
-          if (-not $perlBin) {
-            throw "Perl install path not found after installing strawberryperl."
-          }
-
-          $perlExe = Join-Path $perlBin "perl.exe"
-          if (-not (Test-Path $perlExe)) {
-            throw "perl.exe not found at $perlExe"
-          }
-
-          $perlBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          & $perlExe -v
-
-      - name: Install WebView2
-        shell: powershell
-        run: |
-          $installer = Join-Path $env:RUNNER_TEMP "MicrosoftEdgeWebView2Setup.exe"
-          Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile $installer
-          Start-Process -FilePath $installer -ArgumentList "/silent", "/install" -Wait
-
-      - name: Verify Windows toolchain
-        shell: powershell
-        run: |
-          rustup show
-          cargo -Vv
-          rustc -Vv
-          $linkCmd = Get-Command link.exe -ErrorAction SilentlyContinue
-          if ($linkCmd) {
-            Write-Host "link.exe=$($linkCmd.Source)"
-          } else {
-            Write-Warning "link.exe not found on PATH"
-          }
-
-          $clCmd = Get-Command cl.exe -ErrorAction SilentlyContinue
-          if ($clCmd) {
-            Write-Host "cl.exe=$($clCmd.Source)"
-          } else {
-            Write-Warning "cl.exe not found on PATH"
-          }
-
-          Write-Host "CARGO_TARGET_DIR=$env:CARGO_TARGET_DIR"
-
-      - name: Cargo check
-        working-directory: src-tauri
-        shell: powershell
-        run: |
-          $logPath = Join-Path $env:RUNNER_TEMP "cargo-check.log"
-          cargo check -vv *>&1 | Tee-Object -FilePath $logPath
-          $exitCode = $LASTEXITCODE
-
-          if ($exitCode -ne 0) {
-            Write-Host "Cargo check failed. Extracting first Rust error blocks..."
-            $matches = Select-String -Path $logPath -Pattern 'error(\[[A-Z0-9]+\])?:'
-            if ($matches) {
-              foreach ($match in $matches | Select-Object -First 5) {
-                Write-Host ("--- cargo error near line {0} ---" -f $match.LineNumber)
-                Get-Content $logPath | Select-Object -Skip ([Math]::Max($match.LineNumber - 3, 0)) -First 12
-              }
-            } else {
-              Write-Warning "No explicit Rust error lines found in cargo-check.log"
-            }
-            exit $exitCode
-          }

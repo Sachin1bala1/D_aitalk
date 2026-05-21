@@ -190,8 +190,8 @@ export const PROVIDER_CATALOG: ProviderMeta[] = [
 ];
 
 // ── Settings ──────────────────────────────────────────────────────────────────
-// Provider selection + model prefs live in localStorage (non-sensitive).
-// API keys live in the OS keychain (Windows Credential Manager / macOS Keychain).
+// Provider selection + model prefs are native-backed, with localStorage kept only
+// as a migration/fallback path. API keys live in the OS keychain.
 
 export interface ProviderSettings {
   activeProvider: ProviderID;
@@ -208,22 +208,78 @@ const LEGACY_KEY_STORAGE: Partial<Record<ProviderID, string>> = {
   gemini: "gemini_api_key",
 };
 
-/** Load provider selection + model prefs from localStorage. Keys are NOT included. */
-export function loadSettings(): ProviderSettings {
+let cachedSettings: ProviderSettings | null = null;
+
+function readLegacySettings(): ProviderSettings {
+  if (typeof window === "undefined") {
+    return { activeProvider: "claude", keys: {}, models: {} };
+  }
+
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as ProviderSettings;
-      return { ...parsed, keys: {} }; // keys come from keychain, not localStorage
+      return { ...parsed, keys: {} };
     }
   } catch {}
+
   return { activeProvider: "claude", keys: {}, models: {} };
 }
 
-/** Persist provider selection + model prefs to localStorage. Keys are NOT saved here. */
+async function persistProviderPreferences(settings: ProviderSettings) {
+  const { saveJsonDocument, notifyNativePersistenceFallback } = await import(
+    "../persistence/NativeJsonStore"
+  );
+  const { keys: _keys, ...prefs } = settings;
+
+  try {
+    await saveJsonDocument(STORAGE_KEY, { ...prefs, keys: {} });
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  } catch {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...prefs, keys: {} }));
+    }
+    notifyNativePersistenceFallback("AI provider preferences");
+  }
+}
+
+/** Load provider selection + model prefs from the in-memory/native-backed cache. */
+export function loadSettings(): ProviderSettings {
+  if (cachedSettings) {
+    return { ...cachedSettings, keys: {} };
+  }
+
+  cachedSettings = readLegacySettings();
+  return { ...cachedSettings, keys: {} };
+}
+
+/** Load the canonical provider preferences from native storage when available. */
+export async function ensureProviderSettingsLoaded(): Promise<ProviderSettings> {
+  const legacy = readLegacySettings();
+  if (cachedSettings) return { ...cachedSettings, keys: {} };
+
+  try {
+    const { loadJsonDocument } = await import("../persistence/NativeJsonStore");
+    const stored = await loadJsonDocument<ProviderSettings>(STORAGE_KEY, legacy);
+    cachedSettings = { ...stored, keys: {} };
+
+    if (typeof window !== "undefined" && localStorage.getItem(STORAGE_KEY) !== null) {
+      await persistProviderPreferences(cachedSettings);
+    }
+  } catch {
+    cachedSettings = legacy;
+  }
+
+  return { ...cachedSettings, keys: {} };
+}
+
+/** Persist provider selection + model prefs to native storage. Keys are NOT saved here. */
 export function saveSettings(settings: ProviderSettings): void {
   const { keys: _keys, ...prefs } = settings;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...prefs, keys: {} }));
+  cachedSettings = { ...prefs, keys: {} };
+  void persistProviderPreferences(cachedSettings);
 }
 
 /**
@@ -244,6 +300,7 @@ export async function loadApiKeysFromKeychain(): Promise<Partial<Record<Provider
             key = legacyKey;
             try {
               await DbClient.storeApiKey(KEYCHAIN_PREFIX + id, legacyKey);
+              localStorage.removeItem(legacyStorageKey!);
             } catch {
               // best-effort migration
             }

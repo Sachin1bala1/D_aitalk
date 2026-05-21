@@ -9,16 +9,25 @@
  * - Auto chart type selection via autoSelectChart()
  * - Manual chart type override via right panel buttons
  * - Chart options: show data points, trend line, log scale, reference line, CI
- * - Save/restore chart configs to localStorage
- * - Export: PNG (html2canvas TODO), TSV copy
+ * - Save/restore chart presets through the native persistence layer
+ * - Export: PNG, TSV copy
  * - Selection via shift+click; right-click context menu → "Analyze with APEX"
  */
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { X, ChevronDown, ChevronRight, BarChart2, TrendingUp, Download, Save, List, Hash, Calendar, Type, HelpCircle } from 'lucide-react';
+import html2canvas from 'html2canvas';
 import type { ColumnMeta } from '../../lib/db/DbClient';
 import { GraphBuilder } from './GraphBuilder';
 import { autoSelectChart, type ChartType } from '../../lib/charts/chartAutoSelect';
+import {
+  ensureChartPresetsLoaded,
+  loadChartPresets,
+  saveChartPresets,
+  subscribeChartPresets,
+  type SavedChartConfig,
+} from '../../lib/charts/ChartPresetStore';
 import { useWorkspaceStore } from '../../lib/stores/WorkspaceStore';
+import { toast } from 'sonner';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -28,6 +37,20 @@ interface AxisAssignments {
   color: string | null;
   size: string | null;
   facet: string | null;
+}
+
+interface DragAssignmentPayload {
+  colName: string;
+  sourceZone: keyof AxisAssignments | null;
+}
+
+interface PointerDragState {
+  payload: DragAssignmentPayload;
+  startX: number;
+  startY: number;
+  x: number;
+  y: number;
+  active: boolean;
 }
 
 interface ChartOptions {
@@ -48,16 +71,6 @@ interface ChartOptions {
   confidenceInterval: 'none' | '95' | '99';
 }
 
-interface SavedChartConfig {
-  id: string;
-  name: string;
-  assignments: AxisAssignments;
-  chartType: ChartType | 'auto';
-  options: ChartOptions;
-  savedAt: number;
-}
-
-const STORAGE_KEY = 'daitalk_saved_charts';
 const CHART_TYPES: { type: ChartType; label: string; icon: React.ReactNode }[] = [
   { type: 'scatter', label: 'Scatter', icon: <span className="text-[10px]">⟡</span> },
   { type: 'line', label: 'Line', icon: <TrendingUp className="w-3 h-3" /> },
@@ -86,13 +99,15 @@ function ColTypeIcon({ col }: { col: ColumnMeta }) {
 function ColumnItem({
   col,
   data,
-  onDragStart,
+  onPointerStart,
   onClick,
+  selected = false,
 }: {
   col: ColumnMeta;
   data: Record<string, unknown>[];
-  onDragStart: (colName: string) => void;
+  onPointerStart: (payload: DragAssignmentPayload, event: React.PointerEvent) => void;
   onClick: (colName: string) => void;
+  selected?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -105,12 +120,10 @@ function ColumnItem({
 
   return (
     <div
-      className="relative flex items-center gap-1.5 px-2 py-1.5 rounded cursor-grab hover:bg-white/[0.05] transition-colors group select-none"
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData('column', col.name);
-        onDragStart(col.name);
-      }}
+      className={`relative flex items-center gap-1.5 px-2 py-1.5 rounded cursor-grab hover:bg-white/[0.05] transition-colors group select-none ${
+        selected ? 'bg-[#00d2ff]/10 ring-1 ring-[#00d2ff]/40' : ''
+      }`}
+      onPointerDown={(event) => onPointerStart({ colName: col.name, sourceZone: null }, event)}
       onClick={() => onClick(col.name)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -139,6 +152,12 @@ function DropZone({
   assignedCol,
   onDrop,
   onRemove,
+  onPointerStart,
+  onSelectAssigned,
+  onPointerEnterZone,
+  onPointerLeaveZone,
+  selectedPayload,
+  isPointerDragging,
   disabled = false,
   helperText,
 }: {
@@ -147,13 +166,21 @@ function DropZone({
   assignedCol: string | null;
   onDrop: (payload: { colName: string; sourceZone: keyof AxisAssignments | null }) => void;
   onRemove: () => void;
+  onPointerStart: (payload: DragAssignmentPayload, event: React.PointerEvent) => void;
+  onSelectAssigned: (payload: DragAssignmentPayload) => void;
+  onPointerEnterZone: (zone: keyof AxisAssignments) => void;
+  onPointerLeaveZone: (zone: keyof AxisAssignments) => void;
+  selectedPayload: DragAssignmentPayload | null;
+  isPointerDragging: boolean;
   disabled?: boolean;
   helperText?: string;
 }) {
   const [dragOver, setDragOver] = useState(false);
+  const hasSelectedColumn = Boolean(selectedPayload?.colName);
 
   return (
     <div
+      data-testid={`drop-zone-${zoneKey}`}
       className={`flex items-center gap-1.5 h-7 px-2 rounded border transition-colors ${
         disabled
           ? 'border-[#1f1f1f] bg-[#0f0f0f] opacity-50'
@@ -164,9 +191,22 @@ function DropZone({
           ? 'border-[#2a2a2a] bg-[#1a1a1a]'
           : 'border-dashed border-[#2a2a2a] bg-transparent'
       }`}
+      onClick={() => {
+        if (disabled || !selectedPayload?.colName) return;
+        onDrop(selectedPayload);
+      }}
+      onPointerEnter={() => {
+        if (disabled) return;
+        onPointerEnterZone(zoneKey);
+      }}
+      onPointerLeave={() => {
+        if (disabled) return;
+        onPointerLeaveZone(zoneKey);
+      }}
       onDragOver={(e) => {
         if (disabled) return;
         e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
         setDragOver(true);
       }}
       onDragLeave={() => setDragOver(false)}
@@ -174,20 +214,32 @@ function DropZone({
         if (disabled) return;
         e.preventDefault();
         setDragOver(false);
-        const col = e.dataTransfer.getData('column');
-        const sourceZone = e.dataTransfer.getData('sourceZone') as keyof AxisAssignments | '';
-        if (col) onDrop({ colName: col, sourceZone: sourceZone || null });
+        const col =
+          e.dataTransfer.getData('application/x-daitalk-column') ||
+          e.dataTransfer.getData('column') ||
+          selectedPayload?.colName ||
+          '';
+        const sourceZoneRaw = e.dataTransfer.getData('sourceZone');
+        const sourceZone =
+          (sourceZoneRaw as keyof AxisAssignments | '') ||
+          selectedPayload?.sourceZone ||
+          null;
+        if (col) onDrop({ colName: col, sourceZone });
       }}
     >
       <span className="text-[9px] text-white/25 uppercase tracking-widest font-bold shrink-0 w-9">{label}</span>
       {assignedCol ? (
         <>
           <span
-            className="text-[10px] text-[#00d2ff] font-mono flex-1 truncate cursor-grab active:cursor-grabbing"
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.setData('column', assignedCol);
-              e.dataTransfer.setData('sourceZone', zoneKey);
+            className={`text-[10px] text-[#00d2ff] font-mono flex-1 truncate cursor-grab active:cursor-grabbing ${
+              selectedPayload?.colName === assignedCol && selectedPayload?.sourceZone === zoneKey
+                ? 'underline decoration-[#00d2ff]/60 decoration-dotted underline-offset-2'
+                : ''
+            }`}
+            onPointerDown={(event) => onPointerStart({ colName: assignedCol, sourceZone: zoneKey }, event)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectAssigned({ colName: assignedCol, sourceZone: zoneKey });
             }}
             title="Drag to reassign"
           >
@@ -202,7 +254,7 @@ function DropZone({
         </>
       ) : (
         <span className="text-[10px] text-white/15 italic flex-1">
-          {disabled ? helperText ?? 'not available' : 'drop column here'}
+          {disabled ? helperText ?? 'not available' : isPointerDragging ? 'release to assign here' : hasSelectedColumn ? 'click to assign selected' : 'drop column here'}
         </span>
       )}
     </div>
@@ -215,6 +267,7 @@ export interface GraphBuilderPanelProps {
   columns: ColumnMeta[];
   data: Record<string, unknown>[];
   initialRequest?: {
+    artifactId?: string | null;
     chartType: string;
     xColumn: string;
     yColumn: string;
@@ -228,6 +281,18 @@ export interface GraphBuilderPanelProps {
 
 export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilderPanelProps) {
   const setGraphBuilderRequest = useWorkspaceStore((s) => s.setGraphBuilderRequest);
+  const updateArtifactDraft = useWorkspaceStore((s) => s.updateArtifactDraft);
+  const commitArtifactRevision = useWorkspaceStore((s) => s.commitArtifactRevision);
+  const discardArtifactDraftChanges = useWorkspaceStore((s) => s.discardArtifactDraftChanges);
+  const activeConnectionId = useWorkspaceStore((s) => s.activeConnectionId);
+  const activeTabId = useWorkspaceStore((s) => s.activeTabId);
+  const activeTab = useWorkspaceStore((s) => s.tabs.find((tab) => tab.id === s.activeTabId) ?? null);
+  const artifact = useWorkspaceStore((s) =>
+    initialRequest?.artifactId ? s.artifacts[initialRequest.artifactId] ?? null : null
+  );
+  const artifactHead = useWorkspaceStore((s) =>
+    initialRequest?.artifactId ? s.artifactHeads[initialRequest.artifactId] ?? null : null
+  );
   const lastConsumedRequestKeyRef = useRef<string | null>(null);
   const [assignments, setAssignments] = useState<AxisAssignments>({
     x: null, y: null, color: null, size: null, facet: null,
@@ -254,13 +319,11 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [optionsCollapsed, setOptionsCollapsed] = useState(false);
   const [savedChartsCollapsed, setSavedChartsCollapsed] = useState(true);
-  const [savedCharts, setSavedCharts] = useState<SavedChartConfig[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]') as SavedChartConfig[];
-    } catch {
-      return [];
-    }
-  });
+  const [savedCharts, setSavedCharts] = useState<SavedChartConfig[]>(loadChartPresets);
+  const chartCaptureRef = useRef<HTMLDivElement>(null);
+  const [selectedPayload, setSelectedPayload] = useState<DragAssignmentPayload | null>(null);
+  const [pointerDrag, setPointerDrag] = useState<PointerDragState | null>(null);
+  const [hoveredZone, setHoveredZone] = useState<keyof AxisAssignments | null>(null);
 
   // Find ColumnMeta by name
   const colMeta = useCallback(
@@ -326,16 +389,17 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
     facet: false,
   }), [chartTypeOverride, resolvedChartType]);
 
-  // Assign a column to the next empty zone
-  const assignToNextEmpty = useCallback((colName: string) => {
-    setAssignments((prev) => {
-      if (!prev.x) return { ...prev, x: colName };
-      if (!prev.y) return { ...prev, y: colName };
-      if (!prev.color && zoneSupport.color) return { ...prev, color: colName };
-      if (!prev.size && zoneSupport.size) return { ...prev, size: colName };
-      return prev;
+  useEffect(() => {
+    const unsubscribe = subscribeChartPresets(() => {
+      setSavedCharts(loadChartPresets());
     });
-  }, [zoneSupport.color, zoneSupport.size]);
+    void ensureChartPresetsLoaded().then(setSavedCharts);
+    return unsubscribe;
+  }, []);
+
+  const selectColumnPayload = useCallback((colName: string) => {
+    setSelectedPayload({ colName, sourceZone: null });
+  }, []);
 
   const setAssignment = useCallback((zone: keyof AxisAssignments, colName: string | null) => {
     setAssignments((prev) => {
@@ -345,6 +409,9 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
       }
       return next;
     });
+    if (!colName) {
+      setSelectedPayload((prev) => (prev?.sourceZone === zone ? null : prev));
+    }
   }, [chartTypeOverride]);
 
   const handleZoneDrop = useCallback((zone: keyof AxisAssignments, payload: { colName: string; sourceZone: keyof AxisAssignments | null }) => {
@@ -375,7 +442,60 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
     if (zone === 'size' && colName && chartTypeOverride === 'auto') {
       setChartTypeOverride('bubble');
     }
+    setSelectedPayload({ colName, sourceZone: zone });
+    setHoveredZone(null);
   }, [chartTypeOverride]);
+
+  const beginPointerDrag = useCallback((payload: DragAssignmentPayload, event: React.PointerEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedPayload(payload);
+    setPointerDrag({
+      payload,
+      startX: event.clientX,
+      startY: event.clientY,
+      x: event.clientX,
+      y: event.clientY,
+      active: false,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!pointerDrag) return;
+
+    const handleMove = (event: PointerEvent) => {
+      setPointerDrag((prev) => {
+        if (!prev) return prev;
+        const dx = event.clientX - prev.startX;
+        const dy = event.clientY - prev.startY;
+        const active = prev.active || Math.hypot(dx, dy) > 4;
+        return {
+          ...prev,
+          x: event.clientX,
+          y: event.clientY,
+          active,
+        };
+      });
+    };
+
+    const handleUp = () => {
+      setPointerDrag((prev) => {
+        if (!prev) return null;
+        if (prev.active && hoveredZone) {
+          handleZoneDrop(hoveredZone, prev.payload);
+        }
+        return null;
+      });
+      setHoveredZone(null);
+    };
+
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp, { once: true });
+    return () => {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+    };
+  }, [handleZoneDrop, hoveredZone, pointerDrag]);
 
   // Save chart config
   const handleSaveChart = () => {
@@ -389,8 +509,8 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
       savedAt: Date.now(),
     };
     const updated = [...savedCharts, config];
+    saveChartPresets(updated);
     setSavedCharts(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   };
 
   const handleRestoreChart = (config: SavedChartConfig) => {
@@ -401,9 +521,30 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
 
   const handleDeleteSavedChart = (id: string) => {
     const updated = savedCharts.filter((c) => c.id !== id);
+    saveChartPresets(updated);
     setSavedCharts(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   };
+
+  const handleSaveArtifactRevision = useCallback(() => {
+    if (!artifact || artifact.kind !== 'chart') return;
+    commitArtifactRevision({
+      ...artifact,
+      updatedAt: Date.now(),
+      name: title || artifact.name,
+      chart: {
+        chartType: chartTypeOverride,
+        assignments,
+        options,
+      },
+    });
+    toast.success('Chart revision saved');
+  }, [artifact, assignments, chartTypeOverride, commitArtifactRevision, options, title]);
+
+  const handleDiscardArtifactDraft = useCallback(() => {
+    if (!initialRequest?.artifactId) return;
+    discardArtifactDraftChanges(initialRequest.artifactId);
+    toast.success('Draft changes discarded');
+  }, [discardArtifactDraftChanges, initialRequest?.artifactId]);
 
   // Export: TSV copy
   const handleCopyTsv = () => {
@@ -416,6 +557,31 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
       return v === null || v === undefined ? '' : String(v);
     }).join('\t')).join('\n');
     navigator.clipboard.writeText(header + '\n' + rows).catch(() => {});
+  };
+
+  const handleExportPng = async () => {
+    if (!chartCaptureRef.current) {
+      toast.error('Chart surface is not ready to export yet.');
+      return;
+    }
+
+    try {
+      const canvas = await html2canvas(chartCaptureRef.current, {
+        backgroundColor: '#0a0a0a',
+        scale: 2,
+      });
+      const link = document.createElement('a');
+      const fileNameBase = (title || `${resolvedChartType}-${assignments.y ?? 'chart'}`)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'chart-export';
+      link.href = canvas.toDataURL('image/png');
+      link.download = `${fileNameBase}.png`;
+      link.click();
+      toast.success('Chart exported as PNG');
+    } catch (error: any) {
+      toast.error(error?.message ?? 'Unable to export the chart as PNG.');
+    }
   };
 
   // Right-click selection handler
@@ -437,6 +603,71 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
     return Number.isFinite(parsed) ? parsed : null;
   };
 
+  useEffect(() => {
+    if (!artifact || artifact.kind !== 'chart') return;
+
+    setAssignments(artifact.chart.assignments);
+    setChartTypeOverride(
+      CHART_TYPES.some((entry) => entry.type === artifact.chart.chartType)
+        ? (artifact.chart.chartType as ChartType)
+        : 'auto'
+    );
+    setTitle(artifact.name);
+    setOptions(artifact.chart.options);
+  }, [artifact]);
+
+  useEffect(() => {
+    if (!initialRequest?.artifactId || !activeTab?.queryResults) return;
+
+    const nextArtifact = {
+      ...(artifact ?? {
+        id: initialRequest.artifactId,
+        kind: 'chart' as const,
+        createdAt: Date.now(),
+        lineage: {
+          connectionId: activeConnectionId,
+          sql: activeTab.sql,
+          queryId: activeTab.queryResults.queryId,
+          sourceTables: activeTab.queryResults.source_tables,
+          sourceTabId: activeTabId,
+        },
+        snapshot: {
+          id: `dashboard-source-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          name: title || `${assignments.y ?? 'Chart'} by ${assignments.x ?? 'X'}`,
+          connectionId: activeConnectionId,
+          sql: activeTab.sql,
+          capturedAt: Date.now(),
+          rowCount: activeTab.queryResults.rowCount,
+          elapsedMs: activeTab.queryResults.elapsedMs,
+          queryId: activeTab.queryResults.queryId,
+          fields: activeTab.queryResults.fields,
+          rows: activeTab.queryResults.rows,
+          sourceTables: activeTab.queryResults.source_tables,
+        },
+      }),
+      updatedAt: Date.now(),
+      name: title || artifact?.name || `${assignments.y ?? 'Chart'} by ${assignments.x ?? 'X'}`,
+      chart: {
+        chartType: chartTypeOverride,
+        assignments,
+        options,
+      },
+    };
+
+    updateArtifactDraft(nextArtifact);
+  }, [
+    activeConnectionId,
+    activeTab,
+    activeTabId,
+    artifact,
+    assignments,
+    chartTypeOverride,
+    initialRequest?.artifactId,
+    options,
+    title,
+    updateArtifactDraft,
+  ]);
+
   return (
     <div className="flex h-full w-full overflow-hidden bg-[#0a0a0a]">
       {/* ── LEFT: Column list ──────────────────────────────────────────────── */}
@@ -455,8 +686,9 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
                 key={col.name}
                 col={col}
                 data={data}
-                onDragStart={() => {}}
-                onClick={assignToNextEmpty}
+                onPointerStart={beginPointerDrag}
+                onClick={selectColumnPayload}
+                selected={selectedPayload?.colName === col.name && selectedPayload?.sourceZone === null}
               />
             ))
           )}
@@ -467,13 +699,18 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Drop zones */}
         <div className="shrink-0 px-3 py-2 border-b border-[#1a1a1a] space-y-1 bg-[#0d0d0d]">
+          {selectedPayload?.colName && (
+            <div className="rounded border border-[#00d2ff]/20 bg-[#00d2ff]/5 px-2 py-1 text-[10px] text-[#00d2ff]/80 font-mono">
+              Selected: {selectedPayload.colName} {selectedPayload.sourceZone ? `from ${selectedPayload.sourceZone.toUpperCase()}` : ''} — drag it or click a target zone.
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-1.5">
-            <DropZone zoneKey="x" label="X" assignedCol={assignments.x} onDrop={(payload) => handleZoneDrop('x', payload)} onRemove={() => setAssignment('x', null)} />
-            <DropZone zoneKey="y" label="Y" assignedCol={assignments.y} onDrop={(payload) => handleZoneDrop('y', payload)} onRemove={() => setAssignment('y', null)} />
-            <DropZone zoneKey="color" label="Color" assignedCol={assignments.color} onDrop={(payload) => handleZoneDrop('color', payload)} onRemove={() => setAssignment('color', null)} disabled={!zoneSupport.color} helperText="unsupported for this chart" />
-            <DropZone zoneKey="size" label="Size" assignedCol={assignments.size} onDrop={(payload) => handleZoneDrop('size', payload)} onRemove={() => setAssignment('size', null)} disabled={!zoneSupport.size} helperText="use bubble or auto" />
+            <DropZone zoneKey="x" label="X" assignedCol={assignments.x} onDrop={(payload) => handleZoneDrop('x', payload)} onRemove={() => setAssignment('x', null)} onPointerStart={beginPointerDrag} onSelectAssigned={setSelectedPayload} onPointerEnterZone={setHoveredZone} onPointerLeaveZone={(zone) => setHoveredZone((prev) => (prev === zone ? null : prev))} selectedPayload={pointerDrag?.payload ?? selectedPayload} isPointerDragging={Boolean(pointerDrag?.active)} />
+            <DropZone zoneKey="y" label="Y" assignedCol={assignments.y} onDrop={(payload) => handleZoneDrop('y', payload)} onRemove={() => setAssignment('y', null)} onPointerStart={beginPointerDrag} onSelectAssigned={setSelectedPayload} onPointerEnterZone={setHoveredZone} onPointerLeaveZone={(zone) => setHoveredZone((prev) => (prev === zone ? null : prev))} selectedPayload={pointerDrag?.payload ?? selectedPayload} isPointerDragging={Boolean(pointerDrag?.active)} />
+            <DropZone zoneKey="color" label="Color" assignedCol={assignments.color} onDrop={(payload) => handleZoneDrop('color', payload)} onRemove={() => setAssignment('color', null)} onPointerStart={beginPointerDrag} onSelectAssigned={setSelectedPayload} onPointerEnterZone={setHoveredZone} onPointerLeaveZone={(zone) => setHoveredZone((prev) => (prev === zone ? null : prev))} selectedPayload={pointerDrag?.payload ?? selectedPayload} isPointerDragging={Boolean(pointerDrag?.active)} disabled={!zoneSupport.color} helperText="unsupported for this chart" />
+            <DropZone zoneKey="size" label="Size" assignedCol={assignments.size} onDrop={(payload) => handleZoneDrop('size', payload)} onRemove={() => setAssignment('size', null)} onPointerStart={beginPointerDrag} onSelectAssigned={setSelectedPayload} onPointerEnterZone={setHoveredZone} onPointerLeaveZone={(zone) => setHoveredZone((prev) => (prev === zone ? null : prev))} selectedPayload={pointerDrag?.payload ?? selectedPayload} isPointerDragging={Boolean(pointerDrag?.active)} disabled={!zoneSupport.size} helperText="use bubble or auto" />
           </div>
-          <DropZone zoneKey="facet" label="Group" assignedCol={assignments.facet} onDrop={(payload) => handleZoneDrop('facet', payload)} onRemove={() => setAssignment('facet', null)} disabled={!zoneSupport.facet} helperText="faceting not implemented" />
+          <DropZone zoneKey="facet" label="Group" assignedCol={assignments.facet} onDrop={(payload) => handleZoneDrop('facet', payload)} onRemove={() => setAssignment('facet', null)} onPointerStart={beginPointerDrag} onSelectAssigned={setSelectedPayload} onPointerEnterZone={setHoveredZone} onPointerLeaveZone={(zone) => setHoveredZone((prev) => (prev === zone ? null : prev))} selectedPayload={pointerDrag?.payload ?? selectedPayload} isPointerDragging={Boolean(pointerDrag?.active)} disabled={!zoneSupport.facet} helperText="use color to compare groups" />
         </div>
 
         {/* Export toolbar */}
@@ -485,11 +722,30 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
             <span className="text-[9px] text-white/15 font-mono">{data.length.toLocaleString()} rows</span>
           )}
           <div className="ml-auto flex items-center gap-1.5">
-            {/* TODO: html2canvas export */}
+            {initialRequest?.artifactId && (
+              <>
+                <button
+                  onClick={handleDiscardArtifactDraft}
+                  disabled={!artifactHead?.hasUncommittedChanges}
+                  className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] text-white/25 hover:text-white/60 font-mono uppercase tracking-wider transition-colors disabled:opacity-25"
+                  title="Discard unsaved chart draft changes"
+                >
+                  <X className="w-2.5 h-2.5" /> Discard
+                </button>
+                <button
+                  onClick={handleSaveArtifactRevision}
+                  disabled={!artifactHead?.hasUncommittedChanges}
+                  className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] text-cyan-300/60 hover:text-cyan-200 font-mono uppercase tracking-wider transition-colors disabled:opacity-25"
+                  title="Commit the current chart draft as a new revision"
+                >
+                  <Save className="w-2.5 h-2.5" /> Save Rev
+                </button>
+              </>
+            )}
             <button
-              disabled
-              className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] text-white/15 font-mono uppercase tracking-wider cursor-not-allowed"
-              title="PNG export — html2canvas not installed"
+              onClick={handleExportPng}
+              className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] text-white/30 hover:text-white/60 font-mono uppercase tracking-wider transition-colors"
+              title="Export the current chart as PNG"
             >
               <Download className="w-2.5 h-2.5" /> PNG
             </button>
@@ -503,15 +759,16 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
             <button
               onClick={handleSaveChart}
               className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] text-emerald-400/50 hover:text-emerald-400 font-mono uppercase tracking-wider transition-colors"
-              title="Save current chart configuration"
+              title="Save current chart preset"
             >
-              <Save className="w-2.5 h-2.5" /> Save
+              <Save className="w-2.5 h-2.5" /> Preset
             </button>
           </div>
         </div>
 
         {/* Chart area */}
         <div
+          ref={chartCaptureRef}
           className="flex-1 min-h-0 overflow-hidden"
           data-graph-builder-chart
         >
@@ -756,6 +1013,14 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
           )}
         </div>
       </div>
+      {pointerDrag?.active && (
+        <div
+          className="fixed z-[10000] pointer-events-none rounded border border-[#00d2ff]/40 bg-[#08141a] px-2 py-1 text-[10px] text-[#00d2ff] font-mono shadow-xl"
+          style={{ left: pointerDrag.x + 12, top: pointerDrag.y + 12 }}
+        >
+          {pointerDrag.payload.colName}
+        </div>
+      )}
     </div>
   );
 }

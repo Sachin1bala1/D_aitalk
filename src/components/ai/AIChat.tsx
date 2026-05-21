@@ -10,8 +10,10 @@ import ReactMarkdown from "react-markdown";
 import type { FullSchema } from "../../lib/db/DbClient";
 import type { QueryResults } from "../../lib/stores/WorkspaceStore";
 import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
-import { runAgentLoop } from "../../lib/agent/AgentLoop";
+import { resumeTaskEngine, startTaskEngine } from "../../lib/agent/TaskEngine";
 import type { CommandResult } from "../../lib/agent/CommandBus";
+import { commandBus } from "../../lib/agent/CommandBus";
+import type { PersistedAiChatMessage, PersistedAiSessionState } from "../../lib/ai/AiSessionState";
 import type { ConversationTurn } from "../../lib/ai/types";
 import { loadSettings, loadApiKeysFromKeychain, getActiveKey, getActiveModel, PROVIDER_CATALOG } from "../../lib/ai/types";
 import { getProvider } from "../../lib/ai/ProviderRegistry";
@@ -23,11 +25,22 @@ import { HypothesisPanel } from "./HypothesisPanel";
 import { ConfidenceBar } from "./ConfidenceBar";
 import { EpisodicMemory } from "../../lib/memory/EpisodicMemory";
 import { UserCalibrationProfile } from "../../lib/memory/UserCalibrationProfile";
+import { useWorkspaceRuleStore } from "../../lib/memory/WorkspaceRuleStore";
 import type { MemoryContext } from "../../lib/agent/AgentLoop";
 import type { AnalysisSection } from "../../lib/reports/ReportBuilder";
 import { ReportPanel } from "../reports/ReportPanel";
 import { BusinessClient } from "../../lib/business/BusinessClient";
 import { TaskProgressPanel } from "./TaskProgressPanel";
+import { createReportArtifact } from "../../lib/artifacts/reportArtifacts";
+import { getLatestArtifactRevisionId } from "../../lib/stores/WorkspaceStore";
+import type { TaskCheckpoint } from "../../lib/agent/TaskState";
+import {
+  attemptedQueryMaterialization,
+  getAutoExecutableSql,
+  hasSuccessfulResultTool,
+  requiresLiveExecution,
+  type ToolExecutionOutcome,
+} from "../../lib/agent/ExecutionIntentGuard";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -42,6 +55,15 @@ interface ChatMessage {
   toolLog?: ToolLogEntry[];
 }
 
+function toPersistedMessages(messages: ChatMessage[]): PersistedAiChatMessage[] {
+  return messages.map(({ id, role, content, toolLog }) => ({
+    id,
+    role,
+    content,
+    toolLog,
+  }));
+}
+
 interface AIChatProps {
   currentSQL: string | null;
   currentResults: QueryResults | null;
@@ -49,6 +71,25 @@ interface AIChatProps {
   connectionId: string | null;
   onApplySQL: (sql: string) => void;
   onQuerySuccess: (results: QueryResults, sql: string) => void;
+}
+
+function buildInterruptedResumePrompt(checkpoint: TaskCheckpoint): string {
+  const activeSubtask = checkpoint.task.subtasks[checkpoint.task.currentIndex];
+  const lastNote =
+    activeSubtask?.auditLog[activeSubtask.auditLog.length - 1]?.note ??
+    checkpoint.lastCheckpointNote ??
+    "No checkpoint note recorded.";
+
+  return [
+    "Resume the interrupted analysis task safely.",
+    `Original goal: ${checkpoint.task.userGoal}`,
+    activeSubtask ? `Current subtask: ${activeSubtask.goal}` : null,
+    `Last checkpoint: ${lastNote}`,
+    "Treat any restored results as snapshots only.",
+    "Re-check the world state before continuing and do not assume any in-flight work completed.",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 // ── Plan-queued row ───────────────────────────────────────────────────────────
@@ -88,31 +129,12 @@ function NoProviderPrompt({ onOpen }: { onOpen: () => void }) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-const CHAT_STORAGE_KEY = "daitalk_chat_history";
-const CONV_STORAGE_KEY = "daitalk_conv_turns";
-
 const WELCOME: ChatMessage = {
   id: "welcome",
   role: "assistant",
   content:
     "Hello! I'm **APEX** — your Autonomous Process Engineering eXpert. I think like a 30-year senior process engineer.\n\nAsk me to:\n- Analyze your data with SPC, regression, or capability analysis\n- Detect anomalies and Western Electric rule violations\n- Find root causes using structured RCA methodology\n- Query and modify your database in plain language\n\nConnect a database and tell me what to investigate.",
 };
-
-function loadMessages(): ChatMessage[] {
-  try {
-    const raw = localStorage.getItem(CHAT_STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as ChatMessage[];
-  } catch {}
-  return [WELCOME];
-}
-
-function loadTurns(): ConversationTurn[] {
-  try {
-    const raw = localStorage.getItem(CONV_STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as ConversationTurn[];
-  } catch {}
-  return [];
-}
 
 export function AIChat({ currentSQL, currentResults, currentSchema, connectionId, onApplySQL }: AIChatProps) {
   const {
@@ -123,6 +145,17 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
     clearHypotheses,
     clearConfidence,
     connections,
+    artifacts,
+    artifactRevisions,
+    commitArtifactRevision,
+    aiSession,
+    setAiSession,
+    clearAiSession,
+    taskCheckpoint,
+    clearTaskCheckpoint,
+    abandonTaskCheckpoint,
+    pendingTaskResume,
+    clearPendingTaskResume,
   } = useWorkspaceStore();
 
   const pendingChatInput = useWorkspaceStore((s) => s.pendingChatInput);
@@ -132,18 +165,19 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
   const [providerKeysHydrated, setProviderKeysHydrated] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [toolsPanelOpen, setToolsPanelOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>(loadMessages);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => aiSession?.messages as ChatMessage[] ?? [WELCOME]);
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [queryDepth, setQueryDepth] = useState<'fast' | 'deep' | null>(null);
-  const [sessionSections, setSessionSections] = useState<AnalysisSection[]>([]);
+  const [queryDepth, setQueryDepth] = useState<'fast' | 'deep' | null>(aiSession?.queryDepth ?? null);
+  const [sessionSections, setSessionSections] = useState<AnalysisSection[]>(aiSession?.sessionSections ?? []);
   const [reportPanelOpen, setReportPanelOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const historyRef = useRef<ConversationTurn[]>(loadTurns());
+  const [conversationTurns, setConversationTurns] = useState<ConversationTurn[]>(aiSession?.conversationTurns ?? []);
+  const historyRef = useRef<ConversationTurn[]>(aiSession?.conversationTurns ?? []);
   const toolsCalledRef = useRef<string[]>([]);
-  // Tracks the user's question that opened the current analysis session (not the static WELCOME message)
-  const sessionQuestionRef = useRef<string>("");
+  const toolOutcomeRef = useRef<ToolExecutionOutcome[]>([]);
+  const [sessionQuestion, setSessionQuestion] = useState(aiSession?.sessionQuestion ?? "");
 
   // Load API keys from OS keychain on mount and merge into settings
   useEffect(() => {
@@ -165,16 +199,29 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
   }, [pendingChatInput, clearPendingChatInput]);
 
   useEffect(() => {
+    if (!pendingTaskResume || isProcessing) return;
+    clearPendingTaskResume();
+    void handleResumeInterruptedTask(pendingTaskResume);
+  }, [clearPendingTaskResume, isProcessing, pendingTaskResume]);
+
+  useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
 
-  // Persist chat display messages (skip streaming mid-message)
+  // Persist stable AI session state through the native workspace snapshot layer.
   useEffect(() => {
     const stable = messages.filter((m) => !m.streaming);
-    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(stable.slice(-100)));
-  }, [messages]);
+    const nextSession: PersistedAiSessionState = {
+      messages: toPersistedMessages(stable.slice(-100)),
+      conversationTurns,
+      sessionSections,
+      sessionQuestion,
+      queryDepth,
+    };
+    setAiSession(nextSession);
+  }, [conversationTurns, messages, queryDepth, sessionQuestion, sessionSections, setAiSession]);
 
   // Ctrl+Z — undo last agent command
   useEffect(() => {
@@ -226,34 +273,42 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
   const activeModel = getActiveModel(providerSettings);
   const activeMeta = PROVIDER_CATALOG.find((p) => p.id === providerSettings.activeProvider)!;
 
-  const handleSend = async () => {
-    if (!input.trim() || isProcessing) return;
-
+  const executeAgentRequest = useCallback(async (userMsg: string, options?: {
+    visibleUserMessage?: string;
+    preserveSessionSections?: boolean;
+    preserveQueryDepth?: boolean;
+    resumeCheckpoint?: TaskCheckpoint | null;
+  }) => {
+    if (!userMsg.trim() || isProcessing) return;
     const provider = getProvider(providerSettings);
     if (!provider) {
       setSettingsOpen(true);
       return;
     }
 
-    // Clear stale hypotheses, confidence, routing badge, and session sections from previous conversation
+    const visibleUserMessage = options?.visibleUserMessage ?? userMsg;
+
     clearHypotheses();
     clearConfidence();
-    setQueryDepth(null);
-    setSessionSections([]);
-
-    const userMsg = input.trim();
-    sessionQuestionRef.current = userMsg;
-    setInput("");
-    addMsg({ role: "user", content: userMsg });
+    if (!options?.preserveQueryDepth) {
+      setQueryDepth(null);
+    }
+    if (!options?.preserveSessionSections) {
+      setSessionSections([]);
+    }
+    setSessionQuestion("");
+    setSessionQuestion(userMsg);
+    addMsg({ role: "user", content: visibleUserMessage });
     setIsProcessing(true);
+    clearTaskCheckpoint();
 
-    // Search memory for relevant past analyses
     let memoryContext: MemoryContext | undefined;
     try {
       const [episodes, profile] = await Promise.all([
         EpisodicMemory.search(userMsg, 5, connectionId ?? undefined),
         UserCalibrationProfile.getProfile(),
       ]);
+      const workspaceRules = useWorkspaceRuleStore.getState().getApprovedRules(connectionId ?? null);
       const [customerBrief, pendingOutcomes] = await Promise.all([
         BusinessClient.getCustomerBrief().catch(() => []),
         BusinessClient.getPendingOutcomes(5).catch(() => []),
@@ -262,6 +317,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
         recentEpisodes: episodes,
         priorityParams: profile.parameterPriorities,
         expertiseLevel: profile.expertiseLevel,
+        workspaceRules,
         customerBrief,
         pendingOutcomes,
       };
@@ -269,9 +325,10 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       // Memory failure must not block the agent
     }
     toolsCalledRef.current = [];
+    toolOutcomeRef.current = [];
 
     try {
-      const { finalText, updatedHistory, queryDepth: resultDepth } = await runAgentLoop(userMsg, historyRef.current, {
+      const sharedTaskOptions = {
         provider,
         model: activeModel,
         connectionId,
@@ -282,7 +339,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
 
         onToken: appendToken,
 
-        onToolStart: (toolName, input) => {
+        onToolStart: (toolName: string, input: unknown) => {
           toolsCalledRef.current.push(toolName);
           const entry: ToolLogEntry = {
             id: `tl-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
@@ -298,7 +355,12 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
           });
         },
 
-        onToolEnd: (toolName, result: CommandResult) => {
+        onToolEnd: (toolName: string, result: CommandResult) => {
+          toolOutcomeRef.current.push({
+            toolName,
+            success: result.success,
+          });
+
           setMessages((prev) => {
             for (let i = prev.length - 1; i >= 0; i--) {
               const msg = prev[i];
@@ -330,7 +392,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
           });
 
           // Track stat tool results for report session
-          if (toolName.startsWith("stat__") && result.success) {
+          if ((toolName.startsWith("stat__") || toolName.startsWith("analyze_loaded_")) && result.success) {
             const rawResult = result.result;
             setSessionSections((prev) => [
               ...prev,
@@ -347,17 +409,79 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
           }
         },
 
-        onPlanQueued: (_stepId, description) => {
+        onPlanQueued: (_stepId: string, description: string) => {
           addMsg({ role: "plan_queued", content: description });
         },
-      });
+      };
+      const { finalText, updatedHistory, queryDepth: resultDepth } = options?.resumeCheckpoint
+        ? await resumeTaskEngine(options.resumeCheckpoint, historyRef.current, sharedTaskOptions)
+        : await startTaskEngine(userMsg, historyRef.current, sharedTaskOptions);
 
       finalizeStream();
       setQueryDepth(resultDepth ?? null);
       historyRef.current = updatedHistory;
-      localStorage.setItem(CONV_STORAGE_KEY, JSON.stringify(updatedHistory));
+      setConversationTurns(updatedHistory);
 
-      // Store this analysis session in episodic memory
+      if (
+        requiresLiveExecution(userMsg) &&
+        attemptedQueryMaterialization(toolOutcomeRef.current) &&
+        !hasSuccessfulResultTool(toolOutcomeRef.current)
+      ) {
+        const state = useWorkspaceStore.getState();
+        const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId) ?? null;
+        const fallbackConnectionId =
+          activeTab?.connectionId ?? state.activeConnectionId ?? connectionId;
+        const fallbackSql = getAutoExecutableSql(activeTab?.sql ?? null);
+
+        if (fallbackConnectionId && fallbackSql) {
+          addMsg({
+            role: "assistant",
+            content:
+              "The agent generated the SQL but the live execution path did not complete. Running the safe read query automatically now.",
+          });
+
+          const fallbackResult = await commandBus.dispatch({
+            type: "execute_sql",
+            sql: fallbackSql,
+            connectionId: fallbackConnectionId,
+            risk: "safe",
+          });
+
+          toolOutcomeRef.current.push({
+            toolName: "execute_sql",
+            success: fallbackResult.success,
+          });
+
+          if (fallbackResult.success) {
+            const rowCount =
+              typeof fallbackResult.result === "object" &&
+              fallbackResult.result !== null &&
+              "rowCount" in fallbackResult.result
+                ? Number((fallbackResult.result as { rowCount?: number }).rowCount ?? 0)
+                : null;
+
+            addMsg({
+              role: "assistant",
+              content:
+                rowCount != null
+                  ? `Live execution completed automatically. Loaded **${rowCount}** row${rowCount === 1 ? "" : "s"} into the results pane.`
+                  : "Live execution completed automatically and the results pane is now populated.",
+            });
+          } else {
+            addMsg({
+              role: "error",
+              content: `The agent generated SQL, but live execution still failed: ${fallbackResult.error ?? "Unknown execution error"}`,
+            });
+          }
+        } else {
+          addMsg({
+            role: "error",
+            content:
+              "The agent generated SQL but did not complete live execution, and no safe runnable query/connection context was available for automatic fallback.",
+          });
+        }
+      }
+
       try {
         await EpisodicMemory.store({
           sessionId: `session-${Date.now()}`,
@@ -368,13 +492,20 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
           outcome: finalText?.slice(0, 300) ?? "",
         });
       } catch {
-        // Memory store failure must not affect UI
       }
     } catch (e: unknown) {
       finalizeStream();
       const rawMsg: string = e instanceof Error ? e.message : String(e);
       const provider = providerSettings.activeProvider;
       let hint = rawMsg;
+      if (rawMsg.toLowerCase().includes("gemini quota exceeded")) {
+        hint =
+          "Gemini accepted the key, but this project has no usable quota for the selected model right now. Enable billing in Google AI Studio / Google Cloud, switch to a Gemini model with available quota, or use another provider.";
+      }
+      if (rawMsg.toLowerCase().includes("timed out")) {
+        hint =
+          "The model took longer than the interactive budget for this request. The runtime now retries slow rounds automatically, but this provider or model is still responding slowly right now. Try again or switch to a faster model/provider for routine work.";
+      }
       if (rawMsg === "Connection error." || rawMsg.includes("fetch")) {
         if (provider === "ollama") {
           hint = "Cannot reach Ollama at http://127.0.0.1:11434 — is Ollama running? Run: ollama serve";
@@ -386,6 +517,42 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
     } finally {
       setIsProcessing(false);
     }
+  }, [
+    activeModel,
+    appendToken,
+    artifacts,
+    clearConfidence,
+    clearHypotheses,
+    clearTaskCheckpoint,
+    connectionId,
+    currentResults,
+    currentSQL,
+    currentSchema,
+    finalizeStream,
+    isProcessing,
+    providerSettings,
+    setSessionSections,
+    setSessionQuestion,
+    setSettingsOpen,
+    setQueryDepth,
+    addMsg,
+  ]);
+
+  const handleSend = async () => {
+    const userMsg = input.trim();
+    if (!userMsg || isProcessing) return;
+    setInput("");
+    await executeAgentRequest(userMsg);
+  };
+
+  const handleResumeInterruptedTask = async (checkpoint: TaskCheckpoint) => {
+    if (isProcessing) return;
+    await executeAgentRequest(checkpoint.task.userGoal, {
+      visibleUserMessage: `Resume interrupted task: ${checkpoint.task.userGoal}`,
+      preserveSessionSections: true,
+      preserveQueryDepth: true,
+      resumeCheckpoint: checkpoint,
+    });
   };
 
   const isOllamaActive = providerSettings.activeProvider === "ollama";
@@ -414,6 +581,35 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
     <div className="flex flex-col h-full bg-[#0d0d0d]">
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
         {/* Hypothesis Panel — shown only when there are active hypotheses */}
+        {taskCheckpoint?.lifecycle === "interrupted" && (
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-200/80">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-mono uppercase tracking-widest text-[10px] text-amber-300/70">
+                  Interrupted Task
+                </div>
+                <div className="mt-1 truncate text-white/80">{taskCheckpoint.task.userGoal}</div>
+                <div className="mt-1 truncate font-mono text-[10px] text-white/45">
+                  {taskCheckpoint.task.subtasks[taskCheckpoint.task.currentIndex]?.goal ?? "Awaiting next step"}
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  onClick={() => void handleResumeInterruptedTask(taskCheckpoint)}
+                  className="rounded border border-[#2a2a2a] bg-[#111] px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-cyan-300/70 hover:text-cyan-200"
+                >
+                  Resume
+                </button>
+                <button
+                  onClick={abandonTaskCheckpoint}
+                  className="rounded border border-[#2a2a2a] bg-[#111] px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-white/45 hover:text-white/70"
+                >
+                  Abandon
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {activeHypotheses && activeHypotheses.length > 0 && <HypothesisPanel />}
 
         {messages.map((msg) => {
@@ -531,9 +727,11 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
               onClick={() => {
                 setMessages([WELCOME]);
                 historyRef.current = [];
-                localStorage.removeItem(CHAT_STORAGE_KEY);
-                localStorage.removeItem(CONV_STORAGE_KEY);
+                setConversationTurns([]);
                 setSessionSections([]);
+                setSessionQuestion("");
+                setQueryDepth(null);
+                clearAiSession();
               }}
               className="flex items-center gap-1 text-[9px] text-white/20 hover:text-white/50 transition-colors uppercase tracking-widest"
               title="Clear conversation"
@@ -578,11 +776,27 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
         open={reportPanelOpen}
         onOpenChange={setReportPanelOpen}
         session={sessionSections.length > 0 ? {
-          userQuestion: sessionQuestionRef.current || 'Analysis Session',
+          userQuestion: sessionQuestion || 'Analysis Session',
           sections: sessionSections,
           connectionName: connections.find((c) => c.id === connectionId)?.display_name ?? connectionId ?? 'Unknown',
           finalText: [...messages].reverse().find((m) => m.role === 'assistant')?.content ?? '',
         } : null}
+        onSaveArtifact={(spec) => {
+          const sourceArtifacts = Object.values(artifacts)
+            .filter((artifact) => artifact.kind === "chart" || artifact.kind === "query")
+            .slice(-6)
+            .map((artifact) => ({
+              id: artifact.id,
+              revisionId: getLatestArtifactRevisionId(artifactRevisions[artifact.id]),
+            }));
+          const reportArtifact = createReportArtifact({
+            name: spec.title,
+            connectionName: spec.connectionName,
+            spec,
+            sourceArtifacts,
+          });
+          commitArtifactRevision(reportArtifact);
+        }}
       />
     </div>
   );

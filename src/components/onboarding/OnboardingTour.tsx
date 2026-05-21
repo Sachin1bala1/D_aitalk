@@ -95,7 +95,6 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
   }, [reposition]);
 
   const handleComplete = () => {
-    localStorage.setItem("daitalk_tour_completed", "1");
     setVisible(false);
     onComplete();
   };

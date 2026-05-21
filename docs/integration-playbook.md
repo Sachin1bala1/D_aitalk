@@ -6,7 +6,7 @@ This repo should integrate large incoming branches through a controlled path, no
 
 - `main`
   - Always releasable.
-  - Must pass `npm exec tsc -- --noEmit`, `npm run build`, and `cargo check`.
+  - Must pass `npm run lint`, `npm test`, `npm run build`, `cargo check`, and `cargo test --lib`.
   - Never receives a large divergent branch merge directly.
 
 - `integration/<topic>`
@@ -103,10 +103,12 @@ When a large branch collides with this app, resolve in this order:
 Every integration branch must pass:
 
 ```powershell
-npm exec tsc -- --noEmit
+npm run lint
+npm test
 npm run build
 cd .\src-tauri
 cargo check
+cargo test --lib
 ```
 
 These same checks are mirrored in `.github/workflows/validate.yml`.

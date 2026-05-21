@@ -468,6 +468,30 @@ export const DbClient = {
     return invoke("load_connections");
   },
 
+  async saveWorkspaceSession(sessionJson: string): Promise<void> {
+    return invoke("save_workspace_session", { sessionJson });
+  },
+
+  async loadWorkspaceSession(): Promise<string | null> {
+    return invoke("load_workspace_session");
+  },
+
+  async clearWorkspaceSession(): Promise<void> {
+    return invoke("clear_workspace_session");
+  },
+
+  async saveAppDocument(key: string, json: string): Promise<void> {
+    return invoke("save_app_document", { key, json });
+  },
+
+  async loadAppDocument(key: string): Promise<string | null> {
+    return invoke("load_app_document", { key });
+  },
+
+  async deleteAppDocument(key: string): Promise<void> {
+    return invoke("delete_app_document", { key });
+  },
+
   async storeApiKey(service: string, key: string): Promise<void> {
     if (key) {
       return invoke("store_api_key", { service, key });

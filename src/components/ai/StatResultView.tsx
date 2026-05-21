@@ -5,6 +5,21 @@ import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
 interface ViolationItem { rule: number; index: number; value: number; description: string; }
 interface AnomalyItem { index: number; value: number; z_score: number; }
 interface FreqItem { frequency: number; amplitude: number; }
+interface DetailedFactorItem {
+  feature: string;
+  contribution_pct?: number;
+  correlation?: number;
+  effect_direction?: string;
+  effect_strength?: number;
+}
+interface RegressionFactorItem {
+  feature: string;
+  coefficient?: number;
+  correlation?: number;
+  effect_direction?: string;
+  significance_band?: string;
+  vif?: number | null;
+}
 
 interface Props {
   data: Record<string, unknown>;
@@ -23,6 +38,8 @@ export function StatResultView({ data, label = "this statistical result" }: Prop
   const violations = Array.isArray(data.violations) ? data.violations as ViolationItem[] : null;
   const anomalies = Array.isArray(data.anomalies) ? data.anomalies as AnomalyItem[] : null;
   const dominantFreqs = Array.isArray(data.dominant_frequencies) ? data.dominant_frequencies as FreqItem[] : null;
+  const detailedFactors = Array.isArray(data.detailed_factors) ? data.detailed_factors as DetailedFactorItem[] : null;
+  const enrichedCoefficients = Array.isArray(data.enriched_coefficients) ? data.enriched_coefficients as RegressionFactorItem[] : null;
 
   function handleCopyData() {
     const raw = JSON.stringify(data, null, 2);
@@ -122,6 +139,33 @@ export function StatResultView({ data, label = "this statistical result" }: Prop
             {dominantFreqs.map((f, i) => (
               <div key={i} className="text-[9px] font-mono text-white/50">
                 {f.frequency} Hz — amp {f.amplitude}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {detailedFactors !== null && detailedFactors.length > 0 && (
+        <div>
+          <span className="text-[9px] text-white/30 uppercase tracking-wide">Top Drivers</span>
+          <div className="mt-0.5 space-y-0.5">
+            {detailedFactors.slice(0, 5).map((factor, i) => (
+              <div key={i} className="text-[9px] font-mono text-white/60">
+                {factor.feature}: {factor.contribution_pct?.toFixed?.(2) ?? factor.contribution_pct}% · {factor.effect_direction} · r={factor.correlation}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {enrichedCoefficients !== null && enrichedCoefficients.length > 0 && (
+        <div>
+          <span className="text-[9px] text-white/30 uppercase tracking-wide">Regression Effects</span>
+          <div className="mt-0.5 space-y-0.5">
+            {enrichedCoefficients.slice(0, 5).map((factor, i) => (
+              <div key={i} className="text-[9px] font-mono text-white/60">
+                {factor.feature}: coef={factor.coefficient} · {factor.effect_direction} · band={factor.significance_band}
+                {factor.vif != null ? ` · vif=${factor.vif}` : ""}
               </div>
             ))}
           </div>

@@ -18,6 +18,16 @@ export interface RetryOptions {
   onRetry?: (attempt: number, delayMs: number, error: unknown) => void;
 }
 
+export class TimeoutError extends Error {
+  timeoutMs: number;
+
+  constructor(message: string, timeoutMs: number) {
+    super(message);
+    this.name = "TimeoutError";
+    this.timeoutMs = timeoutMs;
+  }
+}
+
 const DEFAULT_OPTS: Required<RetryOptions> = {
   maxAttempts: 3,
   baseDelayMs: 1_000,
@@ -25,9 +35,18 @@ const DEFAULT_OPTS: Required<RetryOptions> = {
   onRetry: () => {},
 };
 
+function isPermanentQuotaErrorMessage(msg: string): boolean {
+  return (
+    (msg.includes("quota exceeded") || msg.includes("resource_exhausted")) &&
+    (msg.includes("limit: 0") || msg.includes("perday") || msg.includes("billing"))
+  );
+}
+
 function isRetryable(err: unknown): boolean {
+  if (err instanceof TimeoutError) return true;
   if (err instanceof Error) {
     const msg = err.message.toLowerCase();
+    if (isPermanentQuotaErrorMessage(msg)) return false;
     // Network failures
     if (msg.includes("fetch") || msg.includes("network") || msg.includes("econnrefused")) return true;
     // Rate limit / server error codes embedded in message
@@ -53,11 +72,45 @@ function extractRetryAfterMs(err: unknown): number | null {
       if (!isNaN(secs)) return secs * 1_000;
     }
   }
+  if (err instanceof Error) {
+    const message = err.message;
+    const secondsMatch = message.match(/retry in\s+(\d+(?:\.\d+)?)s/i);
+    if (secondsMatch) {
+      const secs = parseFloat(secondsMatch[1]);
+      if (!Number.isNaN(secs)) return secs * 1_000;
+    }
+    const delayMatch = message.match(/"retryDelay"\s*:\s*"(\d+)s"/i);
+    if (delayMatch) {
+      const secs = parseFloat(delayMatch[1]);
+      if (!Number.isNaN(secs)) return secs * 1_000;
+    }
+  }
   return null;
 }
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  label = "Operation",
+): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(new TimeoutError(`${label} timed out after ${Math.round(timeoutMs / 1000)}s`, timeoutMs));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
 }
 
 /**

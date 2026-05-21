@@ -9,10 +9,18 @@
  */
 import type { AgentCommand, CommandType } from "./commands";
 
+export interface CommandExecutionMeta {
+  commandType: CommandType;
+  startedAt: number;
+  finishedAt: number;
+  durationMs: number;
+}
+
 export interface CommandResult {
   success: boolean;
   result?: unknown;   // returned to the AI as tool_result content
   error?: string;     // returned to the AI as tool_result content on failure
+  execution?: CommandExecutionMeta;
 }
 
 type Handler = (cmd: AgentCommand) => Promise<CommandResult>;
@@ -25,14 +33,45 @@ class CommandBus {
   }
 
   async dispatch(cmd: AgentCommand): Promise<CommandResult> {
+    const startedAt = Date.now();
     const handler = this.handlers.get(cmd.type);
     if (!handler) {
-      return { success: false, error: `No handler registered for command: ${cmd.type}` };
+      const finishedAt = Date.now();
+      return {
+        success: false,
+        error: `No handler registered for command: ${cmd.type}`,
+        execution: {
+          commandType: cmd.type,
+          startedAt,
+          finishedAt,
+          durationMs: finishedAt - startedAt,
+        },
+      };
     }
     try {
-      return await handler(cmd);
+      const result = await handler(cmd);
+      const finishedAt = Date.now();
+      return {
+        ...result,
+        execution: result.execution ?? {
+          commandType: cmd.type,
+          startedAt,
+          finishedAt,
+          durationMs: finishedAt - startedAt,
+        },
+      };
     } catch (e: any) {
-      return { success: false, error: e?.message ?? String(e) };
+      const finishedAt = Date.now();
+      return {
+        success: false,
+        error: e?.message ?? String(e),
+        execution: {
+          commandType: cmd.type,
+          startedAt,
+          finishedAt,
+          durationMs: finishedAt - startedAt,
+        },
+      };
     }
   }
 
