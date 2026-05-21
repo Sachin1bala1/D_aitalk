@@ -45,6 +45,11 @@ pub async fn execute_streaming(
         ActiveConnection::Mongodb(client, db_name) => stream_mongodb(client, db_name, &sql, query_id, app, cancelled).await,
         ActiveConnection::Redis(mgr)               => stream_redis(mgr, &sql, query_id, app, cancelled).await,
         ActiveConnection::ClickHouse(client)       => stream_clickhouse(client, &sql, query_id, app, cancelled).await,
+        ActiveConnection::RestApi(_)               => Err(DbError::Other("Use REST API query commands for REST connections.".to_string())),
+        ActiveConnection::DuckDb(engine)           => {
+            let eng = engine.lock().await;
+            eng.query_streaming(&sql, query_id, &app)
+        }
     }
 }
 
@@ -1008,6 +1013,14 @@ pub async fn execute_ddl(
         ActiveConnection::ClickHouse(client) => {
             client.query(sql).execute().await
                 .map_err(|e| DbError::Other(e.to_string()))?;
+            Ok(0)
+        }
+        ActiveConnection::RestApi(_) => {
+            Err(DbError::Other("DDL/DML execute not supported for REST API connections.".to_string()))
+        }
+        ActiveConnection::DuckDb(engine) => {
+            let guard = engine.lock().await;
+            guard.execute_batch(sql)?;
             Ok(0)
         }
     }
