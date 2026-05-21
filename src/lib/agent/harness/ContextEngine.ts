@@ -46,6 +46,22 @@ export interface TokenUsage {
   total: number;
 }
 
+/**
+ * Returns only the schema sections whose table names appear as keywords
+ * in the user message. Falls back to all tables if fewer than 3 match.
+ */
+export function filterSchemaToRelevant(
+  schema: Record<string, unknown>,
+  userMessage: string,
+): Record<string, unknown> {
+  const lower = userMessage.toLowerCase();
+  const allKeys = Object.keys(schema);
+  const relevant = allKeys.filter((k) => lower.includes(k.toLowerCase()));
+  // Always include at least 3 tables so the agent has context
+  if (relevant.length < 3) return schema;
+  return Object.fromEntries(relevant.map((k) => [k, schema[k]]));
+}
+
 function extractMentionedTables(
   question: string,
   schema: SchemaContext
@@ -201,7 +217,27 @@ export class ContextEngine {
       parts.push(`## User Priority Parameters\n${params}`);
     }
 
-    return parts.join("\n\n");
+    let systemPrompt = parts.join("\n\n");
+
+    // If estimated prompt exceeds 80k tokens (~320k chars), compact schema to table names only
+    const PROMPT_CHAR_BUDGET = 320_000;
+    if (systemPrompt.length > PROMPT_CHAR_BUDGET) {
+      const filteredSchema = filterSchemaToRelevant(
+        Object.fromEntries(schema.tables.map((t) => [t.name, t])),
+        userQuestion,
+      );
+      const schemaStr = JSON.stringify(
+        Object.fromEntries(schema.tables.map((t) => [t.name, t])),
+        null,
+        2,
+      );
+      const tableNamesOnly = Object.fromEntries(
+        Object.keys(filteredSchema).map((k) => [k, "(schema omitted — prompt too large)"])
+      );
+      systemPrompt = systemPrompt.replace(schemaStr, JSON.stringify(tableNamesOnly, null, 2));
+    }
+
+    return systemPrompt;
   }
 
   /**
