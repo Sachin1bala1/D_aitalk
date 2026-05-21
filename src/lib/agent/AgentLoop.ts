@@ -17,7 +17,7 @@ import type { WorkspaceRule } from "../memory/WorkspaceRuleStore";
 import type { FullSchema } from "../db/DbClient";
 import type { QueryResults } from "../stores/WorkspaceStore";
 import type { AIProvider, ConversationTurn, ToolCall } from "../ai/types";
-import { withRetry, withTimeout } from "../ai/resilience";
+import { withRetry, withTimeout, withToolTimeout } from "../ai/resilience";
 import { ContextEngine } from './harness/ContextEngine';
 import { DATAIQ_HOOKS, detectStruggle } from './harness/HarnessLifecycle';
 import type { SessionContext } from './harness/HarnessLifecycle';
@@ -959,139 +959,154 @@ export async function runAgentLoop(
 
     if (stopReason === "end_turn" || toolCalls.length === 0) break;
 
-    // Execute tools and collect results
+    // Execute tools in parallel — each gets an 8s individual timeout
     const toolResults: ConversationTurn["toolResults"] = [];
 
-    for (const tc of toolCalls) {
-      const toolSignature = `${tc.name}:${JSON.stringify(tc.input ?? {})}`;
-      const priorSignatureCount = toolSignatureCounts.get(toolSignature) ?? 0;
-      toolSignatureCounts.set(toolSignature, priorSignatureCount + 1);
+    const toolResultEntries = await Promise.all(
+      toolCalls.map(async (tc) => {
+        const toolSignature = `${tc.name}:${JSON.stringify(tc.input ?? {})}`;
+        const priorSignatureCount = toolSignatureCounts.get(toolSignature) ?? 0;
+        toolSignatureCounts.set(toolSignature, priorSignatureCount + 1);
 
-      if (RESULT_FETCHING_TOOL_NAMES.has(tc.name)) {
-        if (queryDepth === "fast" && resultFetchingAttempts >= 2) {
-          toolResults!.push({
-            toolCallId: tc.id,
-            name: tc.name,
-            content: "Skipped additional data-fetch attempt because this fast analysis already exhausted its live-query budget. Use the currently loaded results or answer with the best available evidence.",
-            isError: true,
-          });
-          continue;
-        }
-
-        if (priorSignatureCount >= 1) {
-          toolResults!.push({
-            toolCallId: tc.id,
-            name: tc.name,
-            content: "Skipped duplicate data-fetch attempt. Do not repeat the same live query path; summarize the current evidence or choose a narrower alternative.",
-            isError: true,
-          });
-          continue;
-        }
-      }
-
-      const cmd = toolCallToCommand(tc, connectionId);
-
-      if (!cmd) {
-        toolResults!.push({
-          toolCallId: tc.id,
-          name: tc.name,
-          content: `Unknown tool or missing connectionId: ${tc.name}`,
-          isError: true,
-        });
-        continue;
-      }
-
-      sessionCtx.toolsCalledSoFar.push(tc.name);
-      try {
-        await DATAIQ_HOOKS.onBeforeToolCall?.(tc.name, tc.input, sessionCtx);
-      } catch (policyErr) {
-        // Policy block — short-circuit this tool
-        const errMsg = policyErr instanceof Error ? policyErr.message : String(policyErr);
-        toolResults!.push({
-          toolCallId: tc.id,
-          name: tc.name,
-          content: errMsg,
-          isError: true,
-        });
-        onToolEnd(tc.name, { success: false, error: errMsg });
-        continue;
-      }
-
-      onToolStart(tc.name, tc.input);
-
-      let result: CommandResult;
-
-      if (agentMode === "plan") {
-        const impactMap = ImpactMapEngine.fromCommands([cmd], connectionId);
-        useWorkspaceStore.getState().setImpactMapResolution(impactMap);
-      }
-
-      if (isDestructive(cmd)) {
-        const stepId = `plan-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-        const description = describeCommand(cmd);
-
-        addPlanStep({
-          id: stepId,
-          commandType: cmd.type,
-          humanReadable: description,
-          sqlPreview:
-            "sql" in cmd && typeof cmd.sql === "string"
-              ? cmd.sql
-              : cmd.type === "delete_rows"
-                ? `DELETE FROM "${cmd.schema}"."${cmd.table}" WHERE ${cmd.where};`
-                : cmd.type === "drop_column"
-                  ? `ALTER TABLE "${cmd.schema}"."${cmd.table}" DROP COLUMN "${cmd.columnName}";`
-                  : cmd.type === "rename_table"
-                    ? `ALTER TABLE "${cmd.schema}"."${cmd.oldName}" RENAME TO "${cmd.newName}";`
-                    : undefined,
-          taskId: currentTask?.id,
-          subtaskId: currentSubtask?.id,
-          riskLevel: cmd.risk,
-          status: "pending",
-          command: cmd, // stored so PlanQueue can dispatch on approval
-        });
-
-        onPlanQueued(stepId, description);
-        pendingApprovalSteps.push(stepId);
-
-        result = {
-          success: true,
-          result: `Queued for approval: "${description}". Waiting for user to approve in the Plan Queue.`,
-        };
-      } else {
-        result = await commandBus.dispatch(cmd);
         if (RESULT_FETCHING_TOOL_NAMES.has(tc.name)) {
-          resultFetchingAttempts += 1;
+          if (queryDepth === "fast" && resultFetchingAttempts >= 2) {
+            return {
+              toolCallId: tc.id,
+              name: tc.name,
+              content:
+                "Skipped additional data-fetch attempt because this fast analysis already exhausted its live-query budget. Use the currently loaded results or answer with the best available evidence.",
+              isError: true,
+            };
+          }
+          if (priorSignatureCount >= 1) {
+            return {
+              toolCallId: tc.id,
+              name: tc.name,
+              content:
+                "Skipped duplicate data-fetch attempt. Do not repeat the same live query path; summarize the current evidence or choose a narrower alternative.",
+              isError: true,
+            };
+          }
         }
 
-        // Push to undo stack on successful non-safe mutations
-        if (result.success && cmd.risk !== "safe") {
-          useWorkspaceStore.getState().pushUndo({
-            id: tc.id,
-            humanReadable: describeCommand(cmd),
+        const cmd = toolCallToCommand(tc, connectionId);
+        if (!cmd) {
+          return {
+            toolCallId: tc.id,
+            name: tc.name,
+            content: `Unknown tool or missing connectionId: ${tc.name}`,
+            isError: true,
+          };
+        }
+
+        sessionCtx.toolsCalledSoFar.push(tc.name);
+        try {
+          await DATAIQ_HOOKS.onBeforeToolCall?.(tc.name, tc.input, sessionCtx);
+        } catch (policyErr) {
+          const errMsg = policyErr instanceof Error ? policyErr.message : String(policyErr);
+          onToolEnd(tc.name, { success: false, error: errMsg });
+          return { toolCallId: tc.id, name: tc.name, content: errMsg, isError: true };
+        }
+
+        onToolStart(tc.name, tc.input);
+
+        if (agentMode === "plan") {
+          const impactMap = ImpactMapEngine.fromCommands([cmd], connectionId);
+          useWorkspaceStore.getState().setImpactMapResolution(impactMap);
+        }
+
+        if (isDestructive(cmd)) {
+          const stepId = `plan-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+          const description = describeCommand(cmd);
+          addPlanStep({
+            id: stepId,
+            commandType: cmd.type,
+            humanReadable: description,
+            sqlPreview:
+              "sql" in cmd && typeof cmd.sql === "string"
+                ? cmd.sql
+                : cmd.type === "delete_rows"
+                  ? `DELETE FROM "${cmd.schema}"."${cmd.table}" WHERE ${cmd.where};`
+                  : cmd.type === "drop_column"
+                    ? `ALTER TABLE "${cmd.schema}"."${cmd.table}" DROP COLUMN "${cmd.columnName}";`
+                    : cmd.type === "rename_table"
+                      ? `ALTER TABLE "${cmd.schema}"."${cmd.oldName}" RENAME TO "${cmd.newName}";`
+                      : undefined,
+            taskId: currentTask?.id,
+            subtaskId: currentSubtask?.id,
+            riskLevel: cmd.risk,
+            status: "pending",
             command: cmd,
-            timestamp: Date.now(),
           });
+          // Auto-reject after 30s so the agent never hangs indefinitely
+          setTimeout(() => {
+            const { planQueue, setPlanStepStatus } = useWorkspaceStore.getState();
+            const still = planQueue.find((s) => s.id === stepId && s.status === "pending");
+            if (still) {
+              setPlanStepStatus(stepId, "rejected");
+              onToken("\n\n⏱ Plan step auto-rejected after 30s inactivity.\n\n");
+            }
+          }, 30_000);
+          onPlanQueued(stepId, description);
+          pendingApprovalSteps.push(stepId);
+          return {
+            toolCallId: tc.id,
+            name: tc.name,
+            content: `Queued for approval: "${description}". Waiting for user to approve in the Plan Queue.`,
+            isError: false,
+          };
         }
-      }
 
-      onToolEnd(tc.name, result);
+        try {
+          const toolStartTime = Date.now();
+          const result = await withToolTimeout(
+            commandBus.dispatch(cmd),
+            tc.name,
+          );
+          if (RESULT_FETCHING_TOOL_NAMES.has(tc.name)) resultFetchingAttempts++;
 
-      const afterDurationMs = Date.now() - sessionCtx.startTime;
-      await DATAIQ_HOOKS.onAfterToolCall?.(tc.name, tc.input, result, afterDurationMs, sessionCtx);
-      if (!result.success) {
-        sessionCtx.errorsSoFar.push({ tool: tc.name, error: result.error ?? 'unknown' });
-      }
+          // Push to undo stack on successful non-safe mutations
+          if (result.success && cmd.risk !== "safe") {
+            useWorkspaceStore.getState().pushUndo({
+              id: tc.id,
+              humanReadable: describeCommand(cmd),
+              command: cmd,
+              timestamp: Date.now(),
+            });
+          }
 
-      toolResults!.push({
-        toolCallId: tc.id,
-        name: tc.name,
-        content: result.success
-          ? JSON.stringify(result.result ?? "done")
-          : `Error: ${result.error}`,
-        isError: !result.success,
-      });
-    }
+          const afterDurationMs = Date.now() - toolStartTime;
+          try {
+            await DATAIQ_HOOKS.onAfterToolCall?.(tc.name, tc.input, result, afterDurationMs, sessionCtx);
+          } catch {
+            // non-fatal hook error
+          }
+          if (!result.success) {
+            sessionCtx.errorsSoFar.push({ tool: tc.name, error: result.error ?? 'unknown' });
+          }
+          onToolEnd(tc.name, result);
+          return {
+            toolCallId: tc.id,
+            name: tc.name,
+            content: result.success
+              ? JSON.stringify(result.result ?? "done")
+              : `Error: ${result.error}`,
+            isError: !result.success,
+          };
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          onToolEnd(tc.name, { success: false, error: errMsg });
+          return {
+            toolCallId: tc.id,
+            name: tc.name,
+            content: `Tool error: ${errMsg}`,
+            isError: true,
+          };
+        }
+      })
+    );
+
+    toolResults.push(...toolResultEntries);
 
     // Add tool results as a user turn
     working.push({ role: "user", toolResults });
