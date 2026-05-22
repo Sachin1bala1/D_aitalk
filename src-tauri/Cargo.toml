@@ -42,7 +42,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 sqlparser = "0.43"
 
-duckdb = { version = "1", features = ["bundled"] }
+# duckdb = { version = "1", features = ["bundled"] }  # Requires MSVC toolchain; MinGW linker fails on vtable symbols
 lru = "0.12"
 keyring = "3"
 hmac = "0.12"
