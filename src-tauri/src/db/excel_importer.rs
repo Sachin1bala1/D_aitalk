@@ -1,6 +1,6 @@
 //! Excel (XLSX/XLS) importer — reads a sheet via calamine and returns columnar data.
 //! The caller is responsible for inserting into DuckDB or another target.
-use calamine::{open_workbook_auto, Reader, DataType};
+use calamine::{open_workbook_auto, Reader, Data};
 use serde_json::{Value, Map};
 
 use crate::db::types::{ColumnMeta, DisplayType};
@@ -77,11 +77,11 @@ impl ExcelImporter {
     }
 }
 
-fn excel_cell_to_json(cell: &DataType) -> Value {
+fn excel_cell_to_json(cell: &Data) -> Value {
     match cell {
-        DataType::Empty => Value::Null,
-        DataType::String(s) => Value::String(s.clone()),
-        DataType::Float(f) => {
+        Data::Empty => Value::Null,
+        Data::String(s) => Value::String(s.clone()),
+        Data::Float(f) => {
             // Represent whole floats as integers for cleaner output
             if f.fract() == 0.0 && *f >= i64::MIN as f64 && *f <= i64::MAX as f64 {
                 Value::from(*f as i64)
@@ -89,12 +89,12 @@ fn excel_cell_to_json(cell: &DataType) -> Value {
                 Value::from(*f)
             }
         }
-        DataType::Int(n) => Value::from(*n),
-        DataType::Bool(b) => Value::Bool(*b),
-        DataType::DateTime(dt) => Value::String(format!("{dt}")),
-        DataType::DateTimeIso(s) => Value::String(s.clone()),
-        DataType::DurationIso(s) => Value::String(s.clone()),
-        DataType::Error(e) => Value::String(format!("#ERR:{e:?}")),
+        Data::Int(n) => Value::from(*n),
+        Data::Bool(b) => Value::Bool(*b),
+        Data::DateTime(dt) => Value::String(format!("{dt}")),
+        Data::DateTimeIso(s) => Value::String(s.clone()),
+        Data::DurationIso(s) => Value::String(s.clone()),
+        Data::Error(e) => Value::String(format!("#ERR:{e:?}")),
     }
 }
 
