@@ -1,0 +1,42 @@
+<h2>Who is the primary user?</h2>
+<p class="subtitle">The NL-first design looks very different depending on who's sitting in the chair.</p>
+
+<div class="options">
+  <div class="option" data-choice="analyst" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Data Analyst / Engineer</h3>
+      <p>Writes SQL daily. Knows what a JOIN is. Wants AI to <em>accelerate</em> their existing workflow — auto-write complex queries, spot patterns they'd miss, run analysis in parallel. Still wants to see the SQL.</p>
+      <div style="margin-top:8px;font-size:12px;color:#9ca3af">Examples: BI analyst, data engineer, database admin, data scientist</div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="business" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Business / Domain Expert</h3>
+      <p>Knows their data domain deeply (sales, ops, finance) but not SQL. Wants to ask questions in plain English and get answers — <em>never</em> wants to touch SQL. Charts and summaries only.</p>
+      <div style="margin-top:8px;font-size:12px;color:#9ca3af">Examples: operations manager, sales lead, product manager, C-suite</div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="manufacturing" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Manufacturing / Industrial Engineer</h3>
+      <p>Works with time-series sensor data, production lines, quality control. Needs SPC charts, anomaly detection, root cause analysis. Asks "why did line 3 fail at 2am?" and needs a real answer fast.</p>
+      <div style="margin-top:8px;font-size:12px;color:#9ca3af">Examples: process engineer, quality manager, plant operations, IoT data analyst</div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="all" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>All of the above — horizontal platform</h3>
+      <p>DataIQ adapts to whoever is using it. Power users get SQL + agent depth. Business users get clean NL answers. Industrial users get SPC built-in. One tool, many personas.</p>
+      <div style="margin-top:8px;font-size:12px;color:#9ca3af">Harder to ship fast — but biggest market</div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:24px">Pick one. This shapes the NL interface, chart defaults, and what "a great answer" looks like.</p>

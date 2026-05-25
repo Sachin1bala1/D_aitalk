@@ -1,0 +1,274 @@
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - link [ref=e357] [cursor=pointer]:
+      - /url: ""
+      - text: Skip to main content
+    - banner [ref=e8]:
+      - generic [ref=e10]:
+        - link [ref=e358] [cursor=pointer]:
+          - /url: https://ontoinnovation.com/company/careers
+          - img [ref=e359]
+        - heading [level=1] [ref=e360]: Careers at ONTO
+        - generic [ref=e18]:
+          - button [ref=e361] [cursor=pointer]:
+            - generic [ref=e25]: Sign In
+          - navigation [ref=e26]:
+            - button [ref=e362] [cursor=pointer]: Careers Home
+            - button [ref=e363] [cursor=pointer]: Search for Jobs
+            - button [ref=e364] [cursor=pointer]: Introduce Yourself
+    - generic [ref=e34]:
+      - alert [ref=e35]: Junior AI Engineer page is loaded
+      - generic [ref=e36]:
+        - generic [ref=e38]:
+          - heading [level=2] [ref=e365]: Junior AI Engineer
+          - button [active] [ref=e366] [cursor=pointer]: Apply
+        - generic [ref=e45]:
+          - generic [ref=e46]:
+            - generic [ref=e54]:
+              - term [ref=e55]: locations
+              - definition [ref=e56]: Wilmington-MA (Upton)
+            - generic [ref=e57]:
+              - generic [ref=e66]:
+                - term [ref=e67]: time type
+                - definition [ref=e68]: Full time
+              - generic [ref=e77]:
+                - term [ref=e78]: posted on
+                - definition [ref=e79]: Posted 30+ Days Ago
+              - generic [ref=e88]:
+                - term [ref=e89]: job requisition id
+                - definition [ref=e90]: R-4939
+          - generic [ref=e92]:
+            - paragraph [ref=e93]: "Onto Innovation is a leader in process control, combining global scale with an expanded portfolio of leading-edge technologies that include: 3D metrology spanning the chip from nanometer-scale transistors to micron-level die-interconnects; macro defect inspection of wafers and packages; metal interconnect composition; factory analytics; and lithography for advanced semiconductor packaging. Our breadth of offerings across the entire semiconductor value chain helps our customers solve their most difficult yield, device performance, quality, and reliability issues. Onto Innovation strives to optimize customers’ critical path of progress by making them smarter, faster and more efficient."
+            - paragraph [ref=e94]
+            - paragraph [ref=e95]: Job Summary & Responsibilities
+            - paragraph [ref=e96]
+            - heading [level=1] [ref=e367]: Junior AI Engineer
+            - paragraph [ref=e98]:
+              - generic [ref=e99]: "Team:"
+              - generic [ref=e100]:
+                - text: You’ll partner closely with our AI Lead Engineer and collaborate with field/service engineers who support our
+                - generic [ref=e101]: inspection & metrology
+                - text: tools across fabs.
+                - generic [ref=e102]: "Goal:"
+                - text: Build practical AI helpers that speed up tasks from
+                - generic [ref=e103]: recipe setup
+                - text: and
+                - generic [ref=e104]: troubleshooting
+                - text: to
+                - generic [ref=e105]: fleet management analytics
+                - text: and
+                - generic [ref=e106]: expert guidance
+                - text: from internal knowledge.
+            - heading [level=2] [ref=e368]: About us
+            - paragraph [ref=e108]:
+              - generic [ref=e109]: Onto Innovation is a worldwide leader in the design, development, manufacture and support of defect inspection, advanced packaging lithography, process control metrology, and data analysis systems and software used by semiconductor device manufacturers worldwide. Onto Innovation provides a full-fab solution through its families of proprietary products that provide critical yield-enhancing information and real time process control responses, enabling microelectronic device manufacturers to drive down the costs and time to market of their products. The Company’s expanding portfolio of equipment and software solutions is used in both the wafer processing and final manufacturing of ICs, and in adjacent markets such as FPD, and LED manufacturing.
+            - heading [level=2] [ref=e369]: What you’ll do
+            - paragraph [ref=e113]:
+              - generic [ref=e115]: ·
+              - generic [ref=e117]: Prototype AI assistants & agents
+              - text: "for field workflows: guided recipe setup, log triage, playbook lookups, parts/alarms advice, and fleet-wide health checks."
+            - paragraph [ref=e118]:
+              - generic [ref=e120]: ·
+              - generic [ref=e122]: "Build retrieval systems (RAG):"
+              - text: ingest manuals, specs, ticket notes, recipes, logs, and best-practice docs; design chunking, embeddings, and indexing; tune prompts and retrieval for accuracy/latency.
+            - paragraph [ref=e123]:
+              - generic [ref=e125]: ·
+              - generic [ref=e127]: "Connect AI to our tools and data:"
+              - generic [ref=e128]:
+                - text: stand up
+                - generic [ref=e129]: MCP servers
+                - text: (Model Context Protocol) and other connectors to safely expose internal systems (document stores, MES, issue trackers, telemetry APIs) to LLMs.
+            - paragraph [ref=e130]:
+              - generic [ref=e132]: ·
+              - generic [ref=e134]: Fine-tune or adapt models
+              - text: (e.g., LoRA/QLoRA) for domain terms, error codes, and tool-specific intents when retrieval alone isn’t enough.
+            - paragraph [ref=e135]:
+              - generic [ref=e137]: ·
+              - generic [ref=e139]: Evaluate and harden
+              - generic [ref=e140]: ": set up offline & online evals for groundedness/relevance; add guardrails, observability, and traceability; write runbooks."
+            - paragraph [ref=e141]:
+              - generic [ref=e143]: ·
+              - generic [ref=e145]: Ship small apps
+              - text: ": package prototypes behind simple APIs or lightweight UIs that field engineers can use (web chat, Slack/Teams bots, or CLI)."
+            - paragraph [ref=e146]:
+              - generic [ref=e148]: ·
+              - generic [ref=e150]: Data plumbing
+              - text: ": parse messy PDFs/images/CSVs; normalize schemas for recipes, events, alarms, SPC/trace data."
+            - paragraph [ref=e151]:
+              - generic [ref=e153]: ·
+              - generic [ref=e155]: Computer Vision
+              - text: – understanding, defect detection, segmentation, or SEM/optical imaging.
+            - paragraph [ref=e156]:
+              - generic [ref=e158]: ·
+              - generic [ref=e160]: Work like an engineer
+              - text: ": write readable Python/TypeScript, tests, and docs; use Git; participate in code reviews; iterate fast with the AI lead and domain SMEs."
+            - heading [level=2] [ref=e370]: Minimum qualifications
+            - paragraph [ref=e162]:
+              - generic [ref=e164]: ·
+              - text: BS in CS/EE/CE/ME (or equivalent experience).
+            - paragraph [ref=e166]:
+              - generic [ref=e168]: ·
+              - generic [ref=e170]: Python
+              - generic [ref=e171]:
+                - text: proficiency (data wrangling, APIs, packaging); comfort on
+                - generic [ref=e172]: Linux
+                - text: and with Git.
+            - paragraph [ref=e173]:
+              - generic [ref=e175]: ·
+              - generic [ref=e177]:
+                - text: Built at least one LLM app using a framework such as
+                - generic [ref=e178]: LangChain, LlamaIndex, or Semantic Kernel
+                - text: .
+            - paragraph [ref=e179]:
+              - generic [ref=e181]: ·
+              - generic [ref=e183]:
+                - text: Hands-on with
+                - generic [ref=e184]: vector search
+                - text: (e.g., FAISS/Weaviate/Milvus) and embeddings; understands chunking, metadata, and hybrid search basics.
+            - paragraph [ref=e185]:
+              - generic [ref=e187]: ·
+              - generic [ref=e189]:
+                - text: Familiarity with
+                - generic [ref=e190]: RAG
+                - text: and prompt engineering; can measure quality (groundedness/relevance) and reduce hallucinations.
+            - paragraph [ref=e191]:
+              - generic [ref=e193]: ·
+              - generic [ref=e195]:
+                - text: Basic backend skills (REST/JSON, auth, environment secrets); experience containerizing with
+                - generic [ref=e196]: Docker
+                - text: .
+            - paragraph [ref=e197]:
+              - generic [ref=e199]: ·
+              - text: Comfortable reading technical manuals/logs and collaborating with non-software teammates.
+            - heading [level=2] [ref=e371]: Nice to haves
+            - paragraph [ref=e202]:
+              - generic [ref=e204]: ·
+              - generic [ref=e206]:
+                - text: Worked with
+                - generic [ref=e207]: agent frameworks
+                - text: (LangGraph, AutoGen, CrewAI) or implemented tool-calling/plan-execute loops.
+            - paragraph [ref=e208]:
+              - generic [ref=e210]: ·
+              - generic [ref=e212]:
+                - text: Built or configured
+                - generic [ref=e213]: MCP servers
+                - text: to connect LLMs to internal data/tools.
+            - paragraph [ref=e214]:
+              - generic [ref=e216]: ·
+              - generic [ref=e218]:
+                - text: Experience parsing complex docs (e.g.,
+                - generic [ref=e219]: Unstructured
+                - text: ","
+                - generic [ref=e220]: GROBID
+                - text: ) and handling images/figures from manuals.
+            - paragraph [ref=e221]:
+              - generic [ref=e223]: ·
+              - generic [ref=e225]:
+                - text: Exposure to
+                - generic [ref=e226]: semiconductor equipment
+                - text: or factory systems (SECS/GEM, EDA/Interface A, MES, SPC); familiarity with
+                - generic [ref=e227]: KLA/AMAT/TEL/ASML
+                - text: tool ecosystems.
+            - paragraph [ref=e228]:
+              - generic [ref=e230]: ·
+              - generic [ref=e232]: Time-series and log analysis (Pandas, SQL, TimescaleDB/InfluxDB), wafer map/vision background, or simple CV.
+            - paragraph [ref=e233]:
+              - generic [ref=e235]: ·
+              - generic [ref=e237]:
+                - text: Model adaptation experience (
+                - generic [ref=e238]: LoRA/QLoRA
+                - text: ", PEFT) and experiment tracking (MLflow/W&B)."
+            - paragraph [ref=e239]:
+              - generic [ref=e241]: ·
+              - text: LLM observability/evals (Ragas, TruLens, LangSmith), basic security/PII handling, and role-based access.
+            - paragraph [ref=e243]:
+              - generic [ref=e245]: ·
+              - text: Cloud familiarity (AWS/Azure/GCP) and lightweight front-ends (React/Next.js) for internal tools.
+            - paragraph [ref=e247]:
+              - generic [ref=e249]: ·
+              - generic [ref=e251]:
+                - text: Prior work on
+                - generic [ref=e252]: fleet-level
+                - text: dashboards/analytics or recipe/parameter management.
+            - heading [level=2] [ref=e372]: What success looks like (first 90 days)
+            - paragraph [ref=e254]:
+              - generic [ref=e256]: ·
+              - generic [ref=e258]:
+                - text: Ship a
+                - generic [ref=e259]: search+chat knowledge assistant
+                - text: over our internal docs with clear eval dashboards for faithfulness/relevance.
+            - paragraph [ref=e260]:
+              - generic [ref=e262]: ·
+              - generic [ref=e264]:
+                - text: Stand up at least one
+                - generic [ref=e265]: MCP connector
+                - text: to an internal source (e.g., SharePoint/Confluence or log store) and demo safe tool calls.
+            - paragraph [ref=e266]:
+              - generic [ref=e268]: ·
+              - generic [ref=e270]:
+                - text: Deliver a focused
+                - generic [ref=e271]: POC
+                - text: ": e.g., an agent that reads recent alarms & logs to suggest next steps, or a fleet health summary with links to playbooks."
+            - paragraph [ref=e272]:
+              - generic [ref=e274]: ·
+              - text: Document everything (design notes, runbooks, and “how to” guides) and gather field feedback for iteration.
+            - heading [level=2] [ref=e373]: How we work
+            - paragraph [ref=e277]:
+              - generic [ref=e279]: ·
+              - text: Pragmatic, security-minded, iterate-in-the-open with our engineers.
+            - paragraph [ref=e281]:
+              - generic [ref=e283]: ·
+              - text: We value curiosity, clear writing, and the grit to trace weird edge cases in logs and manuals.
+            - heading [level=2] [ref=e374]: Apply
+            - paragraph [ref=e286]:
+              - generic [ref=e287]: Send your resume/GitHub/portfolio and a short note about an LLM or agent project you’ve built (what made it work, what you measured, and what you’d improve).
+            - paragraph [ref=e288]
+            - paragraph [ref=e289]: Qualifications
+            - paragraph [ref=e290]: see above
+            - paragraph [ref=e291]:
+              - generic [ref=e292]: Onto Innovation Inc. offers competitive salaries and a generous benefits package, including health/dental/vision/life/disability,
+              - text: PTO, 401K plan with employer match, and an Employee Stock Purchase Program (ESPP) along with health & wellness initiatives. We provide a collaborative working environment along with resources, and state-of-the-art tools & equipment to promote success; and a welcoming, inclusive corporate culture where individuals are recognized for their contributions.
+            - paragraph [ref=e293]
+            - paragraph [ref=e294]: Onto Innovation Inc. is an Equal Opportunity Employer and all qualified applicants will receive consideration for employment without regard to race, color, religion, gender, sexual orientation, national origin, genetic information, age, disability, veteran status, or any other legally protected basis.
+            - paragraph [ref=e295]
+            - paragraph [ref=e296]: For positions requiring access to technical data, Onto Innovation Inc., Inc. may have to obtain export licensing approval from the U.S. Department of Commerce - Bureau of Industry and Security and/or the U.S. Department of State - Directorate of Defense Trade Controls. As such, applicants for this position – except US Citizens, US Permanent Residents, and protected individuals as defined by 8 U.S.C. 1324b(a)(3) – may have to go through an export licensing review process.
+      - generic [ref=e299]:
+        - heading [level=3] [ref=e375]: About Us
+        - img [ref=e376]
+        - generic [ref=e303]:
+          - generic [ref=e305]:
+            - paragraph [ref=e306]: "Onto Innovation is a leader in process control, combining global scale with an expanded portfolio of leading-edge technologies that include: 3D metrology spanning the chip from nanometer-scale transistors to micron-level die-interconnects; macro defect inspection of wafers and packages; metal interconnect composition; factory analytics; and lithography for advanced semiconductor packaging."
+            - paragraph [ref=e307]
+            - paragraph [ref=e308]:
+              - text: Our breadth of offerings across the entire semiconductor value chain help our customers solve their most difficult yield, device performance, quality, and reliability issues. Onto Innovation strives to optimize customers’ critical path of progress by making them smarter, faster and more efficient. Headquartered in Wilmington, Massachusetts, Onto Innovation supports customers with a worldwide sales and service organization. Additional information can be found at
+              - link [ref=e309] [cursor=pointer]:
+                - /url: http://www.ontoinnovation.com.
+                - text: http://www.ontoinnovation.com.
+          - button [ref=e377] [cursor=pointer]:
+            - generic [ref=e313]: Read More
+    - generic [ref=e317]:
+      - generic [ref=e318]: Follow Us
+      - list [ref=e319]:
+        - listitem [ref=e320] [cursor=pointer]:
+          - link [ref=e378]:
+            - /url: https://www.facebook.com/ontoinnovation
+        - listitem [ref=e325] [cursor=pointer]:
+          - link [ref=e379]:
+            - /url: https://www.linkedin.com/company/onto-innovation
+      - link [ref=e380] [cursor=pointer]:
+        - /url: https://ontoinnovation.com/privacy
+        - text: Privacy Policy
+      - generic [ref=e332]:
+        - img [ref=e336]
+        - generic [ref=e356]: © 2026 Workday, Inc. All rights reserved.
+  - dialog "Start Your Application" [ref=e384]:
+    - button "Close" [ref=e386] [cursor=pointer]
+    - generic [ref=e392]:
+      - heading "Start Your Application" [level=2] [ref=e393]
+      - heading "Junior AI Engineer" [level=3] [ref=e394]
+      - button "Autofill with Resume" [ref=e398] [cursor=pointer]
+      - button "Apply Manually" [ref=e402] [cursor=pointer]
+      - button "Use My Last Application" [ref=e407] [cursor=pointer]
+      - iframe [ref=e411]:
+        - generic [ref=f151e3]:
+          - iframe

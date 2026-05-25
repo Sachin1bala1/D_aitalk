@@ -1,0 +1,258 @@
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-1778706303"
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - navigation [ref=e8]:
+        - generic [ref=e9]:
+          - button "menu" [ref=e10] [cursor=pointer]
+          - link "Amazon Jobs home page" [ref=e12] [cursor=pointer]:
+            - /url: /en
+            - generic [ref=e14]: Amazon Jobs home page
+        - generic [ref=e16]:
+          - generic [ref=e17]:
+            - combobox "Search for jobs by title or keyword" [ref=e21]
+            - generic [ref=e23]:
+              - text: h
+              - combobox "search job by location" [ref=e25]
+          - button "Search jobs" [ref=e26] [cursor=pointer]
+        - menu [ref=e30] [cursor=pointer]: My career
+      - generic: h
+      - generic [ref=e31]:
+        - generic [ref=e35]:
+          - generic [ref=e37]:
+            - heading "Data Scientist III - AMZ9442227" [level=1] [ref=e38]
+            - paragraph [ref=e40]: "Job ID: 3203832 | Amazon.com Services LLC"
+          - link "Apply now for Data Scientist III - AMZ9442227" [ref=e43] [cursor=pointer]:
+            - /url: https://www.amazon.jobs/applicant/jobs/3203832/apply
+            - text: Apply now
+        - generic [ref=e45]:
+          - generic [ref=e47]:
+            - generic [ref=e48]:
+              - heading "Description" [level=2] [ref=e49]
+              - paragraph [ref=e50]:
+                - text: MULTIPLE POSITIONS AVAILABLE
+                - text: "Employer: AMAZON.COM SERVICES LLC"
+                - text: "Offered Position: Data Scientist III"
+                - text: "Job Location: Austin, Texas"
+                - text: "Job Number: AMZ9442227"
+                - text: "Position Responsibilities:"
+                - text: Own the data science elements of various products to help with data-based decision making, product performance optimization, and product performance tracking. Work directly with product managers to help drive the design of the product. Work with Technical Product Managers to help drive the build planning. Translate business problems and products into data requirements and metrics. Initiate the design, development, and implementation of scientific analysis projects or deliverables. Own the analysis, modelling, system design, and development of data science solutions for products. Write documents and make presentations that explain model/analysis results to the business. Bridge the degree of uncertainty in both problem definition and data scientific solution approaches. Build consensus on data, metrics, and analysis to drive business and system strategy.
+                - text: "Position Requirements:"
+                - text: "Master's degree or foreign equivalent degree in Statistics, Applied Mathematics, Economics, Engineering, Computer Science or a related field and two years of experience in the job offered or a related occupation. Employer will accept a Bachelor's degree or foreign equivalent degree in Statistics, Applied Mathematics, Economics, Engineering, Computer Science, or a related field and five years of progressive post-baccalaureate experience in the job offered or a related occupation as equivalent to the Master's degree and two years of experience. Must have one year of experience in the following skills: (1) building statistical models and machine learning models using large datasets from multiple resources; (2) building complex data analyses by leveraging scripting languages including Python, Java, or related scripting language; and (3) communicating with users, technical teams, and management to collect requirements, evaluate alternatives, and develop processes and tools to support the organization."
+                - text: Amazon.com is an Equal Opportunity-Affirmative Action Employer – Minority / Female / Disability / Veteran / Gender Identity / Sexual Orientation.
+                - text: 40 hours / week, 8:00am-5:00pm, Salary Range $159,200/year to $215,300/year.
+                - text: "Amazon is a total compensation company. Dependent on the position offered, equity, sign-on payments, and other forms of compensation may be provided as part of a total compensation package, in addition to a full range of medical, financial, and/or other benefits. For more information, visit:"
+                - text: https://www.aboutamazon.com/workplace/employee-benefits.#0000
+            - generic [ref=e51]:
+              - heading "Basic Qualifications" [level=2] [ref=e52]
+              - paragraph [ref=e53]:
+                - text: "Position Requirements:"
+                - text: "Master's degree or foreign equivalent degree in Statistics, Applied Mathematics, Economics, Engineering, Computer Science or a related field and two years of experience in the job offered or a related occupation. Employer will accept a Bachelor's degree or foreign equivalent degree in Statistics, Applied Mathematics, Economics, Engineering, Computer Science, or a related field and five years of progressive post-baccalaureate experience in the job offered or a related occupation as equivalent to the Master's degree and two years of experience. Must have one year of experience in the following skills: (1) building statistical models and machine learning models using large datasets from multiple resources; (2) building complex data analyses by leveraging scripting languages including Python, Java, or related scripting language; and (3) communicating with users, technical teams, and management to collect requirements, evaluate alternatives, and develop processes and tools to support the organization.#0000"
+            - generic [ref=e54]:
+              - heading "Preferred Qualifications" [level=2] [ref=e55]
+              - paragraph [ref=e56]:
+                - text: Please see job description and the position requirements above.
+                - text: Amazon is an equal opportunity employer and does not discriminate on the basis of protected veteran status, disability, or other legally protected status.
+                - text: Our inclusive culture empowers Amazonians to deliver the best results for our customers. If you have a disability and need a workplace accommodation or adjustment during the application and hiring process, including support for the interview or onboarding process, please visit
+                - link "https://amazon.jobs/content/en/how-we-hire/accommodations" [ref=e57] [cursor=pointer]:
+                  - /url: https://amazon.jobs/content/en/how-we-hire/accommodations
+                - text: for more information. If the country/region you’re applying in isn’t listed, please contact your Recruiting Partner.
+          - generic [ref=e59]:
+            - generic [ref=e60]:
+              - heading "Job details" [level=2] [ref=e62]
+              - list [ref=e63]:
+                - listitem [ref=e64]:
+                  - generic [ref=e65]:
+                    - img "location"
+                    - list [ref=e66]:
+                      - listitem [ref=e67]: USA, TX, Austin
+                - listitem [ref=e68]:
+                  - generic [ref=e69]:
+                    - img "category"
+                    - list [ref=e70]:
+                      - listitem [ref=e71]: Corporate Operations
+            - generic [ref=e75]:
+              - heading "Recommended jobs" [level=2] [ref=e76]
+              - paragraph [ref=e77]: "Based on your recent activity, you may be interested in:"
+              - list [ref=e78]:
+                - listitem [ref=e79]:
+                  - link "Software Development Engineer – 2026" [ref=e80] [cursor=pointer]:
+                    - /url: /en/jobs/3175845/software-development-engineer-2026
+                  - generic [ref=e81]: "Location: ES, Community of Madrid, Madrid"
+                  - generic [ref=e82]: (Updated about 1 month ago)
+                - listitem [ref=e83]:
+                  - link "Sr. Sports Strategy Manager, Prime Video Sports" [ref=e84] [cursor=pointer]:
+                    - /url: /en/jobs/3165491/sr-sports-strategy-manager-prime-video-sports
+                  - generic [ref=e85]: "Location: US, New York, New York"
+                  - generic [ref=e86]:
+                    - generic [ref=e87]: "Posted: January 23, 2026"
+                    - text: (Updated 4 months ago)
+                - listitem [ref=e88]:
+                  - link "Financial Analyst Intern" [ref=e89] [cursor=pointer]:
+                    - /url: /en/jobs/3137957/financial-analyst-intern
+                  - generic [ref=e90]: "Location: ES, Community of Madrid, Madrid"
+                  - generic [ref=e91]:
+                    - generic [ref=e92]: "Posted: December 5, 2025"
+                    - text: (Updated 5 months ago)
+                - listitem [ref=e93]:
+                  - link "Business Intel Engineer II - AMZ26296.1" [ref=e94] [cursor=pointer]:
+                    - /url: /en/jobs/10386224/business-intel-engineer-ii-amz26296-1
+                  - generic [ref=e95]: "Location: US, Pennsylvania, Pittsburgh"
+                  - generic [ref=e96]:
+                    - generic [ref=e97]: "Posted: April 8, 2026"
+                    - text: (Updated 27 days ago)
+                - listitem [ref=e98]:
+                  - link "Amazon Robotics - 2026 Robotics Systems Engineer Intern/Co-op, Robotics Deployment Engineering" [ref=e99] [cursor=pointer]:
+                    - /url: /en/jobs/3088749/amazon-robotics-2026-robotics-systems-engineer-intern-co-op-robotics-deployment-engineering
+                  - generic [ref=e100]: "Location: US, Massachusetts, North Reading"
+                  - generic [ref=e101]: (Updated 5 months ago)
+            - generic [ref=e103]:
+              - heading "Share this job" [level=2] [ref=e106]
+              - list [ref=e108]:
+                - listitem [ref=e109]:
+                  - link "Share with facebook" [ref=e110] [cursor=pointer]:
+                    - /url: https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fwww.amazon.jobs%2Fen%2Fjobs%2F3203832%2Fdata-scientist-iii-amz9442227
+                    - text: b
+                - listitem [ref=e111]:
+                  - link "Share with linkedin" [ref=e112] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/shareArticle?mini=true&url=https%3A%2F%2Fwww.amazon.jobs%2Fen%2Fjobs%2F3203832%2Fdata-scientist-iii-amz9442227&title=Data%20Scientist%20III%20-%20AMZ9442227&summary=MULTIPLE%20POSITIONS%20AVAILABLE%3Cbr%2F%3E%3Cbr%2F%3EEmployer%3A%20AMAZON.COM%20SERVICES%20LLC%3Cbr%2F%3EOffered%20Position%3A%20Data%20Scientist%20III%3Cbr%2F%3EJob%20Location%3A%20Austin%2C%20Texas%3Cbr%2F%3EJob%20Number%3A%20AMZ9442227%3Cbr%2F%3E%3Cbr%2F%3EPosition%20Responsibilities%3A%3Cbr%2F%3E%3Cbr%2F%3EOwn%20the%20data%20science%20elements...
+                    - text: d
+                - listitem [ref=e113]:
+                  - link "Share with twitter" [ref=e114] [cursor=pointer]:
+                    - /url: https://twitter.com/intent/tweet?text=https%3A%2F%2Fwww.amazon.jobs%2Fen%2Fjobs%2F3203832
+                    - text: j
+                - listitem [ref=e115]:
+                  - link "Share with email" [ref=e116] [cursor=pointer]:
+                    - /url: mailto:?body=https%3A%2F%2Fwww.amazon.jobs%2Fen%2Fjobs%2F3203832&subject=Take%20a%20look%20at%20this%20job
+                    - text: l
+                - listitem [ref=e117]:
+                  - link "Print this job" [ref=e118] [cursor=pointer]:
+                    - /url: "#"
+                    - text: m
+    - generic [ref=e119]:
+      - generic [ref=e122]:
+        - generic [ref=e123]: JOIN US ON
+        - list [ref=e124]:
+          - listitem [ref=e125]:
+            - link "Join us on facebook" [ref=e126] [cursor=pointer]:
+              - /url: https://www.facebook.com/InsideAmazon/?Amazon.jobs=footer
+              - text: b
+          - listitem [ref=e127]:
+            - link "Join us on linkedin" [ref=e128] [cursor=pointer]:
+              - /url: https://www.linkedin.com/company/amazon?Amazon.jobs=footer
+              - text: d
+          - listitem [ref=e129]:
+            - link "Join us on instagram" [ref=e130] [cursor=pointer]:
+              - /url: https://www.instagram.com/insideamazon/?Amazon.jobs=footer
+              - text: c
+          - listitem [ref=e131]:
+            - link "Join us on twitter" [ref=e132] [cursor=pointer]:
+              - /url: https://twitter.com/amazonnews?Amazon.jobs=footer
+              - text: j
+        - generic [ref=e133]:
+          - generic [ref=e134]: DOWNLOAD OUR APP
+          - list [ref=e135]:
+            - listitem [ref=e136]:
+              - link "Download Amazon A to Z from App Store" [ref=e137] [cursor=pointer]:
+                - /url: https://apple.co/4mW6qxK
+                - img [ref=e138]
+            - listitem [ref=e139]:
+              - link "Download Amazon A to Z from Google Play" [ref=e140] [cursor=pointer]:
+                - /url: https://bit.ly/46JGIYu
+                - img [ref=e141]
+      - generic [ref=e145]:
+        - generic [ref=e146]:
+          - text: Find Careers
+          - list [ref=e147]:
+            - listitem [ref=e148]:
+              - link "Job Categories" [ref=e149] [cursor=pointer]:
+                - /url: /content/en/job-categories
+            - listitem [ref=e150]:
+              - link "Teams" [ref=e151] [cursor=pointer]:
+                - /url: /content/en/teams
+            - listitem [ref=e152]:
+              - link "Locations" [ref=e153] [cursor=pointer]:
+                - /url: /content/en/locations
+            - listitem [ref=e154]:
+              - link "Military careers" [ref=e155] [cursor=pointer]:
+                - /url: /content/en/career-programs/military
+            - listitem [ref=e156]:
+              - link "Hourly" [ref=e157] [cursor=pointer]:
+                - /url: /content/en/hourly
+        - generic [ref=e158]:
+          - text: Working At Amazon
+          - list [ref=e159]:
+            - listitem [ref=e160]:
+              - link "Culture" [ref=e161] [cursor=pointer]:
+                - /url: /content/en/our-workplace
+            - listitem [ref=e162]:
+              - link "Benefits" [ref=e163] [cursor=pointer]:
+                - /url: /en/benefits
+            - listitem [ref=e164]:
+              - link "Amazon Newsletter" [ref=e165] [cursor=pointer]:
+                - /url: https://email.aboutamazon.com/l/637851/2020-10-29/pd87g?utm_campaign=newslettersubscribers&utm_content=amazonnewssignup&utm_medium=amazonjobs&utm_source=footer
+            - listitem [ref=e166]:
+              - link "Inclusive experiences" [ref=e167] [cursor=pointer]:
+                - /url: /content/en/our-workplace/inclusive-experiences
+            - listitem [ref=e168]:
+              - link "Leadership Principles" [ref=e169] [cursor=pointer]:
+                - /url: /content/en/our-workplace/leadership-principles
+        - generic [ref=e170]:
+          - text: Help
+          - list [ref=e171]:
+            - listitem [ref=e172]:
+              - link "FAQ" [ref=e173] [cursor=pointer]:
+                - /url: /content/en/faq
+            - listitem [ref=e174]:
+              - link "How We Hire" [ref=e175] [cursor=pointer]:
+                - /url: /content/en/how-we-hire#onlineapp
+            - listitem [ref=e176]:
+              - link "Application status" [ref=e177] [cursor=pointer]:
+                - /url: https://www.amazon.jobs/applicant/check_application_status
+            - listitem [ref=e178]:
+              - link "Accommodations" [ref=e179] [cursor=pointer]:
+                - /url: /content/en/how-we-hire/accommodations
+            - listitem [ref=e180]:
+              - link "Legal disclosures and notices" [ref=e181] [cursor=pointer]:
+                - /url: /content/en/legal-disclosures-and-notices
+        - combobox "English" [ref=e187] [cursor=pointer]: English
+      - generic [ref=e189]:
+        - generic [ref=e191]:
+          - generic [ref=e192]: Amazon is an equal opportunity employer and does not discriminate on the basis of protected veteran status, disability, or other legally protected status.
+          - generic [ref=e193]:
+            - link "Privacy and Data" [ref=e194] [cursor=pointer]:
+              - /url: /en/privacy_page
+            - link "Impressum" [ref=e195] [cursor=pointer]:
+              - /url: /en/impressum
+          - generic [ref=e196]: © 1996-2026, Amazon.com, Inc. or its affiliates
+        - generic [ref=e197]:
+          - generic [ref=e198]:
+            - generic [ref=e199]:
+              - heading "Notice of Right to Opt-Out Sharing" [level=3] [ref=e200]
+              - button [ref=e201] [cursor=pointer]
+            - paragraph [ref=e202]:
+              - text: Amazon Jobs uses cookies and similar tools such as pixels (collectively, “cookies”) for advertising purposes. The cookies collect and share information about you with third-parties to serve you with relevant advertisements and job recommendations based on your interactions with Amazon Jobs and third-party sites. California residents may exercise their right to opt-out of the sharing of information for advertising purposes by clicking toggling the buttons below. You can also manage your cookie preferences through the
+              - link "Cookie Preference Center" [ref=e203] [cursor=pointer]:
+                - /url: /cookies
+              - text: .
+            - paragraph [ref=e204]:
+              - text: For more information about how we use cookies and information of how we collect cookies, please visit our
+              - link "Candidate Cookie Notice" [ref=e205] [cursor=pointer]:
+                - /url: /privacy_page?region_id=region_us&notice_id=us-cookies-notice-english
+              - text: and
+              - link "Candidate Privacy Notice" [ref=e206] [cursor=pointer]:
+                - /url: /privacy_page?region_id=region_us&notice_id=us-privacy-english
+              - text: and the
+              - link "California supplement notice" [ref=e207] [cursor=pointer]:
+                - /url: /privacy_page?region_id=region_california&notice_id=california-privacy-english
+              - text: .
+          - list [ref=e209]:
+            - listitem [ref=e210]:
+              - button "Accept" [ref=e211] [cursor=pointer]: Accept all
+            - listitem [ref=e212]:
+              - button "Reject" [ref=e213] [cursor=pointer]: Reject all
+            - listitem [ref=e214]:
+              - button "Customize" [ref=e215] [cursor=pointer]: Customize cookies
+  - img [ref=e216]
+  - img [ref=e217]

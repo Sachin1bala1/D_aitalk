@@ -1,0 +1,146 @@
+- generic [active] [ref=e1]:
+  - navigation "Global" [ref=e3]:
+    - list [ref=e5]:
+      - listitem [ref=e6]:
+        - link "Apple" [ref=e7] [cursor=pointer]:
+          - /url: https://www.apple.com/
+          - generic:
+            - img
+          - generic: Apple
+      - listitem [ref=e8]:
+        - generic [ref=e10]:
+          - generic [ref=e11]:
+            - link "Store" [ref=e12] [cursor=pointer]:
+              - /url: https://www.apple.com/us/shop/goto/store
+              - generic [ref=e13]:
+                - generic:
+                  - img
+                - generic: Store
+            - button "Store menu":
+              - generic:
+                - img
+          - generic [ref=e14]:
+            - link "Mac" [ref=e15] [cursor=pointer]:
+              - /url: https://www.apple.com/mac/
+              - generic [ref=e16]:
+                - generic:
+                  - img
+                - generic: Mac
+            - button "Mac menu":
+              - generic:
+                - img
+          - generic [ref=e17]:
+            - link "iPad" [ref=e18] [cursor=pointer]:
+              - /url: https://www.apple.com/ipad/
+              - generic [ref=e19]:
+                - generic:
+                  - img
+                - generic: iPad
+            - button "iPad menu":
+              - generic:
+                - img
+          - generic [ref=e20]:
+            - link "iPhone" [ref=e21] [cursor=pointer]:
+              - /url: https://www.apple.com/iphone/
+              - generic [ref=e22]:
+                - generic:
+                  - img
+                - generic: iPhone
+            - button "iPhone menu":
+              - generic:
+                - img
+          - generic [ref=e23]:
+            - link "Watch" [ref=e24] [cursor=pointer]:
+              - /url: https://www.apple.com/watch/
+              - generic [ref=e25]:
+                - generic:
+                  - img
+                - generic: Watch
+            - button "Watch menu":
+              - generic:
+                - img
+          - generic [ref=e26]:
+            - link "Vision" [ref=e27] [cursor=pointer]:
+              - /url: https://www.apple.com/apple-vision-pro/
+              - generic [ref=e28]:
+                - generic:
+                  - img
+                - generic: Vision
+            - button "Vision menu":
+              - generic:
+                - img
+          - generic [ref=e29]:
+            - link "AirPods" [ref=e30] [cursor=pointer]:
+              - /url: https://www.apple.com/airpods/
+              - generic [ref=e31]:
+                - generic:
+                  - img
+                - generic: AirPods
+            - button "AirPods menu":
+              - generic:
+                - img
+          - generic [ref=e32]:
+            - link "TV and Home" [ref=e33] [cursor=pointer]:
+              - /url: https://www.apple.com/tv-home/
+              - generic [ref=e34]:
+                - generic:
+                  - img
+                - generic: TV & Home
+            - button "TV and Home menu":
+              - generic:
+                - img
+          - generic [ref=e35]:
+            - link "Entertainment" [ref=e36] [cursor=pointer]:
+              - /url: https://www.apple.com/entertainment/
+              - generic [ref=e37]:
+                - generic:
+                  - img
+                - generic: Entertainment
+            - button "Entertainment menu":
+              - generic:
+                - img
+          - generic [ref=e38]:
+            - link "Accessories" [ref=e39] [cursor=pointer]:
+              - /url: https://www.apple.com/us/shop/goto/buy_accessories
+              - generic [ref=e40]:
+                - generic:
+                  - img
+                - generic: Accessories
+            - button "Accessories menu":
+              - generic:
+                - img
+          - generic [ref=e41]:
+            - link "Support" [ref=e42] [cursor=pointer]:
+              - /url: https://support.apple.com/?cid=gn-ols-home-hp-tab
+              - generic [ref=e43]:
+                - generic:
+                  - img
+                - generic: Support
+            - button "Support menu":
+              - generic:
+                - img
+      - listitem [ref=e44]:
+        - button "Search apple.com" [ref=e45] [cursor=pointer]:
+          - generic:
+            - img
+      - listitem [ref=e46]:
+        - button "Shopping Bag" [ref=e48] [cursor=pointer]:
+          - generic:
+            - img
+  - main [ref=e50]:
+    - generic [ref=e51]:
+      - progressbar
+      - iframe [ref=e64]:
+        
+  - contentinfo "Apple Footer" [ref=e65]:
+    - generic [ref=e67]:
+      - heading "Apple Footer" [level=2] [ref=e68]
+      - link "United States" [ref=e70] [cursor=pointer]:
+        - /url: https://appleid.apple.com/choose-country-region?returnURL=https%3A%2F%2Fidmsa.apple.com%2Fsignin%3Frv%3D2%26path%3D%252Fapp%252Fen-us%252Fapply%252F200645796-0157%26appIdKey%3D967e0c9eb29cb96878a15488726dd401bae3c121c2b0b124d9e6eb537387d235
+      - generic [ref=e71]:
+        - generic [ref=e72]: Copyright © 2026 Apple Inc. All rights reserved.
+        - generic [ref=e73]:
+          - link "Privacy Policy" [ref=e74] [cursor=pointer]:
+            - /url: "https://www.apple.com/privacy/privacy-policy/ "
+          - link "Terms of Use" [ref=e75] [cursor=pointer]:
+            - /url: https://www.apple.com/legal/internet-services/terms/site.html

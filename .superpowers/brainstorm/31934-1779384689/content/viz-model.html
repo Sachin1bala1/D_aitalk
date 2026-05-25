@@ -1,0 +1,86 @@
+<h2>How should charts be editable?</h2>
+<p class="subtitle">You type a question → AI builds a chart. Then what happens when you want to change it?</p>
+
+<div class="options">
+  <div class="option" data-choice="inline-panel" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Click-to-edit side panel</h3>
+      <div class="mockup" style="margin:12px 0">
+        <div class="mockup-header">DataIQ Workspace</div>
+        <div class="mockup-body" style="display:grid;grid-template-columns:1fr 220px;gap:0;min-height:140px">
+          <div style="padding:12px;border-right:1px solid #333">
+            <div style="background:#0d0d0d;border:1px solid #00d2ff33;border-radius:4px;padding:10px;font-size:11px">
+              <div style="color:#00d2ff;font-size:10px;margin-bottom:6px">📊 LINE CHART · production_line_3</div>
+              <div style="background:#1a1a1a;height:70px;border-radius:3px;display:flex;align-items:center;justify-content:center;color:#666;font-size:10px">chart renders here</div>
+            </div>
+          </div>
+          <div style="padding:10px;background:#0a0a0a;font-size:10px">
+            <div style="color:#00d2ff;font-weight:bold;margin-bottom:8px">✏️ Edit Chart</div>
+            <div style="color:#666;margin-bottom:4px">TYPE</div>
+            <div style="background:#1a1a1a;padding:4px 6px;border-radius:3px;margin-bottom:8px;color:#e5e5e5">Line ▾</div>
+            <div style="color:#666;margin-bottom:4px">X AXIS</div>
+            <div style="background:#1a1a1a;padding:4px 6px;border-radius:3px;margin-bottom:8px;color:#e5e5e5">timestamp ▾</div>
+            <div style="color:#666;margin-bottom:4px">Y AXIS</div>
+            <div style="background:#1a1a1a;padding:4px 6px;border-radius:3px;margin-bottom:8px;color:#e5e5e5">output_kg ▾</div>
+            <div style="background:#00d2ff22;color:#00d2ff;padding:4px 6px;border-radius:3px;text-align:center">Re-render</div>
+          </div>
+        </div>
+      </div>
+      <p>Click any chart → side panel slides in with all params. Change type, axes, filters, colors. Re-renders instantly without re-running AI. <strong>Fast and focused.</strong></p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="chat-edit" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Edit by talking — "change this to a bar chart grouped by shift"</h3>
+      <div class="mockup" style="margin:12px 0">
+        <div class="mockup-header">DataIQ — AI Panel</div>
+        <div class="mockup-body" style="padding:12px;font-size:11px;min-height:100px">
+          <div style="background:#1a1a1a;border-radius:6px;padding:8px;margin-bottom:8px;color:#e5e5e5">
+            <span style="color:#00d2ff">You:</span> show production output for line 3 this week
+          </div>
+          <div style="background:#0d1a2e;border-radius:6px;padding:8px;margin-bottom:8px">
+            <span style="color:#39FF14">AI:</span> <span style="color:#e5e5e5">Here's a line chart of output_kg by hour for line 3.</span>
+            <div style="background:#111;border:1px solid #333;height:50px;border-radius:3px;margin-top:6px;display:flex;align-items:center;justify-content:center;color:#555;font-size:10px">📈 chart artifact</div>
+          </div>
+          <div style="background:#1a1a1a;border-radius:6px;padding:8px;color:#e5e5e5">
+            <span style="color:#00d2ff">You:</span> make it a bar chart grouped by shift instead
+          </div>
+        </div>
+      </div>
+      <p>No UI controls at all — just tell the AI what to change. Fastest UX to learn, but every edit costs a round-trip to the AI. <strong>Conversational, but slower for iteration.</strong></p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="both" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Both — panel for quick edits, chat for complex changes</h3>
+      <div class="mockup" style="margin:12px 0">
+        <div class="mockup-header">DataIQ — Best of both</div>
+        <div class="mockup-body" style="padding:10px;font-size:11px;min-height:80px">
+          <div style="display:flex;gap:8px;align-items:flex-start">
+            <div style="flex:1;background:#0d0d0d;border:1px solid #333;border-radius:4px;padding:8px">
+              <div style="color:#00d2ff;font-size:10px;margin-bottom:4px">📊 Chart</div>
+              <div style="background:#1a1a1a;height:50px;border-radius:3px;display:flex;align-items:center;justify-content:center;color:#555;font-size:10px">line chart</div>
+              <div style="display:flex;gap:4px;margin-top:6px">
+                <div style="background:#1a2030;padding:3px 6px;border-radius:3px;font-size:9px;color:#00d2ff">Bar ▾</div>
+                <div style="background:#1a2030;padding:3px 6px;border-radius:3px;font-size:9px;color:#888">Filter</div>
+                <div style="background:#1a2030;padding:3px 6px;border-radius:3px;font-size:9px;color:#888">Group</div>
+              </div>
+            </div>
+            <div style="width:120px;background:#0a0a1a;border:1px solid #333;border-radius:4px;padding:8px">
+              <div style="color:#9ca3af;font-size:9px;margin-bottom:4px">OR ask the AI:</div>
+              <div style="background:#111;border:1px solid #444;padding:4px;border-radius:3px;font-size:9px;color:#666">add a trend line...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p>Chart toolbar for common edits (type, axes, filters, grouping) — no AI round-trip. Chat for anything complex ("add 3σ control limits", "overlay last month"). <strong>Fastest for power users.</strong></p>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:24px">Recommended: C — toolbar for speed, chat for depth. But you choose.</p>

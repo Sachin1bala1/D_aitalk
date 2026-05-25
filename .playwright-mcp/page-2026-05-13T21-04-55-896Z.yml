@@ -1,0 +1,586 @@
+- generic [active] [ref=e1]:
+  - navigation "Global" [ref=e3]:
+    - list [ref=e5]:
+      - listitem [ref=e6]:
+        - link "Apple" [ref=e7] [cursor=pointer]:
+          - /url: https://www.apple.com/
+          - generic:
+            - img
+          - generic: Apple
+      - listitem [ref=e8]:
+        - generic [ref=e10]:
+          - generic [ref=e11]:
+            - link "Store" [ref=e12] [cursor=pointer]:
+              - /url: https://www.apple.com/us/shop/goto/store
+              - generic [ref=e13]:
+                - generic:
+                  - img
+                - generic: Store
+            - button "Store menu":
+              - generic:
+                - img
+          - generic [ref=e14]:
+            - link "Mac" [ref=e15] [cursor=pointer]:
+              - /url: https://www.apple.com/mac/
+              - generic [ref=e16]:
+                - generic:
+                  - img
+                - generic: Mac
+            - button "Mac menu":
+              - generic:
+                - img
+          - generic [ref=e17]:
+            - link "iPad" [ref=e18] [cursor=pointer]:
+              - /url: https://www.apple.com/ipad/
+              - generic [ref=e19]:
+                - generic:
+                  - img
+                - generic: iPad
+            - button "iPad menu":
+              - generic:
+                - img
+          - generic [ref=e20]:
+            - link "iPhone" [ref=e21] [cursor=pointer]:
+              - /url: https://www.apple.com/iphone/
+              - generic [ref=e22]:
+                - generic:
+                  - img
+                - generic: iPhone
+            - button "iPhone menu":
+              - generic:
+                - img
+          - generic [ref=e23]:
+            - link "Watch" [ref=e24] [cursor=pointer]:
+              - /url: https://www.apple.com/watch/
+              - generic [ref=e25]:
+                - generic:
+                  - img
+                - generic: Watch
+            - button "Watch menu":
+              - generic:
+                - img
+          - generic [ref=e26]:
+            - link "Vision" [ref=e27] [cursor=pointer]:
+              - /url: https://www.apple.com/apple-vision-pro/
+              - generic [ref=e28]:
+                - generic:
+                  - img
+                - generic: Vision
+            - button "Vision menu":
+              - generic:
+                - img
+          - generic [ref=e29]:
+            - link "AirPods" [ref=e30] [cursor=pointer]:
+              - /url: https://www.apple.com/airpods/
+              - generic [ref=e31]:
+                - generic:
+                  - img
+                - generic: AirPods
+            - button "AirPods menu":
+              - generic:
+                - img
+          - generic [ref=e32]:
+            - link "TV and Home" [ref=e33] [cursor=pointer]:
+              - /url: https://www.apple.com/tv-home/
+              - generic [ref=e34]:
+                - generic:
+                  - img
+                - generic: TV & Home
+            - button "TV and Home menu":
+              - generic:
+                - img
+          - generic [ref=e35]:
+            - link "Entertainment" [ref=e36] [cursor=pointer]:
+              - /url: https://www.apple.com/entertainment/
+              - generic [ref=e37]:
+                - generic:
+                  - img
+                - generic: Entertainment
+            - button "Entertainment menu":
+              - generic:
+                - img
+          - generic [ref=e38]:
+            - link "Accessories" [ref=e39] [cursor=pointer]:
+              - /url: https://www.apple.com/us/shop/goto/buy_accessories
+              - generic [ref=e40]:
+                - generic:
+                  - img
+                - generic: Accessories
+            - button "Accessories menu":
+              - generic:
+                - img
+          - generic [ref=e41]:
+            - link "Support" [ref=e42] [cursor=pointer]:
+              - /url: https://support.apple.com/?cid=gn-ols-home-hp-tab
+              - generic [ref=e43]:
+                - generic:
+                  - img
+                - generic: Support
+            - button "Support menu":
+              - generic:
+                - img
+      - listitem [ref=e44]:
+        - button "Search apple.com" [ref=e45] [cursor=pointer]:
+          - generic:
+            - img
+      - listitem [ref=e46]:
+        - button "Shopping Bag" [ref=e48] [cursor=pointer]:
+          - generic:
+            - img
+  - generic [ref=e50]:
+    - navigation [ref=e51]:
+      - generic [ref=e54]:
+        - link "Careers at Apple" [ref=e56] [cursor=pointer]:
+          - /url: https://www.apple.com/careers/us
+        - generic [ref=e57]:
+          - list [ref=e59]:
+            - listitem [ref=e60]:
+              - list [ref=e61]:
+                - listitem [ref=e62]:
+                  - link "Work at Apple" [ref=e64] [cursor=pointer]:
+                    - /url: https://www.apple.com/careers/us/work-at-apple.html
+            - listitem [ref=e65]:
+              - list [ref=e66]:
+                - listitem [ref=e67]:
+                  - link "Life at Apple" [ref=e69] [cursor=pointer]:
+                    - /url: https://www.apple.com/careers/us/life-at-apple.html
+            - listitem [ref=e70]:
+              - list [ref=e71]:
+                - listitem [ref=e72]:
+                  - link "Profile" [ref=e74] [cursor=pointer]:
+                    - /url: /app/en-us/profile/info
+            - listitem [ref=e75]:
+              - list [ref=e76]:
+                - listitem [ref=e77]:
+                  - link "Sign In" [ref=e79] [cursor=pointer]:
+                    - /url: /en-us/login
+          - link "Search" [ref=e81] [cursor=pointer]:
+            - /url: /en-us/search
+    - main [ref=e85]:
+      - link "Back to search results" [ref=e88] [cursor=pointer]:
+        - /url: /en-us/search?location=united-states-USA
+        - text:  Back to search results
+      - heading "Data Scientist - Strategic Data Solutions" [level=1] [ref=e89]
+      - generic [ref=e90]:
+        - generic [ref=e91]: Austin, Texas, United States
+        - generic [ref=e92]: Operations and Supply Chain
+      - generic [ref=e93]:
+        - generic [ref=e95]:
+          - button "Add to Favorites Data Scientist - Strategic Data Solutions" [ref=e97] [cursor=pointer]:
+            - img [ref=e98]
+          - button "Share this role." [ref=e100] [cursor=pointer]:
+            - img [ref=e101]
+        - 'link "Submit Resume: Data Scientist - Strategic Data Solutions 200645796-0157" [ref=e105] [cursor=pointer]':
+          - /url: /app/en-us/apply/200645796-0157
+          - text: Submit Resume
+      - generic [ref=e106]:
+        - group "Summary" [ref=e107]:
+          - complementary [ref=e108]:
+            - heading "Summary" [level=2] [ref=e109]
+            - generic [ref=e110]:
+              - generic [ref=e111]:
+                - text: "Posted:"
+                - strong [ref=e112]:
+                  - time [ref=e113]: Feb 12, 2026
+              - generic [ref=e114]:
+                - text: "Role Number:"
+                - strong [ref=e115]: 200645796-0157
+          - generic [ref=e117]: Imagine what you could do here! The people here at Apple don’t just create products — they build the kind of wonder that’s revolutionized entire industries. It’s the diversity of those people and their ideas that inspires the innovation that runs through everything we do, from amazing technology to industry-leading environmental efforts. At Apple, inclusion is a shared responsibility, and we work together to foster a culture where everyone belongs and is inspired to do their best work. Here on the Apple Store Online team, we are responsible for Apple’s largest store. Our main goal is to deliver a magical, personal digital experience where customers can shop, buy and learn everything Apple, wherever they are. Each customer should feel like they are our only customer and our job is to set the bar for the experience they receive. To run such an extraordinary store, it takes extraordinary people, and we are looking for someone to help us do extraordinary things. As a Data Scientist, you will provide data driven insights to fight fraud. You will develop models, evaluate product launches, develop automated solutions to deliver timely alerts, find opportunities for future development by applying the bleeding edge scientific methods. You will partner with engineers, product, program and business leaders alongside other teams to bring better experiences to drive meaningful customer impact.
+        - group "Description" [ref=e118]:
+          - complementary [ref=e119]:
+            - heading "Description" [level=2] [ref=e120]
+          - generic [ref=e122]: Research and develop evaluation methods to address fraud. Solve difficult, non-routine analysis problems by applying statistical, machine learning and advanced analytical methods as needed. - Design and execute observational and experimental studies of causal inference - Work with large, complex data sets. - Develop automated solutions to deliver insights and alerts - Drive feature evaluation and product roadmap with insights
+        - group "Responsibilities" [ref=e123]:
+          - complementary [ref=e124]:
+            - heading "Responsibilities" [level=2] [ref=e125]
+          - list [ref=e128]:
+            - listitem [ref=e129]: Develop scalable data solutions to be used to drive analyses, reports, and insights
+            - listitem [ref=e130]: Influence upstream data model design, drive KPI definitions and develop customized data solutions
+            - listitem [ref=e131]: Measure impact of features and initiatives and help improve customer experience
+            - listitem [ref=e132]: Collaborate and influence cross functional partners to help deliver product objectives on time
+            - listitem [ref=e133]: Communicate results, insights and expectations to partners and senior leaders, bridge any gaps between technical and non-technical audiences. Be adept at messaging domain and technical content at a level appropriate for the audience.
+            - listitem [ref=e134]: Work independently in sophisticated and highly visible projects, identify risks and develop frameworks, regularly connect with collaborators and leadership teams.
+        - group "Minimum Qualifications" [ref=e135]:
+          - complementary [ref=e136]:
+            - heading "Minimum Qualifications" [level=2] [ref=e137]
+          - list [ref=e140]:
+            - listitem [ref=e141]: Masters in Statistics, Mathematics, Data Science, Machine Learning, Physics, Engineering, Computer Science or equivalent
+            - listitem [ref=e142]: Proficiency in data querying using SQL, Spark, or equivalent technologies
+            - listitem [ref=e143]: "Proficiency in scripting languages for data processing and analysis (ex: Python, R, or Scala)"
+            - listitem [ref=e144]: Excellent communication and multi-functional collaboration skills, ability to convey complex concepts to diverse audiences
+            - listitem [ref=e145]: At least 3 years experience working as a Data Scientist
+        - group "Preferred Qualifications" [ref=e146]:
+          - complementary [ref=e147]:
+            - heading "Preferred Qualifications" [level=2] [ref=e148]
+          - list [ref=e151]:
+            - listitem [ref=e152]: PhD in Statistics, Mathematics, Data Science, Machine Learning, Physics, Engineering, Computer Science or equivalent
+            - listitem [ref=e153]: Experience applying LLMs to solve technical problems such as data analysis, data automation, synthetic data generation with proven ability to optimize model performance for accuracy and efficiency
+            - listitem [ref=e154]: Excellent product intuition, keen eye for design and customer pain point awareness
+            - listitem [ref=e155]: Experience developing anomaly detection and causal inference models
+        - group [ref=e156]:
+          - complementary [ref=e157]
+          - paragraph [ref=e161]:
+            - text: Apple is an equal opportunity employer that is committed to inclusion and diversity. We seek to promote equal opportunity for all applicants without regard to race, color, religion, sex, sexual orientation, gender identity, national origin, disability, Veteran status, or other legally protected characteristics.
+            - link "Learn more about your EEO rights as an applicant (Opens PDF in new window)" [ref=e162] [cursor=pointer]:
+              - /url: https://www.eeoc.gov/sites/default/files/2023-06/22-088_EEOC_KnowYourRights6.12ScreenRdr.pdf
+              - text: Learn more about your EEO rights as an applicant
+              - generic [ref=e163]: 
+        - group [ref=e164]:
+          - complementary [ref=e165]
+          - paragraph [ref=e169]:
+            - text: At Apple, we believe accessibility is a fundamental human right. You’ll find that idea reflected in everything here — in our culture, our benefits and our digital tools. By welcoming as many perspectives as possible, we help you build a career where you feel like you belong.
+            - link "Learn about accessibility in Apple’s workplace (Opens in new window)" [ref=e170] [cursor=pointer]:
+              - /url: https://www.apple.com/careers/us/accessibility.html
+              - text: Learn about accessibility in Apple’s workplace
+              - generic [ref=e171]: 
+            - link "Learn about reasonable accommodations for job applicants (Opens in new window)" [ref=e172] [cursor=pointer]:
+              - /url: https://www.apple.com/careers/us/accommodation.html
+              - text: Learn about reasonable accommodations for job applicants
+              - generic [ref=e173]: 
+        - group [ref=e174]:
+          - complementary [ref=e175]
+          - paragraph [ref=e179]: Apple accepts applications to this posting on an ongoing basis.
+      - generic [ref=e180]:
+        - 'link "Submit Resume: Data Scientist - Strategic Data Solutions 200645796-0157" [ref=e184] [cursor=pointer]':
+          - /url: /app/en-us/apply/200645796-0157
+          - text: Submit Resume
+        - link "Back to search results" [ref=e186] [cursor=pointer]:
+          - /url: /en-us/search?location=united-states-USA
+          - text:  Back to search results
+        - generic [ref=e188]:
+          - button "Add to Favorites Data Scientist - Strategic Data Solutions" [ref=e190] [cursor=pointer]:
+            - img [ref=e191]
+          - button "Share this role." [ref=e193] [cursor=pointer]:
+            - img [ref=e194]
+        - link "See all roles in Austin" [ref=e196] [cursor=pointer]:
+          - /url: /en-us/search?location=austin-AST
+          - text: See all roles in Austin 
+  - contentinfo "Apple Footer" [ref=e197]:
+    - generic [ref=e198]:
+      - heading "Apple Footer" [level=2] [ref=e199]
+      - generic [ref=e200]:
+        - paragraph [ref=e201]:
+          - text: Apple is an equal opportunity employer that is committed to inclusion and diversity. We seek to promote equal opportunity for all applicants without regard to race, color, religion, sex, sexual orientation, gender identity, national origin, disability, Veteran status, or other legally protected characteristics.
+          - link "Learn more about your EEO rights as an applicant (Opens in a new window)" [ref=e202] [cursor=pointer]:
+            - /url: https://www.eeoc.gov/sites/default/files/2023-06/22-088_EEOC_KnowYourRights6.12ScreenRdr.pdf
+            - text: Learn more about your EEO rights as an applicant
+            - generic [ref=e203]: (Opens in a new window)
+          - text: .
+        - paragraph [ref=e204]: Apple will not discriminate or retaliate against applicants who inquire about, disclose, or discuss their compensation.
+        - paragraph [ref=e205]:
+          - text: Apple participates in the E-Verify program in certain locations as required by law.
+          - link "Learn more about the E-Verify program" [ref=e206] [cursor=pointer]:
+            - /url: https://www.apple.com/careers/pdf/EverifyPosterEnglish.pdf
+          - text: .
+        - paragraph [ref=e207]:
+          - text: Apple is committed to working with and providing reasonable accommodation to applicants with physical and mental disabilities.
+          - link "Reasonable Accommodation and Drug Free Workplace policy Learn more (Opens in a new window)" [ref=e208] [cursor=pointer]:
+            - /url: https://www.apple.com/careers/us/accommodation_drugfree.html
+            - generic [ref=e209]: Reasonable Accommodation and Drug Free Workplace policy
+            - text: Learn more
+            - generic [ref=e210]: (Opens in a new window)
+          - text: .
+        - paragraph [ref=e211]:
+          - text: Apple is a drug-free workplace.
+          - link "Reasonable Accommodation and Drug Free Workplace policy Learn more (Opens in a new window)" [ref=e212] [cursor=pointer]:
+            - /url: https://www.apple.com/careers/us/accommodation_drugfree.html
+            - generic [ref=e213]: Reasonable Accommodation and Drug Free Workplace policy
+            - text: Learn more
+            - generic [ref=e214]: (Opens in a new window)
+          - text: .
+        - paragraph [ref=e215]:
+          - text: Apple will consider for employment all qualified applicants with criminal histories in a manner consistent with applicable law. If you’re applying for a position in San Francisco, review the
+          - link "San Francisco Fair Chance Ordinance guidelines (opens in a new window)" [ref=e216] [cursor=pointer]:
+            - /url: https://www.sf.gov/sites/default/files/2022-12/FCO%20poster2020_0.pdf
+            - generic [ref=e217]: San Francisco Fair Chance Ordinance
+            - text: guidelines
+            - generic [ref=e218]: (opens in a new window)
+          - text: applicable in your area.
+        - paragraph [ref=e219]: It is unlawful in Massachusetts to require or administer a lie detector test as a condition of employment or continued employment. An employer who violates this law shall be subject to criminal penalties and civil liability.
+      - navigation "Breadcrumbs" [ref=e220]:
+        - link "Apple" [ref=e221] [cursor=pointer]:
+          - /url: http://www.apple.com/
+          - generic [ref=e222]: 
+          - generic [ref=e223]: Apple
+        - generic [ref=e224]:
+          - list:
+            - listitem [ref=e225]:
+              - link "Careers at Apple" [ref=e226] [cursor=pointer]:
+                - /url: /careers/us/index/index.html
+                - generic [ref=e227]: Careers at Apple
+            - listitem [ref=e228]:
+              - generic [ref=e229]: Careers at Apple
+      - navigation "Apple Directory" [ref=e230]:
+        - generic [ref=e231]:
+          - generic:
+            - heading "Shop and Learn" [level=3] [ref=e232]:
+              - generic [ref=e233]: Shop and Learn
+            - list [ref=e234]:
+              - listitem [ref=e235]:
+                - link "Store" [ref=e236] [cursor=pointer]:
+                  - /url: https://www.apple.com/us/shop/goto/store
+              - listitem [ref=e237]:
+                - link "Mac" [ref=e238] [cursor=pointer]:
+                  - /url: https://www.apple.com/mac/
+              - listitem [ref=e239]:
+                - link "iPad" [ref=e240] [cursor=pointer]:
+                  - /url: https://www.apple.com/ipad/
+              - listitem [ref=e241]:
+                - link "iPhone" [ref=e242] [cursor=pointer]:
+                  - /url: https://www.apple.com/iphone/
+              - listitem [ref=e243]:
+                - link "Watch" [ref=e244] [cursor=pointer]:
+                  - /url: https://www.apple.com/watch/
+              - listitem [ref=e245]:
+                - link "Vision" [ref=e246] [cursor=pointer]:
+                  - /url: https://www.apple.com/apple-vision-pro/
+              - listitem [ref=e247]:
+                - link "AirPods" [ref=e248] [cursor=pointer]:
+                  - /url: https://www.apple.com/airpods/
+              - listitem [ref=e249]:
+                - link "TV & Home" [ref=e250] [cursor=pointer]:
+                  - /url: https://www.apple.com/tv-home/
+              - listitem [ref=e251]:
+                - link "AirTag" [ref=e252] [cursor=pointer]:
+                  - /url: https://www.apple.com/airtag/
+              - listitem [ref=e253]:
+                - link "Accessories" [ref=e254] [cursor=pointer]:
+                  - /url: https://www.apple.com/us/shop/goto/buy_accessories
+              - listitem [ref=e255]:
+                - link "Gift Cards" [ref=e256] [cursor=pointer]:
+                  - /url: https://www.apple.com/us/shop/goto/giftcards
+          - generic:
+            - heading "Apple Wallet" [level=3] [ref=e257]:
+              - generic [ref=e258]: Apple Wallet
+            - list [ref=e259]:
+              - listitem [ref=e260]:
+                - link "Wallet" [ref=e261] [cursor=pointer]:
+                  - /url: https://www.apple.com/wallet/
+              - listitem [ref=e262]:
+                - link "Apple Card" [ref=e263] [cursor=pointer]:
+                  - /url: https://www.apple.com/apple-card/
+              - listitem [ref=e264]:
+                - link "Apple Pay" [ref=e265] [cursor=pointer]:
+                  - /url: https://www.apple.com/apple-pay/
+              - listitem [ref=e266]:
+                - link "Apple Cash" [ref=e267] [cursor=pointer]:
+                  - /url: https://www.apple.com/apple-cash/
+        - generic [ref=e268]:
+          - generic:
+            - heading "Account" [level=3] [ref=e269]:
+              - generic [ref=e270]: Account
+            - list [ref=e271]:
+              - listitem [ref=e272]:
+                - link "Manage Your Apple Account" [ref=e273] [cursor=pointer]:
+                  - /url: https://account.apple.com/
+              - listitem [ref=e274]:
+                - link "Apple Store Account" [ref=e275] [cursor=pointer]:
+                  - /url: https://www.apple.com/us/shop/goto/account
+              - listitem [ref=e276]:
+                - link "iCloud.com" [ref=e277] [cursor=pointer]:
+                  - /url: https://www.icloud.com
+          - generic:
+            - heading "Entertainment" [level=3] [ref=e278]:
+              - generic [ref=e279]: Entertainment
+            - list [ref=e280]:
+              - listitem [ref=e281]:
+                - link "Apple One" [ref=e282] [cursor=pointer]:
+                  - /url: https://www.apple.com/apple-one/
+              - listitem [ref=e283]:
+                - link "Apple TV+" [ref=e284] [cursor=pointer]:
+                  - /url: https://www.apple.com/apple-tv-plus/
+              - listitem [ref=e285]:
+                - link "Apple Music" [ref=e286] [cursor=pointer]:
+                  - /url: https://www.apple.com/apple-music/
+              - listitem [ref=e287]:
+                - link "Apple Arcade" [ref=e288] [cursor=pointer]:
+                  - /url: https://www.apple.com/apple-arcade/
+              - listitem [ref=e289]:
+                - link "Apple Fitness+" [ref=e290] [cursor=pointer]:
+                  - /url: https://www.apple.com/apple-fitness-plus/
+              - listitem [ref=e291]:
+                - link "Apple News+" [ref=e292] [cursor=pointer]:
+                  - /url: https://www.apple.com/apple-news/
+              - listitem [ref=e293]:
+                - link "Apple Podcasts" [ref=e294] [cursor=pointer]:
+                  - /url: https://www.apple.com/apple-podcasts/
+              - listitem [ref=e295]:
+                - link "Apple Books" [ref=e296] [cursor=pointer]:
+                  - /url: https://www.apple.com/apple-books/
+              - listitem [ref=e297]:
+                - link "App Store" [ref=e298] [cursor=pointer]:
+                  - /url: https://www.apple.com/app-store/
+        - generic [ref=e299]:
+          - generic:
+            - heading "Apple Store" [level=3] [ref=e300]:
+              - generic [ref=e301]: Apple Store
+            - list [ref=e302]:
+              - listitem [ref=e303]:
+                - link "Find a Store" [ref=e304] [cursor=pointer]:
+                  - /url: https://www.apple.com/retail/
+              - listitem [ref=e305]:
+                - link "Genius Bar" [ref=e306] [cursor=pointer]:
+                  - /url: https://www.apple.com/retail/geniusbar/
+              - listitem [ref=e307]:
+                - link "Today at Apple" [ref=e308] [cursor=pointer]:
+                  - /url: https://www.apple.com/today/
+              - listitem [ref=e309]:
+                - link "Group Reservations" [ref=e310] [cursor=pointer]:
+                  - /url: https://www.apple.com/today/groups/
+              - listitem [ref=e311]:
+                - link "Apple Camp" [ref=e312] [cursor=pointer]:
+                  - /url: https://www.apple.com/today/camp/
+              - listitem [ref=e313]:
+                - link "Apple Store App" [ref=e314] [cursor=pointer]:
+                  - /url: https://apps.apple.com/us/app/apple-store/id375380948
+              - listitem [ref=e315]:
+                - link "Certified Refurbished" [ref=e316] [cursor=pointer]:
+                  - /url: https://www.apple.com/us/shop/goto/special_deals
+              - listitem [ref=e317]:
+                - link "Apple Trade In" [ref=e318] [cursor=pointer]:
+                  - /url: https://www.apple.com/us/shop/goto/trade_in
+              - listitem [ref=e319]:
+                - link "Financing" [ref=e320] [cursor=pointer]:
+                  - /url: https://www.apple.com/us/shop/goto/payment_plan
+              - listitem [ref=e321]:
+                - link "Carrier Deals at Apple" [ref=e322] [cursor=pointer]:
+                  - /url: https://www.apple.com/us/shop/goto/buy_iphone/carrier_offers
+              - listitem [ref=e323]:
+                - link "Order Status" [ref=e324] [cursor=pointer]:
+                  - /url: https://www.apple.com/us/shop/goto/order/list
+              - listitem [ref=e325]:
+                - link "Shopping Help" [ref=e326] [cursor=pointer]:
+                  - /url: https://www.apple.com/us/shop/goto/help
+        - generic [ref=e327]:
+          - generic:
+            - heading "For Business" [level=3] [ref=e328]:
+              - generic [ref=e329]: For Business
+            - list [ref=e330]:
+              - listitem [ref=e331]:
+                - link "Apple and Business" [ref=e332] [cursor=pointer]:
+                  - /url: https://www.apple.com/business/
+              - listitem [ref=e333]:
+                - link "Shop for Business" [ref=e334] [cursor=pointer]:
+                  - /url: https://www.apple.com/retail/business/
+          - generic:
+            - heading "For Education" [level=3] [ref=e335]:
+              - generic [ref=e336]: For Education
+            - list [ref=e337]:
+              - listitem [ref=e338]:
+                - link "Apple and Education" [ref=e339] [cursor=pointer]:
+                  - /url: https://www.apple.com/education/
+              - listitem [ref=e340]:
+                - link "Shop for K-12" [ref=e341] [cursor=pointer]:
+                  - /url: https://www.apple.com/education/k12/how-to-buy/
+              - listitem [ref=e342]:
+                - link "Shop for College" [ref=e343] [cursor=pointer]:
+                  - /url: https://www.apple.com/us/shop/goto/educationrouting
+          - generic:
+            - heading "For Healthcare" [level=3] [ref=e344]:
+              - generic [ref=e345]: For Healthcare
+            - list [ref=e346]:
+              - listitem [ref=e347]:
+                - link "Apple in Healthcare" [ref=e348] [cursor=pointer]:
+                  - /url: https://www.apple.com/healthcare/
+              - listitem [ref=e349]:
+                - link "Mac in Healthcare" [ref=e350] [cursor=pointer]:
+                  - /url: https://www.apple.com/healthcare/mac/
+              - listitem [ref=e351]:
+                - link "Health on Apple Watch" [ref=e352] [cursor=pointer]:
+                  - /url: https://www.apple.com/healthcare/apple-watch/
+              - listitem [ref=e353]:
+                - link "Health Records on iPhone and iPad" [ref=e354] [cursor=pointer]:
+                  - /url: https://www.apple.com/healthcare/health-records/
+          - generic:
+            - heading "For Government" [level=3] [ref=e355]:
+              - generic [ref=e356]: For Government
+            - list [ref=e357]:
+              - listitem [ref=e358]:
+                - link "Shop for Government" [ref=e359] [cursor=pointer]:
+                  - /url: https://www.apple.com/r/store/government/
+              - listitem [ref=e360]:
+                - link "Shop for Veterans and Military" [ref=e361] [cursor=pointer]:
+                  - /url: https://www.apple.com/us/shop/goto/eppstore/veteransandmilitary
+        - generic [ref=e362]:
+          - generic:
+            - heading "Apple Values" [level=3] [ref=e363]:
+              - generic [ref=e364]: Apple Values
+            - list [ref=e365]:
+              - listitem [ref=e366]:
+                - link "Accessibility" [ref=e367] [cursor=pointer]:
+                  - /url: https://www.apple.com/accessibility/
+              - listitem [ref=e368]:
+                - link "Education" [ref=e369] [cursor=pointer]:
+                  - /url: https://www.apple.com/education-initiative/
+              - listitem [ref=e370]:
+                - link "Environment" [ref=e371] [cursor=pointer]:
+                  - /url: https://www.apple.com/environment/
+              - listitem [ref=e372]:
+                - link "Inclusion and Diversity" [ref=e373] [cursor=pointer]:
+                  - /url: https://www.apple.com/diversity/
+              - listitem [ref=e374]:
+                - link "Privacy" [ref=e375] [cursor=pointer]:
+                  - /url: https://www.apple.com/privacy/
+              - listitem [ref=e376]:
+                - link "Racial Equity and Justice" [ref=e377] [cursor=pointer]:
+                  - /url: https://www.apple.com/racial-equity-justice-initiative/
+              - listitem [ref=e378]:
+                - link "Supply Chain" [ref=e379] [cursor=pointer]:
+                  - /url: https://www.apple.com/supply-chain/
+          - generic:
+            - heading "About Apple" [level=3] [ref=e380]:
+              - generic [ref=e381]: About Apple
+            - list [ref=e382]:
+              - listitem [ref=e383]:
+                - link "Newsroom" [ref=e384] [cursor=pointer]:
+                  - /url: https://www.apple.com/newsroom/
+              - listitem [ref=e385]:
+                - link "Apple Leadership" [ref=e386] [cursor=pointer]:
+                  - /url: https://www.apple.com/leadership/
+              - listitem [ref=e387]:
+                - link "Career Opportunities" [ref=e388] [cursor=pointer]:
+                  - /url: https://www.apple.com/careers/us/
+              - listitem [ref=e389]:
+                - link "Investors" [ref=e390] [cursor=pointer]:
+                  - /url: https://investor.apple.com/
+              - listitem [ref=e391]:
+                - link "Ethics & Compliance" [ref=e392] [cursor=pointer]:
+                  - /url: https://www.apple.com/compliance/
+              - listitem [ref=e393]:
+                - link "Events" [ref=e394] [cursor=pointer]:
+                  - /url: https://www.apple.com/apple-events/
+              - listitem [ref=e395]:
+                - link "Contact Apple" [ref=e396] [cursor=pointer]:
+                  - /url: https://www.apple.com/contact/
+      - generic [ref=e397]:
+        - generic [ref=e398]:
+          - text: "More ways to shop:"
+          - link "Find an Apple Store" [ref=e399] [cursor=pointer]:
+            - /url: https://www.apple.com/retail/
+          - text: or
+          - link "other retailer" [ref=e400] [cursor=pointer]:
+            - /url: https://locate.apple.com/
+          - text: near you.
+          - generic [ref=e401]: Or call 1-800-MY-APPLE.
+        - link "United States. Choose your country or region" [ref=e403] [cursor=pointer]:
+          - /url: /careers/choose-country-region.html
+          - text: United States
+        - generic [ref=e404]:
+          - generic [ref=e405]: Copyright © 2025 Apple Inc. All rights reserved.
+          - list [ref=e406]:
+            - listitem [ref=e407]:
+              - link "Privacy Policy" [ref=e408] [cursor=pointer]:
+                - /url: https://www.apple.com/legal/privacy/
+            - listitem [ref=e409]:
+              - link "Terms of Use" [ref=e410] [cursor=pointer]:
+                - /url: https://www.apple.com/legal/internet-services/terms/site.html
+            - listitem [ref=e411]:
+              - link "Sales and Refunds" [ref=e412] [cursor=pointer]:
+                - /url: https://www.apple.com/us/shop/goto/help/sales_refunds
+            - listitem [ref=e413]:
+              - link "Legal" [ref=e414] [cursor=pointer]:
+                - /url: https://www.apple.com/legal/
+            - listitem [ref=e415]:
+              - link "Site Map" [ref=e416] [cursor=pointer]:
+                - /url: https://www.apple.com/sitemap/
+  - status [ref=e417]: Content has loaded

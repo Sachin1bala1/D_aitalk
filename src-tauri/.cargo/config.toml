@@ -1,8 +1,11 @@
-# Force MSVC linker for the duckdb bundled build on Windows.
-# MinGW's g++ OOMs during DuckDB's C++ compilation; MSVC handles it fine.
-[target.x86_64-pc-windows-msvc]
-rustflags = ["-C", "codegen-units=1"]
+# Use lld (LLVM linker) for MinGW — far less link-time memory than GNU ld.
+# jobs=1 prevents parallel rustc processes from competing for RAM.
+[build]
+jobs = 1
 
-[env]
-# Limit parallel codegen jobs for DuckDB's bundled build
-CARGO_BUILD_JOBS = "2"
+[target.x86_64-pc-windows-gnu]
+linker = "C:/msys64/mingw64/bin/x86_64-w64-mingw32-gcc.exe"
+rustflags = ["-C", "link-arg=-fuse-ld=lld", "-C", "debuginfo=0", "--cfg", "windows_slim_errors"]
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "debuginfo=0"]

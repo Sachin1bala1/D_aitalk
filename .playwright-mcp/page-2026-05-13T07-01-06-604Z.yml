@@ -1,0 +1,473 @@
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=e3]:
+    - navigation "Primary" [ref=e4]:
+      - link "LinkedIn" [ref=e5] [cursor=pointer]:
+        - /url: /?trk=public_jobs_nav-header-logo
+        - generic [ref=e6]: LinkedIn
+      - generic [ref=e8]:
+        - button "Process Integration Development Engineer in Austin, TX Expand search" [ref=e9]:
+          - generic [ref=e11]: Process Integration Development Engineer in Austin, TX
+          - generic [ref=e12]: Expand search
+        - status [ref=e13]
+      - generic [ref=e14]:
+        - link "Sign in" [ref=e15] [cursor=pointer]:
+          - /url: https://www.linkedin.com/login?emailAddress=&fromSignIn=&fromSignIn=true&session_redirect=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fview%2Fprocess-integration-development-engineer-at-intel-4385925400&trk=public_jobs_nav-header-signin
+        - link "Join now" [ref=e16] [cursor=pointer]:
+          - /url: https://www.linkedin.com/signup/cold-join?source=jobs_registration&session_redirect=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fview%2Fprocess-integration-development-engineer-at-intel-4385925400&trk=public_jobs_nav-header-join
+  - main [ref=e17]:
+    - generic [ref=e19]:
+      - generic [ref=e21]:
+        - link "Intel" [ref=e22] [cursor=pointer]:
+          - /url: https://www.linkedin.com/company/intel-corporation?trk=public_jobs_topcard_logo
+          - img "Intel" [ref=e23]
+        - generic [ref=e25]:
+          - heading "Process Integration Development Engineer" [level=1] [ref=e26]
+          - heading "Intel · Hillsboro, OR 3 days ago Over 200 applicants See who Intel has hired for this role" [level=4] [ref=e27]:
+            - generic [ref=e28]:
+              - link "Intel" [ref=e30] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/intel-corporation?trk=public_jobs_topcard-org-name
+              - text: · Hillsboro, OR
+            - generic [ref=e31]:
+              - text: 3 days ago
+              - figure "Over 200 applicants" [ref=e32]:
+                - text: ·
+                - text: Over 200 applicants
+            - link "See who Intel has hired for this role" [ref=e34] [cursor=pointer]:
+              - /url: https://www.linkedin.com/login?session_redirect=https%3A%2F%2Fwww%2Elinkedin%2Ecom%2Fsearch%2Fresults%2Fpeople%2F%3FfacetCurrentCompany%3D1053%26title%3DProcess%2BIntegration%2BEngineer&emailAddress=&fromSignIn=&trk=public_jobs_see-who-was-hired_people-search-link_face-pile-cta
+              - generic [ref=e35]:
+                - img [ref=e36]
+                - img [ref=e37]
+                - img [ref=e38]
+              - paragraph [ref=e40]: See who Intel has hired for this role
+          - generic [ref=e41]:
+            - button "Apply" [ref=e42] [cursor=pointer]: Apply
+            - link "Save" [ref=e43] [cursor=pointer]:
+              - /url: https://www.linkedin.com/login?emailAddress=&fromSignIn=&session_redirect=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fview%2Fprocess-integration-development-engineer-at-intel-4385925400&trk=public_jobs
+        - button "Open menu" [ref=e46] [cursor=pointer]
+      - generic [ref=e47]:
+        - generic [ref=e49]:
+          - generic [ref=e51]:
+            - generic [ref=e52]:
+              - strong [ref=e53]: Job Details
+              - text: "Job Description:"
+              - strong [ref=e54]: The Role and Impact
+              - text: As a Process Integration and Yield Engineer, you will play a pivotal role in shaping Intel's innovation and manufacturing excellence. This dynamic position focuses on driving technology transfers, optimizing manufacturing processes, and improving yield in a startup and high-volume production environment. Your contributions will directly support Intel's commitment to delivering industry-leading products. Working alongside internal and external stakeholders, you will have the opportunity to apply advanced data analysis techniques and influence technical directions across Intel and the industry.
+              - strong [ref=e55]: Key Responsibilities
+              - list [ref=e56]:
+                - listitem [ref=e57]: Drive low yield analysis and yield improvement activities, collaborating with internal and external stakeholders. Define roadmaps to meet requirements, goals, and milestones for incoming technology transfers.
+                - listitem [ref=e58]: Design and implement continuous improvement initiatives to prevent quality, line yield, and sort yield excursions.
+                - listitem [ref=e59]: Develop and establish flow, procedures, and equipment configurations for process modules.
+                - listitem [ref=e60]: Extract insights from both structured and unstructured data using statistical methods
+                - listitem [ref=e61]: Conduct quality and reliability risk assessments for discrepant manufacturing materials and process changes.
+                - listitem [ref=e62]: Lead quality and integrated defect and parametric measurement in startup and high-volume manufacturing environments.
+                - listitem [ref=e63]: Serve as a domain expert, influencing technical direction across Intel and the industry while mentoring others and fostering technical community growth.
+                - listitem [ref=e64]: Formulate and align organizational goals with technical vision, driving the execution of strategies to bring innovative products and technologies to market.
+                - listitem [ref=e65]: Strong problem-solving skills and the ability to tackle complex technical challenges.
+                - listitem [ref=e66]: Skilled in cross-functional collaboration and stakeholder management to drive impactful results.
+                - listitem [ref=e67]: Proven track record of delivering innovative solutions and driving continuous improvement initiatives.
+              - text: We invite you to bring your expertise, innovation, and drive to Intel, where your work will shape the future of technology. Apply today and become part of a team committed to excellence and innovation.
+              - strong [ref=e68]: Qualifications
+              - strong [ref=e69]: Minimum Qualifications
+              - list [ref=e70]:
+                - listitem [ref=e71]: 6+ years of experience with a Bachelor's degree or 4+ years of experience with a Master's degree, or 2+ years of experience with a PhD in chemical engineering, electrical engineering , computer science, physics, chemistry or relevant STEM degree.
+                - listitem [ref=e72]: Experience in data mining and statistical analysis
+                - listitem [ref=e73]: Experience in manufacturing process change, process characterization, and process integration.
+                - listitem [ref=e74]: Experience with failure analysis, yield analysis, and process improvement methodologies.
+              - strong [ref=e75]: Preferred Qualifications
+              - text: "Experience in either of the following:"
+              - list [ref=e76]:
+                - listitem [ref=e77]: Lead technical projects and mentor team members effectively.
+                - listitem [ref=e78]: Manufacturing processes to achieve world-class yield and quality standards.
+              - strong [ref=e79]: Job Type
+              - text: Experienced Hire
+              - strong [ref=e80]: Shift
+              - text: Shift 1 (United States of America)
+              - text: "Primary Location:"
+              - text: US, Oregon, Hillsboro
+              - text: "Additional Locations:"
+              - strong [ref=e81]: Business Group
+              - text: Intel Foundry strives to make every facet of semiconductor manufacturing state-of-the-art while delighting our customers -- from delivering cutting-edge silicon process and packaging technology leadership for the AI era, enabling our customers to design leadership products, global manufacturing scale and supply chain, through the continuous yield improvements to advanced packaging all the way to final test and assembly. We ensure our foundry customers' products receive our utmost focus in terms of service, technology enablement and capacity commitments. Employees in the Foundry Technology Manufacturing are part of a worldwide factory network that designs, develops, manufactures, and assembly/test packages the compute devices to improve the lives of every person on Earth.
+              - strong [ref=e82]: Posting Statement
+              - text: All qualified applicants will receive consideration for employment without regard to race, color, religion, religious creed, sex, national origin, ancestry, age, physical or mental disability, medical condition, genetic information, military and veteran status, marital status, pregnancy, gender, gender expression, gender identity, sexual orientation, or any other characteristic protected by local law, regulation, or ordinance.
+              - text: Position of Trust
+              - text: N/A
+              - strong [ref=e83]: Benefits
+              - text: We offer a total compensation package that ranks among the best in the industry. It consists of competitive pay, stock bonuses, and benefit programs which include health, retirement, and vacation. Find out more about the benefits of working at Intel.
+              - text: "Annual Salary Range for jobs which could be performed in the US: $120,860.00 - 231,670.00 USD"
+              - text: The range displayed on this job posting reflects the minimum and maximum target compensation for the position across all US locations. Within the range, individual pay is determined by work location and additional factors, including job-related skills, experience, and relevant education or training. Your recruiter can share more about the specific compensation range for your preferred location during the hiring process.
+              - strong [ref=e84]: Work Model for this Role
+              - text: This role will be eligible for our hybrid work model which allows employees to split their time between working on-site at their assigned Intel site and off-site. * Job posting details (such as work model, location or time type) are subject to change.
+              - text: "ADDITIONAL INFORMATION: Intel is committed to Responsible Business Alliance (RBA) compliance and ethical hiring practices. We do not charge any fees during our hiring process. Candidates should never be required to pay recruitment fees, medical examination fees, or any other charges as a condition of employment. If you are asked to pay any fees during our hiring process, please report this immediately to your recruiter."
+            - button "Show more" [ref=e85] [cursor=pointer]: Show more
+          - list [ref=e87]:
+            - listitem [ref=e88]:
+              - heading "Seniority level" [level=3] [ref=e89]
+              - text: Mid-Senior level
+            - listitem [ref=e90]:
+              - heading "Employment type" [level=3] [ref=e91]
+              - text: Full-time
+            - listitem [ref=e92]:
+              - heading "Job function" [level=3] [ref=e93]
+              - text: Engineering and Information Technology
+            - listitem [ref=e94]:
+              - heading "Industries" [level=3] [ref=e95]
+              - text: Semiconductor Manufacturing
+        - generic [ref=e98]:
+          - generic [ref=e99]:
+            - img [ref=e100]
+            - img [ref=e101]
+            - img [ref=e102]
+          - generic [ref=e103]:
+            - paragraph [ref=e104]: Referrals increase your chances of interviewing at Intel by 2x
+            - link "See who you know" [ref=e105] [cursor=pointer]:
+              - /url: https://www.linkedin.com/login?session_redirect=https%3A%2F%2Fwww%2Elinkedin%2Ecom%2Fsearch%2Fresults%2Fpeople%2F%3FfacetCurrentCompany%3D1053&emailAddress=&fromSignIn=&trk=public_jobs_find-a-referral-cta
+      - generic [ref=e108]:
+        - paragraph [ref=e109]:
+          - text: Get notified about new Process Integration Engineer jobs in
+          - strong [ref=e110]: Hillsboro, OR
+          - text: .
+        - link "Sign in to create job alert" [ref=e111] [cursor=pointer]:
+          - /url: https://www.linkedin.com/login?emailAddress=&fromSignIn=&session_redirect=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fview%2Fprocess-integration-development-engineer-at-intel-4385925400&trk=public_jobs_job-alert-guest-redirect-cta
+      - generic [ref=e112]:
+        - heading "Similar jobs" [level=2] [ref=e113]
+        - generic [ref=e115]:
+          - list [ref=e116]:
+            - listitem [ref=e117]:
+              - generic [ref=e118]:
+                - link "Process Integration Development Engineer" [ref=e119] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/jobs/view/process-integration-development-engineer-at-intel-4394733629?refId=pZAyu0tLMwGpsSLz1Ok5gw%3D%3D&trackingId=IiMMtMYJktW%2Bwmbi2nJaLA%3D%3D
+                  - generic [ref=e120]: Process Integration Development Engineer
+                - generic [ref=e121]:
+                  - heading "Process Integration Development Engineer" [level=3] [ref=e122]
+                  - heading "Intel" [level=4] [ref=e123]:
+                    - link "Intel" [ref=e124] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/company/intel-corporation?trk=public_jobs_similar-jobs_main-jobs-card-subtitle
+                  - generic [ref=e125]:
+                    - generic [ref=e126]: Hillsboro, OR
+                    - time [ref=e127]: 2 weeks ago
+            - listitem [ref=e128]:
+              - generic [ref=e129]:
+                - link "Process Engineer" [ref=e130] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/jobs/view/process-engineer-at-kokusai-semiconductor-equipment-corporation-4391153495?refId=pZAyu0tLMwGpsSLz1Ok5gw%3D%3D&trackingId=d4t9FlLe%2Bt4fPV7mHNILiQ%3D%3D
+                  - generic [ref=e131]: Process Engineer
+                - generic [ref=e132]:
+                  - heading "Process Engineer" [level=3] [ref=e133]
+                  - heading "Kokusai Semiconductor Equipment Corporation" [level=4] [ref=e134]:
+                    - link "Kokusai Semiconductor Equipment Corporation" [ref=e135] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/company/kokusai-semiconductor-equipment-corporation?trk=public_jobs_similar-jobs_main-jobs-card-subtitle
+                  - generic [ref=e136]:
+                    - generic [ref=e137]: Hillsboro, OR
+                    - generic [ref=e138]: $80,000 - $149,500
+                    - time [ref=e139]: 4 weeks ago
+            - listitem [ref=e140]:
+              - generic [ref=e141]:
+                - link "Process Engineer 1" [ref=e142] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/jobs/view/process-engineer-1-at-lam-research-4377927961?refId=pZAyu0tLMwGpsSLz1Ok5gw%3D%3D&trackingId=wiG0a9jT2YP7WQ%2FxPqt17A%3D%3D
+                  - generic [ref=e143]: Process Engineer 1
+                - generic [ref=e144]:
+                  - heading "Process Engineer 1" [level=3] [ref=e145]
+                  - heading "Lam Research" [level=4] [ref=e146]:
+                    - link "Lam Research" [ref=e147] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/company/lam-research?trk=public_jobs_similar-jobs_main-jobs-card-subtitle
+                  - generic [ref=e148]:
+                    - generic [ref=e149]: Tualatin, OR
+                    - time [ref=e150]: 5 days ago
+            - listitem [ref=e151]:
+              - generic [ref=e152]:
+                - link "Process Engineer" [ref=e153] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/jobs/view/process-engineer-at-megi-engineering-4343637827?refId=pZAyu0tLMwGpsSLz1Ok5gw%3D%3D&trackingId=tcY563lN62Ek2YBEuLxnZQ%3D%3D
+                  - generic [ref=e154]: Process Engineer
+                - generic [ref=e155]:
+                  - heading "Process Engineer" [level=3] [ref=e156]
+                  - heading "MEGI Engineering" [level=4] [ref=e157]:
+                    - link "MEGI Engineering" [ref=e158] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/company/megiengineering?trk=public_jobs_similar-jobs_main-jobs-card-subtitle
+                  - generic [ref=e159]:
+                    - generic [ref=e160]: Portland, Oregon Metropolitan Area
+                    - generic [ref=e161]: $75,000 - $170,000
+                    - time [ref=e162]: 6 hours ago
+            - listitem [ref=e163]:
+              - generic [ref=e164]:
+                - link "Process Engineer 1" [ref=e165] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/jobs/view/process-engineer-1-at-lam-research-4407007654?refId=pZAyu0tLMwGpsSLz1Ok5gw%3D%3D&trackingId=04mUqWB8ZkPmP%2FWnE%2FDO6Q%3D%3D
+                  - generic [ref=e166]: Process Engineer 1
+                - generic [ref=e167]:
+                  - heading "Process Engineer 1" [level=3] [ref=e168]
+                  - heading "Lam Research" [level=4] [ref=e169]:
+                    - link "Lam Research" [ref=e170] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/company/lam-research?trk=public_jobs_similar-jobs_main-jobs-card-subtitle
+                  - generic [ref=e171]:
+                    - generic [ref=e172]: Tualatin, OR
+                    - time [ref=e173]: 1 week ago
+            - listitem [ref=e174]:
+              - generic [ref=e175]:
+                - link "Process Engineer 1" [ref=e176] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/jobs/view/process-engineer-1-at-lam-research-4385298808?refId=pZAyu0tLMwGpsSLz1Ok5gw%3D%3D&trackingId=tNUrofBCFu9VzQSVEjx7hg%3D%3D
+                  - generic [ref=e177]: Process Engineer 1
+                - generic [ref=e178]:
+                  - heading "Process Engineer 1" [level=3] [ref=e179]
+                  - heading "Lam Research" [level=4] [ref=e180]:
+                    - link "Lam Research" [ref=e181] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/company/lam-research?trk=public_jobs_similar-jobs_main-jobs-card-subtitle
+                  - generic [ref=e182]:
+                    - generic [ref=e183]: Tualatin, OR
+                    - time [ref=e184]: 2 weeks ago
+          - button "Show more jobs like this" [ref=e185] [cursor=pointer]: Show more jobs like this
+    - generic [ref=e187]:
+      - generic [ref=e188]:
+        - heading "People also viewed" [level=2] [ref=e189]
+        - list [ref=e191]:
+          - listitem [ref=e192]:
+            - generic [ref=e193]:
+              - link "Process Engineer 3" [ref=e194] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/process-engineer-3-at-lam-research-4392466946?refId=pZAyu0tLMwGpsSLz1Ok5gw%3D%3D&trackingId=tZXngyFdHV2Nag08fzDlHg%3D%3D
+                - generic [ref=e195]: Process Engineer 3
+              - generic [ref=e196]:
+                - heading "Process Engineer 3" [level=3] [ref=e197]
+                - paragraph [ref=e198]:
+                  - link "Lam Research" [ref=e199] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/lam-research?trk=public_jobs_people-also-viewed_aside-job-card-subtitle
+                - generic [ref=e200]:
+                  - generic [ref=e201]: Tualatin, OR
+                  - time [ref=e202]: 2 weeks ago
+          - listitem [ref=e203]:
+            - generic [ref=e204]:
+              - link "Field Process Engineer 3" [ref=e205] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/field-process-engineer-3-at-lam-research-4377931653?refId=pZAyu0tLMwGpsSLz1Ok5gw%3D%3D&trackingId=TpsoQXmmlNJKVkL5DR%2BQBQ%3D%3D
+                - generic [ref=e206]: Field Process Engineer 3
+              - generic [ref=e207]:
+                - heading "Field Process Engineer 3" [level=3] [ref=e208]
+                - paragraph [ref=e209]:
+                  - link "Lam Research" [ref=e210] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/lam-research?trk=public_jobs_people-also-viewed_aside-job-card-subtitle
+                - generic [ref=e211]:
+                  - generic [ref=e212]: Hillsboro, OR
+                  - time [ref=e213]: 1 week ago
+          - listitem [ref=e214]:
+            - generic [ref=e215]:
+              - link "Process Engineer – Advanced Coatings" [ref=e216] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/process-engineer-%E2%80%93-advanced-coatings-at-normine-lombard-4371289450?refId=pZAyu0tLMwGpsSLz1Ok5gw%3D%3D&trackingId=VU9SVK6mkISiOC%2BBCTLHUw%3D%3D
+                - generic [ref=e217]: Process Engineer – Advanced Coatings
+              - generic [ref=e218]:
+                - heading "Process Engineer – Advanced Coatings" [level=3] [ref=e219]
+                - paragraph [ref=e220]:
+                  - link "Normine Lombard" [ref=e221] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/normine-lombard?trk=public_jobs_people-also-viewed_aside-job-card-subtitle
+                - generic [ref=e222]:
+                  - generic [ref=e223]: Scappoose, OR
+                  - time [ref=e224]: 3 months ago
+          - listitem [ref=e225]:
+            - generic [ref=e226]:
+              - link "Process Support Engineer - Etch" [ref=e227] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/process-support-engineer-etch-at-applied-materials-4407278820?refId=pZAyu0tLMwGpsSLz1Ok5gw%3D%3D&trackingId=T931MXcEa7g0LKrMBiS9cQ%3D%3D
+                - generic [ref=e228]: Process Support Engineer - Etch
+              - generic [ref=e229]:
+                - heading "Process Support Engineer - Etch" [level=3] [ref=e230]
+                - paragraph [ref=e231]:
+                  - link "Applied Materials" [ref=e232] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/applied-materials?trk=public_jobs_people-also-viewed_aside-job-card-subtitle
+                - generic [ref=e233]:
+                  - generic [ref=e234]: Hillsboro, OR
+                  - time [ref=e235]: 1 week ago
+          - listitem [ref=e236]:
+            - generic [ref=e237]:
+              - link "CMP Process Sustaining Engineer" [ref=e238] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/cmp-process-sustaining-engineer-at-analog-devices-4363075185?refId=pZAyu0tLMwGpsSLz1Ok5gw%3D%3D&trackingId=ai6MYWWSdeyCIbWYXplInA%3D%3D
+                - generic [ref=e239]: CMP Process Sustaining Engineer
+              - generic [ref=e240]:
+                - heading "CMP Process Sustaining Engineer" [level=3] [ref=e241]
+                - paragraph [ref=e242]:
+                  - link "Analog Devices" [ref=e243] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/analog-devices?trk=public_jobs_people-also-viewed_aside-job-card-subtitle
+                - generic [ref=e244]:
+                  - generic [ref=e245]: Beaverton, OR
+                  - time [ref=e246]: 5 days ago
+          - listitem [ref=e247]:
+            - generic [ref=e248]:
+              - link "Module Process Engineer III - (E3)" [ref=e249] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/module-process-engineer-iii-e3-at-applied-materials-4402492435?refId=pZAyu0tLMwGpsSLz1Ok5gw%3D%3D&trackingId=XQKIp4LDh%2FxcbHgsPO62Dw%3D%3D
+                - generic [ref=e250]: Module Process Engineer III - (E3)
+              - generic [ref=e251]:
+                - heading "Module Process Engineer III - (E3)" [level=3] [ref=e252]
+                - paragraph [ref=e253]:
+                  - link "Applied Materials" [ref=e254] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/applied-materials?trk=public_jobs_people-also-viewed_aside-job-card-subtitle
+                - generic [ref=e255]:
+                  - generic [ref=e256]: Hillsboro, OR
+                  - time [ref=e257]: 2 weeks ago
+          - listitem [ref=e258]:
+            - generic [ref=e259]:
+              - link "Process Engineer 5" [ref=e260] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/process-engineer-5-at-lam-research-4404707512?refId=pZAyu0tLMwGpsSLz1Ok5gw%3D%3D&trackingId=U1jIX0P%2Fi74HjULqaE3j4g%3D%3D
+                - generic [ref=e261]: Process Engineer 5
+              - generic [ref=e262]:
+                - heading "Process Engineer 5" [level=3] [ref=e263]
+                - paragraph [ref=e264]:
+                  - link "Lam Research" [ref=e265] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/lam-research?trk=public_jobs_people-also-viewed_aside-job-card-subtitle
+                - generic [ref=e266]:
+                  - generic [ref=e267]: Tualatin, OR
+                  - time [ref=e268]: 2 weeks ago
+          - listitem [ref=e269]:
+            - generic [ref=e270]:
+              - link "WLA Yield Analysis Systems Eng" [ref=e271] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/wla-yield-analysis-systems-eng-at-intel-4387198047?refId=pZAyu0tLMwGpsSLz1Ok5gw%3D%3D&trackingId=FpiwSNI2a%2BOfpZue8ObIHA%3D%3D
+                - generic [ref=e272]: WLA Yield Analysis Systems Eng
+              - generic [ref=e273]:
+                - heading "WLA Yield Analysis Systems Eng" [level=3] [ref=e274]
+                - paragraph [ref=e275]:
+                  - link "Intel" [ref=e276] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/intel-corporation?trk=public_jobs_people-also-viewed_aside-job-card-subtitle
+                - generic [ref=e277]:
+                  - generic [ref=e278]: Hillsboro, OR
+                  - time [ref=e279]: 1 week ago
+          - listitem [ref=e280]:
+            - generic [ref=e281]:
+              - link "Field Process Engineer 5" [ref=e282] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/field-process-engineer-5-at-lam-research-4401182206?refId=pZAyu0tLMwGpsSLz1Ok5gw%3D%3D&trackingId=DKzk%2BCAo2HGUTA3kCCkxbw%3D%3D
+                - generic [ref=e283]: Field Process Engineer 5
+              - generic [ref=e284]:
+                - heading "Field Process Engineer 5" [level=3] [ref=e285]
+                - paragraph [ref=e286]:
+                  - link "Lam Research" [ref=e287] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/lam-research?trk=public_jobs_people-also-viewed_aside-job-card-subtitle
+                - generic [ref=e288]:
+                  - generic [ref=e289]: Tualatin, OR
+                  - time [ref=e290]: 6 days ago
+          - listitem [ref=e291]:
+            - generic [ref=e292]:
+              - link "Process Engineer 5" [ref=e293] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/process-engineer-5-at-lam-research-4403660715?refId=pZAyu0tLMwGpsSLz1Ok5gw%3D%3D&trackingId=f%2FmltufZvTbhJpO%2F%2FgFAyA%3D%3D
+                - generic [ref=e294]: Process Engineer 5
+              - generic [ref=e295]:
+                - heading "Process Engineer 5" [level=3] [ref=e296]
+                - paragraph [ref=e297]:
+                  - link "Lam Research" [ref=e298] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/lam-research?trk=public_jobs_people-also-viewed_aside-job-card-subtitle
+                - generic [ref=e299]:
+                  - generic [ref=e300]: Tualatin, OR
+                  - time [ref=e301]: 21 hours ago
+      - generic [ref=e302]:
+        - heading "Similar Searches" [level=2] [ref=e303]
+        - generic [ref=e305]:
+          - list [ref=e306]:
+            - listitem [ref=e307]:
+              - link "Process Integration Engineer jobs 6,502 open jobs" [ref=e308] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/process-integration-engineer-jobs?trk=public_jobs_full-click
+                - generic [ref=e309]:
+                  - heading "Process Integration Engineer jobs" [level=3] [ref=e310]
+                  - generic [ref=e311]: 6,502 open jobs
+            - listitem [ref=e312]:
+              - link "Device Engineer jobs 11,505 open jobs" [ref=e313] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/device-engineer-jobs?trk=public_jobs_full-click
+                - generic [ref=e314]:
+                  - heading "Device Engineer jobs" [level=3] [ref=e315]
+                  - generic [ref=e316]: 11,505 open jobs
+            - listitem [ref=e317]:
+              - link "Senior Scientist jobs 19,214 open jobs" [ref=e318] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/senior-scientist-jobs?trk=public_jobs_full-click
+                - generic [ref=e319]:
+                  - heading "Senior Scientist jobs" [level=3] [ref=e320]
+                  - generic [ref=e321]: 19,214 open jobs
+            - listitem [ref=e322]:
+              - link "Semiconductor Engineer jobs 7,042 open jobs" [ref=e323] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/semiconductor-engineer-jobs?trk=public_jobs_full-click
+                - generic [ref=e324]:
+                  - heading "Semiconductor Engineer jobs" [level=3] [ref=e325]
+                  - generic [ref=e326]: 7,042 open jobs
+            - listitem [ref=e327]:
+              - link "Engineer jobs 555,845 open jobs" [ref=e328] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/engineer-jobs?trk=public_jobs_full-click
+                - generic [ref=e329]:
+                  - heading "Engineer jobs" [level=3] [ref=e330]
+                  - generic [ref=e331]: 555,845 open jobs
+            - listitem [ref=e332]:
+              - link "Materials Engineer jobs 25,965 open jobs" [ref=e333] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/materials-engineer-jobs?trk=public_jobs_full-click
+                - generic [ref=e334]:
+                  - heading "Materials Engineer jobs" [level=3] [ref=e335]
+                  - generic [ref=e336]: 25,965 open jobs
+            - listitem [ref=e337]:
+              - link "Application Engineer jobs 280,202 open jobs" [ref=e338] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/application-engineer-jobs?trk=public_jobs_full-click
+                - generic [ref=e339]:
+                  - heading "Application Engineer jobs" [level=3] [ref=e340]
+                  - generic [ref=e341]: 280,202 open jobs
+            - listitem [ref=e342]:
+              - link "Process Engineer jobs 54,603 open jobs" [ref=e343] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/process-engineer-jobs?trk=public_jobs_full-click
+                - generic [ref=e344]:
+                  - heading "Process Engineer jobs" [level=3] [ref=e345]
+                  - generic [ref=e346]: 54,603 open jobs
+            - listitem [ref=e347]:
+              - link "Yield Engineer jobs 9,445 open jobs" [ref=e348] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/yield-engineer-jobs?trk=public_jobs_full-click
+                - generic [ref=e349]:
+                  - heading "Yield Engineer jobs" [level=3] [ref=e350]
+                  - generic [ref=e351]: 9,445 open jobs
+            - listitem [ref=e352]:
+              - link "Senior Device Engineer jobs 2,180 open jobs" [ref=e353] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/senior-device-engineer-jobs?trk=public_jobs_full-click
+                - generic [ref=e354]:
+                  - heading "Senior Device Engineer jobs" [level=3] [ref=e355]
+                  - generic [ref=e356]: 2,180 open jobs
+            - listitem [ref=e357]:
+              - link "Staff Process Engineer jobs 2,086 open jobs" [ref=e358] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/staff-process-engineer-jobs?trk=public_jobs_full-click
+                - generic [ref=e359]:
+                  - heading "Staff Process Engineer jobs" [level=3] [ref=e360]
+                  - generic [ref=e361]: 2,086 open jobs
+            - listitem [ref=e362]:
+              - link "Process Development Engineer jobs 27,633 open jobs" [ref=e363] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/process-development-engineer-jobs?trk=public_jobs_full-click
+                - generic [ref=e364]:
+                  - heading "Process Development Engineer jobs" [level=3] [ref=e365]
+                  - generic [ref=e366]: 27,633 open jobs
+          - button "Show more similar searches" [ref=e367] [cursor=pointer]: Show more
+      - generic [ref=e371]:
+        - heading "Explore top content on LinkedIn" [level=2] [ref=e373]
+        - paragraph [ref=e374]: Find curated posts and insights for relevant topics all in one place.
+        - link "View top content" [ref=e375] [cursor=pointer]:
+          - /url: https://www.linkedin.com/top-content/
+  - generic [ref=e379]:
+    - button "More searches" [ref=e380] [cursor=pointer]: More searches
+    - list
+  - contentinfo [ref=e382]:
+    - list [ref=e383]:
+      - listitem [ref=e384]:
+        - generic [ref=e385]: LinkedIn
+        - generic [ref=e387]: © 2026
+      - listitem [ref=e388]:
+        - link "About" [ref=e389] [cursor=pointer]:
+          - /url: https://about.linkedin.com?trk=d_jobs_guest_details_footer-about
+      - listitem [ref=e390]:
+        - link "Accessibility" [ref=e391] [cursor=pointer]:
+          - /url: https://www.linkedin.com/accessibility?trk=d_jobs_guest_details_footer-accessibility
+      - listitem [ref=e392]:
+        - link "User Agreement" [ref=e393] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/user-agreement?trk=d_jobs_guest_details_footer-user-agreement
+      - listitem [ref=e394]:
+        - link "Privacy Policy" [ref=e395] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/privacy-policy?trk=d_jobs_guest_details_footer-privacy-policy
+      - listitem [ref=e396]:
+        - link "Your California Privacy Choices" [ref=e397] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/california-privacy-disclosure?trk=d_jobs_guest_details_footer-california-privacy-rights-act
+      - listitem [ref=e398]:
+        - link "Cookie Policy" [ref=e399] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/cookie-policy?trk=d_jobs_guest_details_footer-cookie-policy
+      - listitem [ref=e400]:
+        - link "Copyright Policy" [ref=e401] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/copyright-policy?trk=d_jobs_guest_details_footer-copyright-policy
+      - listitem [ref=e402]:
+        - link "Brand Policy" [ref=e403] [cursor=pointer]:
+          - /url: https://brand.linkedin.com/policies?trk=d_jobs_guest_details_footer-brand-policy
+      - listitem [ref=e404]:
+        - link "Guest Controls" [ref=e405] [cursor=pointer]:
+          - /url: https://www.linkedin.com/psettings/guest-controls?trk=d_jobs_guest_details_footer-guest-controls
+      - listitem [ref=e406]:
+        - link "Community Guidelines" [ref=e407] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/professional-community-policies?trk=d_jobs_guest_details_footer-community-guide
+      - listitem [ref=e408]:
+        - button "Language" [ref=e410]: Language

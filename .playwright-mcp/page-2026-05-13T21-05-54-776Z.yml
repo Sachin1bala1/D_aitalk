@@ -1,0 +1,9 @@
+- main [ref=e2]:
+  - generic [ref=e3]:
+    - img [ref=e5]
+    - generic [ref=e19]: Page not found.
+    - generic [ref=e20]: The page was moved or no longer exists.
+    - link "Return to Home Page" [ref=e22] [cursor=pointer]:
+      - /url: https://iawmqy.fa.ocs.oraclecloud.com:443/hcmUI/CandidateExperience
+      - img [ref=e23]
+      - text: Return to Home Page

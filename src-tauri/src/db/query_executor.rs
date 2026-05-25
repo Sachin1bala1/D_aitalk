@@ -81,7 +81,12 @@ async fn stream_postgres(
             columns_sent = true;
         }
 
-        let row_json = pg_row_to_json(&row, &columns);
+        // Wrap in catch_unwind: sqlx-postgres panics when a DataRow message has
+        // fewer values than the RowDescription column count (data_row.rs:22).
+        let row_json = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            pg_row_to_json(&row, &columns)
+        }))
+        .unwrap_or_else(|_| serde_json::Value::Object(serde_json::Map::new()));
         batch_bytes += estimate_value_size(&row_json);
         batch.push(row_json);
         total_rows += 1;

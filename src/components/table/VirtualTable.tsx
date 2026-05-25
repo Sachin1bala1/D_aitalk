@@ -742,7 +742,10 @@ export function VirtualTable({ isLoading, totalRows }: VirtualTableProps = {}) {
   }, [chartRequest, rows.length, setChartRequest]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!graphBuilderRequest || rows.length === 0) return;
+    // Allow graph builder to open even for analysis artifacts (which carry their own
+    // snapshot data), not just when the live RowStore has rows.
+    const hasData = rows.length > 0 || Boolean(graphBuilderRequest?.artifactId);
+    if (!graphBuilderRequest || !hasData) return;
     if (consumedGraphBuilderRequestIdRef.current === graphBuilderRequest.requestId) return;
 
     consumedGraphBuilderRequestIdRef.current = graphBuilderRequest.requestId;

@@ -12,6 +12,10 @@ use crate::error::DbError;
 pub struct DuckDbEngine;
 
 impl DuckDbEngine {
+    pub fn new_in_memory() -> Self {
+        DuckDbEngine
+    }
+
     pub fn new_at_path(_path: &str) -> Result<Self, DbError> {
         Err(DbError::Other(
             "DuckDB is not available in this build (bundled compile requires MSVC toolchain on Windows). \

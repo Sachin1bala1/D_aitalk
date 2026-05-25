@@ -1,0 +1,933 @@
+- generic [ref=e2]:
+  - link "Skip to main content" [ref=e3] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=e4]:
+    - navigation "Primary" [ref=e5]:
+      - link "LinkedIn" [ref=e6] [cursor=pointer]:
+        - /url: /?trk=public_jobs_nav-header-logo
+        - generic [ref=e7]: LinkedIn
+      - generic [ref=e9]:
+        - button "Process Development Engineer in United States Expand search" [ref=e10]:
+          - generic [ref=e12]: Process Development Engineer in United States
+          - generic [ref=e13]: Expand search
+        - status [ref=e14]
+      - generic [ref=e15]:
+        - link "Sign in" [ref=e16] [cursor=pointer]:
+          - /url: https://www.linkedin.com/login?emailAddress=&fromSignIn=&fromSignIn=true&session_redirect=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fsearch%2F%3Fkeywords%3Dprocess%2520development%2520engineer%26location%3DUnited%2520States%26f_TPR%3Dr604800%26position%3D1%26pageNum%3D0&trk=public_jobs_nav-header-signin
+        - link "Join now" [ref=e17] [cursor=pointer]:
+          - /url: https://www.linkedin.com/signup/cold-join?source=jobs_registration&session_redirect=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fsearch%2F%3Fkeywords%3Dprocess%2520development%2520engineer%26location%3DUnited%2520States%26f_TPR%3Dr604800%26position%3D1%26pageNum%3D0&trk=public_jobs_nav-header-join
+  - list [ref=e23]:
+    - listitem [ref=e24]:
+      - button "Date posted filter. Past week filter is currently applied. Clicking this button displays all Date posted filter options." [ref=e27] [cursor=pointer]: Past week
+    - listitem [ref=e29]:
+      - button "Company filter. Clicking this button displays all Company filter options." [ref=e32] [cursor=pointer]: Company
+    - listitem [ref=e34]:
+      - button "Job type filter. Clicking this button displays all Job type filter options." [ref=e37] [cursor=pointer]: Job type
+    - listitem [ref=e39]:
+      - button "Experience level filter. Clicking this button displays all Experience level filter options." [ref=e42] [cursor=pointer]: Experience level
+    - listitem [ref=e44]:
+      - button "Location filter. Clicking this button displays all Location filter options." [ref=e47] [cursor=pointer]: Location
+    - listitem [ref=e49]:
+      - button "Salary filter. Clicking this button displays all Salary filter options." [ref=e52] [cursor=pointer]: Salary
+    - listitem [ref=e54]:
+      - button "Remote filter. Clicking this button displays all Remote filter options." [ref=e57] [cursor=pointer]: Remote
+  - main [ref=e60]:
+    - generic [ref=e64]:
+      - paragraph [ref=e65]:
+        - text: Get notified about new Process Development Engineer jobs in
+        - strong [ref=e66]: United States
+        - text: .
+      - link "Sign in to create job alert" [ref=e67] [cursor=pointer]:
+        - /url: https://www.linkedin.com/login?emailAddress=&fromSignIn=&session_redirect=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fsearch%2F%3Fkeywords%3Dprocess%2520development%2520engineer%26location%3DUnited%2520States%26f_TPR%3Dr604800%26position%3D1%26pageNum%3D0&trk=public_jobs_job-alert-guest-redirect-cta
+    - heading "5,000+ Process Development Engineer Jobs in United States" [level=1] [ref=e69]
+    - generic [ref=e70]:
+      - list [ref=e71]:
+        - listitem [ref=e72]:
+          - generic [ref=e73]:
+            - link "Process Improvment Engineer - Dairy" [ref=e74] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-improvment-engineer-dairy-at-csg-talent-4412742685?position=1&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=PSUwDGS1ohYC9zPuj4RWng%3D%3D
+              - generic [ref=e75]: Process Improvment Engineer - Dairy
+            - img [ref=e77]
+            - generic [ref=e78]:
+              - heading "Process Improvment Engineer - Dairy" [level=3] [ref=e79]
+              - heading "CSG Talent" [level=4] [ref=e80]:
+                - link "CSG Talent" [ref=e81] [cursor=pointer]:
+                  - /url: https://uk.linkedin.com/company/csg-talent?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e82]:
+                - generic [ref=e83]: United States
+                - generic [ref=e86]: Actively Hiring
+                - time [ref=e87]: 1 day ago
+        - listitem [ref=e88]:
+          - generic [ref=e89]:
+            - link "Process Engineer" [ref=e90] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-ernest-gordon-recruitment-4412922535?position=2&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=SP8WdaiSnHCd2A5NGTzq%2Fg%3D%3D
+              - generic [ref=e91]: Process Engineer
+            - img [ref=e93]
+            - generic [ref=e94]:
+              - heading "Process Engineer" [level=3] [ref=e95]
+              - heading "Ernest Gordon Recruitment" [level=4] [ref=e96]:
+                - link "Ernest Gordon Recruitment" [ref=e97] [cursor=pointer]:
+                  - /url: https://uk.linkedin.com/company/ernest-gordon-recruitment?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e98]:
+                - generic [ref=e99]: Pasadena, TX
+                - time [ref=e100]: 1 day ago
+        - listitem [ref=e101]:
+          - generic [ref=e102]:
+            - link "Process Engineer" [ref=e103] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-the-lubrizol-corporation-4312144959?position=3&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=GshhTXnkUKv22PhY9%2BoMSg%3D%3D
+              - generic [ref=e104]: Process Engineer
+            - img [ref=e106]
+            - generic [ref=e107]:
+              - heading "Process Engineer" [level=3] [ref=e108]
+              - heading "The Lubrizol Corporation" [level=4] [ref=e109]:
+                - link "The Lubrizol Corporation" [ref=e110] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/the-lubrizol-corporation?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e111]:
+                - generic [ref=e112]: Gastonia, NC
+                - generic [ref=e115]: Actively Hiring
+                - time [ref=e116]: 16 hours ago
+        - listitem [ref=e117]:
+          - generic [ref=e118]:
+            - link "Process Engineer" [ref=e119] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-compal-4412110668?position=4&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=1DI2NAr6%2Fi6hj1EhHoSkvw%3D%3D
+              - generic [ref=e120]: Process Engineer
+            - img [ref=e122]
+            - generic [ref=e123]:
+              - heading "Process Engineer" [level=3] [ref=e124]
+              - heading "Compal" [level=4] [ref=e125]:
+                - link "Compal" [ref=e126] [cursor=pointer]:
+                  - /url: https://tw.linkedin.com/company/compal?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e127]:
+                - generic [ref=e128]: Georgetown, TX
+                - generic [ref=e131]: Medical insurance +4 benefits
+                - time [ref=e132]: 4 days ago
+        - listitem [ref=e133]:
+          - generic [ref=e134]:
+            - link "Process Engineer" [ref=e135] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-fresh-express-4398617473?position=5&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=J8aHm33XeVDRmYwtkErzFA%3D%3D
+              - generic [ref=e136]: Process Engineer
+            - generic [ref=e138]:
+              - heading "Process Engineer" [level=3] [ref=e139]
+              - heading "Fresh Express" [level=4] [ref=e140]:
+                - link "Fresh Express" [ref=e141] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/fresh-express?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e142]:
+                - generic [ref=e143]: Morrow, GA
+                - generic [ref=e146]: Actively Hiring +4 benefits
+                - time [ref=e147]: 6 days ago
+        - listitem [ref=e148]:
+          - generic [ref=e149]:
+            - link "Process Engineer" [ref=e150] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-stryten-energy-4402709262?position=6&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=V0LAa7oNwavJk%2BE3uqFnqA%3D%3D
+              - generic [ref=e151]: Process Engineer
+            - generic [ref=e153]:
+              - heading "Process Engineer" [level=3] [ref=e154]
+              - heading "Stryten Energy" [level=4] [ref=e155]:
+                - link "Stryten Energy" [ref=e156] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/stryten-energy?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e157]:
+                - generic [ref=e158]: Salina, KS
+                - generic [ref=e161]: Be an early applicant
+                - time [ref=e162]: 3 days ago
+        - listitem [ref=e163]:
+          - generic [ref=e164]:
+            - link "Process Engineer (Packing Automation)" [ref=e165] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-packing-automation-at-the-lego-group-4409297134?position=7&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=UhzyO2Pe23Uyf9Gf0Wc6Pw%3D%3D
+              - generic [ref=e166]: Process Engineer (Packing Automation)
+            - generic [ref=e168]:
+              - heading "Process Engineer (Packing Automation)" [level=3] [ref=e169]
+              - heading "the LEGO Group" [level=4] [ref=e170]:
+                - link "the LEGO Group" [ref=e171] [cursor=pointer]:
+                  - /url: https://dk.linkedin.com/company/lego-group?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e172]:
+                - generic [ref=e173]: Richmond, VA
+                - generic [ref=e176]: Actively Hiring
+                - time [ref=e177]: 5 days ago
+        - listitem [ref=e178]:
+          - generic [ref=e179]:
+            - link "Process Engineer II - Semiconductor" [ref=e180] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-ii-semiconductor-at-msr-fsr-llc-4412999752?position=8&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=kODwuXf%2B%2Ffqt96LZayrQqQ%3D%3D
+              - generic [ref=e181]: Process Engineer II - Semiconductor
+            - generic [ref=e183]:
+              - heading "Process Engineer II - Semiconductor" [level=3] [ref=e184]
+              - heading "MSR-FSR, LLC" [level=4] [ref=e185]:
+                - link "MSR-FSR, LLC" [ref=e186] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/msr-fsr?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e187]:
+                - generic [ref=e188]: Chandler, AZ
+                - generic [ref=e191]: Be an early applicant
+                - time [ref=e192]: 1 day ago
+        - listitem [ref=e193]:
+          - generic [ref=e194]:
+            - link "Process Engineer" [ref=e195] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-ember-grey-4410987515?position=9&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=rvGw%2BcBc%2F4D4IKlOYsQxiA%3D%3D
+              - generic [ref=e196]: Process Engineer
+            - generic [ref=e198]:
+              - heading "Process Engineer" [level=3] [ref=e199]
+              - heading "Ember Grey" [level=4] [ref=e200]:
+                - link "Ember Grey" [ref=e201] [cursor=pointer]:
+                  - /url: https://uk.linkedin.com/company/ember-grey?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e202]:
+                - generic [ref=e203]: Missouri, United States
+                - time [ref=e204]: 6 days ago
+        - listitem [ref=e205]:
+          - generic [ref=e206]:
+            - link "Process Engineer" [ref=e207] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-cindavi-4410807824?position=10&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=YEBSRD26ZNacl%2F%2BgMXu2Vg%3D%3D
+              - generic [ref=e208]: Process Engineer
+            - generic [ref=e210]:
+              - heading "Process Engineer" [level=3] [ref=e211]
+              - heading "Cindavi" [level=4] [ref=e212]:
+                - link "Cindavi" [ref=e213] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/cindavi?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e214]:
+                - generic [ref=e215]: Omaha Metropolitan Area
+                - generic [ref=e218]: Medical insurance +5 benefits
+                - time [ref=e219]: 5 days ago
+        - listitem [ref=e220]:
+          - generic [ref=e221]:
+            - link "Process Engineer" [ref=e222] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-msi-express-4410835627?position=11&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=Q7kYnGRq1jErvVRYFLq3Sg%3D%3D
+              - generic [ref=e223]: Process Engineer
+            - generic [ref=e225]:
+              - heading "Process Engineer" [level=3] [ref=e226]
+              - heading "MSI Express" [level=4] [ref=e227]:
+                - link "MSI Express" [ref=e228] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/msi-express?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e229]:
+                - generic [ref=e230]: Portage, IN
+                - generic [ref=e233]: Actively Hiring +4 benefits
+                - time [ref=e234]: 5 days ago
+        - listitem [ref=e235]:
+          - generic [ref=e236]:
+            - link "Process Engineer" [ref=e237] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-blackrock-resources-llc-4390493348?position=12&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=VOH%2FwXvVNOHm%2BfgjmcmG9A%3D%3D
+              - generic [ref=e238]: Process Engineer
+            - generic [ref=e240]:
+              - heading "Process Engineer" [level=3] [ref=e241]
+              - heading "BlackRock Resources LLC" [level=4] [ref=e242]:
+                - link "BlackRock Resources LLC" [ref=e243] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/blackrock-resources?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e244]:
+                - generic [ref=e245]: La Vergne, TN
+                - generic [ref=e248]: Actively Hiring
+                - time [ref=e249]: 5 days ago
+        - listitem [ref=e250]:
+          - generic [ref=e251]:
+            - link "Process Development Engineer" [ref=e252] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-development-engineer-at-mra-recruiting-services-4411858126?position=13&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=AYM5UqD4ZiQ%2BtZUfMLEDDw%3D%3D
+              - generic [ref=e253]: Process Development Engineer
+            - generic [ref=e255]:
+              - heading "Process Development Engineer" [level=3] [ref=e256]
+              - heading "MRA Recruiting Services" [level=4] [ref=e257]:
+                - link "MRA Recruiting Services" [ref=e258] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/mra-recruiting-services?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e259]:
+                - generic [ref=e260]: Springboro, OH
+                - generic [ref=e263]: Be an early applicant
+                - time [ref=e264]: 5 days ago
+        - listitem [ref=e265]:
+          - generic [ref=e266]:
+            - link "Process Engineer- East Plant- Decatur, IL" [ref=e267] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-east-plant-decatur-il-at-adm-4413166702?position=14&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=4VNkEFXSgYPulAKrThGJEw%3D%3D
+              - generic [ref=e268]: Process Engineer- East Plant- Decatur, IL
+            - generic [ref=e270]:
+              - heading "Process Engineer- East Plant- Decatur, IL" [level=3] [ref=e271]
+              - heading "ADM" [level=4] [ref=e272]:
+                - link "ADM" [ref=e273] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/adm?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e274]:
+                - generic [ref=e275]: Decatur, IL
+                - generic [ref=e278]: Be an early applicant
+                - time [ref=e279]: 1 day ago
+        - listitem [ref=e280]:
+          - generic [ref=e281]:
+            - link "Process Engineer" [ref=e282] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-sandvik-4400132415?position=15&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=xNb3zyafqnmvw2I1lhi%2F1Q%3D%3D
+              - generic [ref=e283]: Process Engineer
+            - generic [ref=e285]:
+              - heading "Process Engineer" [level=3] [ref=e286]
+              - heading "Sandvik" [level=4] [ref=e287]:
+                - link "Sandvik" [ref=e288] [cursor=pointer]:
+                  - /url: https://se.linkedin.com/company/sandvik?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e289]:
+                - generic [ref=e290]: South Carolina, United States
+                - generic [ref=e293]: Actively Hiring
+                - time [ref=e294]: 5 days ago
+        - listitem [ref=e295]:
+          - generic [ref=e296]:
+            - link "Process Engineer" [ref=e297] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-home-chef-4379418014?position=16&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=XcNuEm9aeGLtsCyicv1%2BHw%3D%3D
+              - generic [ref=e298]: Process Engineer
+            - generic [ref=e300]:
+              - heading "Process Engineer" [level=3] [ref=e301]
+              - heading "Home Chef" [level=4] [ref=e302]:
+                - link "Home Chef" [ref=e303] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/relished?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e304]:
+                - generic [ref=e305]: Bedford Park, IL
+                - generic [ref=e308]: Be an early applicant
+                - time [ref=e309]: 6 days ago
+        - listitem [ref=e310]:
+          - generic [ref=e311]:
+            - link "Process Engineer" [ref=e312] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-home-chef-4402750364?position=17&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=pxTn2ouDRwkxKBlTUKUwGA%3D%3D
+              - generic [ref=e313]: Process Engineer
+            - generic [ref=e315]:
+              - heading "Process Engineer" [level=3] [ref=e316]
+              - heading "Home Chef" [level=4] [ref=e317]:
+                - link "Home Chef" [ref=e318] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/relished?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e319]:
+                - generic [ref=e320]: San Bernardino, CA
+                - generic [ref=e323]: Be an early applicant
+                - time [ref=e324]: 3 days ago
+        - listitem [ref=e325]:
+          - generic [ref=e326]:
+            - link "Process Engineer" [ref=e327] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-geiger-4301397252?position=18&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=FAWQS1r8PUsHnoMu0%2FbRjg%3D%3D
+              - generic [ref=e328]: Process Engineer
+            - generic [ref=e330]:
+              - heading "Process Engineer" [level=3] [ref=e331]
+              - heading "Geiger" [level=4] [ref=e332]:
+                - link "Geiger" [ref=e333] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/geiger-international?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e334]:
+                - generic [ref=e335]: Atlanta, GA
+                - time [ref=e336]: 1 day ago
+        - listitem [ref=e337]:
+          - generic [ref=e338]:
+            - link "Process Engineer" [ref=e339] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-cps-inc-4401830998?position=19&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=Vyt0lHmccU98rAq6DAozYw%3D%3D
+              - generic [ref=e340]: Process Engineer
+            - generic [ref=e342]:
+              - heading "Process Engineer" [level=3] [ref=e343]
+              - heading "CPS, Inc." [level=4] [ref=e344]:
+                - link "CPS, Inc." [ref=e345] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/cps4jobs?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e346]:
+                - generic [ref=e347]: Monroe, LA
+                - generic [ref=e350]: Actively Hiring
+                - time [ref=e351]: 5 days ago
+        - listitem [ref=e352]:
+          - generic [ref=e353]:
+            - link "Process Engineer" [ref=e354] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-marcal-paper-4412118935?position=20&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=yc2m%2Bh0SveUMI0Yo9aO33A%3D%3D
+              - generic [ref=e355]: Process Engineer
+            - generic [ref=e357]:
+              - heading "Process Engineer" [level=3] [ref=e358]
+              - heading "Marcal Paper" [level=4] [ref=e359]:
+                - link "Marcal Paper" [ref=e360] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/marcalpaper?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e361]:
+                - generic [ref=e362]: Natchez, MS
+                - generic [ref=e365]: Medical insurance +3 benefits
+                - time [ref=e366]: 4 days ago
+        - listitem [ref=e367]:
+          - generic [ref=e368]:
+            - link "Process Engineer" [ref=e369] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-bonnell-aluminum-4413097421?position=21&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=Hi11EWapwRRNc20DCUfN6w%3D%3D
+              - generic [ref=e370]: Process Engineer
+            - generic [ref=e372]:
+              - heading "Process Engineer" [level=3] [ref=e373]
+              - heading "Bonnell Aluminum" [level=4] [ref=e374]:
+                - link "Bonnell Aluminum" [ref=e375] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/bonnell-aluminum?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e376]:
+                - generic [ref=e377]: Carthage, TN
+                - generic [ref=e380]: Be an early applicant
+                - time [ref=e381]: 1 day ago
+        - listitem [ref=e382]:
+          - generic [ref=e383]:
+            - link "Process Engineer II" [ref=e384] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-ii-at-ace-partners-4411881760?position=22&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=UL3btoTD56TzS1hJTCaJ7w%3D%3D
+              - generic [ref=e385]: Process Engineer II
+            - generic [ref=e387]:
+              - heading "Process Engineer II" [level=3] [ref=e388]
+              - heading "ACE Partners" [level=4] [ref=e389]:
+                - link "ACE Partners" [ref=e390] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/ace-partners-international?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e391]:
+                - generic [ref=e392]: Austin, TX
+                - generic [ref=e395]: Actively Hiring +5 benefits
+                - time [ref=e396]: 4 days ago
+        - listitem [ref=e397]:
+          - generic [ref=e398]:
+            - link "Senior Process Excellence Engineer/AI Coordinator" [ref=e399] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/senior-process-excellence-engineer-ai-coordinator-at-jobgether-4413534171?position=23&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=3%2BUEd77Z2fx32x5%2FB7Rh4Q%3D%3D
+              - generic [ref=e400]: Senior Process Excellence Engineer/AI Coordinator
+            - generic [ref=e402]:
+              - heading "Senior Process Excellence Engineer/AI Coordinator" [level=3] [ref=e403]
+              - heading "Jobgether" [level=4] [ref=e404]:
+                - link "Jobgether" [ref=e405] [cursor=pointer]:
+                  - /url: https://be.linkedin.com/company/jobgether?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e406]:
+                - generic [ref=e407]: United States
+                - time [ref=e408]: 23 hours ago
+        - listitem [ref=e409]:
+          - generic [ref=e410]:
+            - link "Process Engineer" [ref=e411] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-liberty-personnel-services-inc-4402722724?position=24&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=DeyiKW7nv8KelcaJa2U6RA%3D%3D
+              - generic [ref=e412]: Process Engineer
+            - generic [ref=e414]:
+              - heading "Process Engineer" [level=3] [ref=e415]
+              - heading "Liberty Personnel Services, Inc." [level=4] [ref=e416]:
+                - link "Liberty Personnel Services, Inc." [ref=e417] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/liberty-personnel-services-inc?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e418]:
+                - generic [ref=e419]: Ewing, NJ
+                - generic [ref=e422]: Actively Hiring
+                - time [ref=e423]: 4 days ago
+        - listitem [ref=e424]:
+          - generic [ref=e425]:
+            - link "Process Engineer II" [ref=e426] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-ii-at-rheem-manufacturing-4413701186?position=25&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=al%2FXMzROWcOji5Zl5%2Fh9aQ%3D%3D
+              - generic [ref=e427]: Process Engineer II
+            - generic [ref=e429]:
+              - heading "Process Engineer II" [level=3] [ref=e430]
+              - heading "Rheem Manufacturing" [level=4] [ref=e431]:
+                - link "Rheem Manufacturing" [ref=e432] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/rheem-manufacturing?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e433]:
+                - generic [ref=e434]: Fort Smith, AR
+                - generic [ref=e437]: Be an early applicant
+                - time [ref=e438]: 12 hours ago
+        - listitem [ref=e439]:
+          - generic [ref=e440]:
+            - link "Process Engineer Oil & Gas- (travels 75% in NAM & CAN)" [ref=e441] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-oil-gas-travels-75%25-in-nam-can-at-gea-group-4413821797?position=26&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=Y8kBB6r89Bz81Cs2oGzsFA%3D%3D
+              - generic [ref=e442]: Process Engineer Oil & Gas- (travels 75% in NAM & CAN)
+            - generic [ref=e444]:
+              - heading "Process Engineer Oil & Gas- (travels 75% in NAM & CAN)" [level=3] [ref=e445]
+              - heading "GEA Group" [level=4] [ref=e446]:
+                - link "GEA Group" [ref=e447] [cursor=pointer]:
+                  - /url: https://de.linkedin.com/company/geagroup?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e448]:
+                - generic [ref=e449]: Greater Minneapolis-St. Paul Area
+                - generic [ref=e452]: Be an early applicant +8 benefits
+                - time [ref=e453]: 9 hours ago
+        - listitem [ref=e454]:
+          - generic [ref=e455]:
+            - link "Process Engineer" [ref=e456] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-knauf-north-america-4400465402?position=27&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=lp%2ByOdTuBiEXnpsqYkcTOg%3D%3D
+              - generic [ref=e457]: Process Engineer
+            - generic [ref=e459]:
+              - heading "Process Engineer" [level=3] [ref=e460]
+              - heading "Knauf North America" [level=4] [ref=e461]:
+                - link "Knauf North America" [ref=e462] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/knaufna?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e463]:
+                - generic [ref=e464]: Shelbyville, IN
+                - generic [ref=e467]: Actively Hiring
+                - time [ref=e468]: 4 days ago
+        - listitem [ref=e469]:
+          - generic [ref=e470]:
+            - link "Process Engineer" [ref=e471] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-perdue-farms-4392666486?position=28&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=ZCjfVtqL3Td1AyaM4B75CA%3D%3D
+              - generic [ref=e472]: Process Engineer
+            - generic [ref=e474]:
+              - heading "Process Engineer" [level=3] [ref=e475]
+              - heading "Perdue Farms" [level=4] [ref=e476]:
+                - link "Perdue Farms" [ref=e477] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/perdue-farms?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e478]:
+                - generic [ref=e479]: Charlotte, NC
+                - generic [ref=e482]: Actively Hiring
+                - time [ref=e483]: 3 days ago
+        - listitem [ref=e484]:
+          - generic [ref=e485]:
+            - link "Food Process Engineer" [ref=e486] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/food-process-engineer-at-talently-4410707477?position=29&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=xMLaXLbF9Qjph%2BOtU8JYgQ%3D%3D
+              - generic [ref=e487]: Food Process Engineer
+            - generic [ref=e489]:
+              - heading "Food Process Engineer" [level=3] [ref=e490]
+              - heading "Talently" [level=4] [ref=e491]:
+                - link "Talently" [ref=e492] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/talently-recruiting?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e493]:
+                - generic [ref=e494]: Emeryville, CA
+                - generic [ref=e497]: Actively Hiring
+                - time [ref=e498]: 2 days ago
+        - listitem [ref=e499]:
+          - generic [ref=e500]:
+            - link "Process Engineer - Decatur, IL" [ref=e501] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-decatur-il-at-adm-4401129121?position=30&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=%2FjoC13WyHnxEeaY0AJf30Q%3D%3D
+              - generic [ref=e502]: Process Engineer - Decatur, IL
+            - generic [ref=e504]:
+              - heading "Process Engineer - Decatur, IL" [level=3] [ref=e505]
+              - heading "ADM" [level=4] [ref=e506]:
+                - link "ADM" [ref=e507] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/adm?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e508]:
+                - generic [ref=e509]: Decatur, IL
+                - generic [ref=e512]: Actively Hiring
+                - time [ref=e513]: 6 days ago
+        - listitem [ref=e514]:
+          - generic [ref=e515]:
+            - link "Process Engineer" [ref=e516] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-plastic-executive-recruiters-4383133853?position=31&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=ij0cB5ZkWJztvUFqgn0Kfw%3D%3D
+              - generic [ref=e517]: Process Engineer
+            - generic [ref=e519]:
+              - heading "Process Engineer" [level=3] [ref=e520]
+              - heading "Plastic Executive Recruiters" [level=4] [ref=e521]:
+                - link "Plastic Executive Recruiters" [ref=e522] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/plastic-executive-recruiters?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e523]:
+                - generic [ref=e524]: Lincoln, Nebraska Metropolitan Area
+                - generic [ref=e527]: Actively Hiring +6 benefits
+                - time [ref=e528]: 4 days ago
+        - listitem [ref=e529]:
+          - generic [ref=e530]:
+            - link "Process Engineer" [ref=e531] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-movement-search-delivery-4411390030?position=32&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=%2B84VXlY%2FCjGr1nIYGGPgKw%3D%3D
+              - generic [ref=e532]: Process Engineer
+            - generic [ref=e534]:
+              - heading "Process Engineer" [level=3] [ref=e535]
+              - heading "Movement Search & Delivery" [level=4] [ref=e536]:
+                - link "Movement Search & Delivery" [ref=e537] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/movement-search-&-delivery?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e538]:
+                - generic [ref=e539]: Hartford County, CT
+                - generic [ref=e542]: Actively Hiring +4 benefits
+                - time [ref=e543]: 4 days ago
+        - listitem [ref=e544]:
+          - generic [ref=e545]:
+            - link "Process Engineer" [ref=e546] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-dsj-global-4409619119?position=33&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=SW2FIGFQP4wrevGOsPqZjQ%3D%3D
+              - generic [ref=e547]: Process Engineer
+            - generic [ref=e549]:
+              - heading "Process Engineer" [level=3] [ref=e550]
+              - heading "DSJ Global" [level=4] [ref=e551]:
+                - link "DSJ Global" [ref=e552] [cursor=pointer]:
+                  - /url: https://uk.linkedin.com/company/dsj-global?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e553]:
+                - generic [ref=e554]: Evansville, IN
+                - generic [ref=e557]: Be an early applicant
+                - time [ref=e558]: 5 days ago
+        - listitem [ref=e559]:
+          - generic [ref=e560]:
+            - link "Process Engineer (Entry-Level)" [ref=e561] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-entry-level-at-united-consulting-hub-4413569970?position=34&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=ovOv%2FtTqfq93C1F%2BIhoelQ%3D%3D
+              - generic [ref=e562]: Process Engineer (Entry-Level)
+            - generic [ref=e564]:
+              - heading "Process Engineer (Entry-Level)" [level=3] [ref=e565]
+              - heading "United Consulting Hub" [level=4] [ref=e566]:
+                - link "United Consulting Hub" [ref=e567] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/united-consulting-hub?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e568]:
+                - generic [ref=e569]: Ohio, United States
+                - generic [ref=e572]: Actively Hiring
+                - time [ref=e573]: 15 hours ago
+        - listitem [ref=e574]:
+          - generic [ref=e575]:
+            - link "Process Engineer II" [ref=e576] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-ii-at-csat-solutions-lp-4413714298?position=35&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=C4M%2Bj8QC6tNFwaIa82CGIg%3D%3D
+              - generic [ref=e577]: Process Engineer II
+            - generic [ref=e579]:
+              - heading "Process Engineer II" [level=3] [ref=e580]
+              - heading "CSAT Solutions LP" [level=4] [ref=e581]:
+                - link "CSAT Solutions LP" [ref=e582] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/csat-solutions?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e583]:
+                - generic [ref=e584]: Houston, TX
+                - generic [ref=e587]: Be an early applicant
+                - time [ref=e588]: 11 hours ago
+        - listitem [ref=e589]:
+          - generic [ref=e590]:
+            - link "Process Integration Development Engineer" [ref=e591] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-integration-development-engineer-at-intel-4385925400?position=36&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=ei9h7iAEBuCJGb615UR3VA%3D%3D
+              - generic [ref=e592]: Process Integration Development Engineer
+            - generic [ref=e594]:
+              - heading "Process Integration Development Engineer" [level=3] [ref=e595]
+              - heading "Intel" [level=4] [ref=e596]:
+                - link "Intel" [ref=e597] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/intel-corporation?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e598]:
+                - generic [ref=e599]: Hillsboro, OR
+                - generic [ref=e602]: Actively Hiring
+                - time [ref=e603]: 3 days ago
+        - listitem [ref=e604]:
+          - generic [ref=e605]:
+            - link "Process Engineer" [ref=e606] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-the-richmond-group-usa-4413462380?position=37&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=5EhQSIEDbV%2BbhsPZRLXwng%3D%3D
+              - generic [ref=e607]: Process Engineer
+            - generic [ref=e609]:
+              - heading "Process Engineer" [level=3] [ref=e610]
+              - heading "The Richmond Group USA" [level=4] [ref=e611]:
+                - link "The Richmond Group USA" [ref=e612] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/the-richmond-group-usa?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e613]:
+                - generic [ref=e614]: Greater Roanoke Area
+                - generic [ref=e617]: Be an early applicant +4 benefits
+                - time [ref=e618]: 15 hours ago
+        - listitem [ref=e619]:
+          - generic [ref=e620]:
+            - link "Process Engineer" [ref=e621] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-tenth-revolution-group-4411899158?position=38&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=Lv6ZxSfuGCDfj5BigzaUUg%3D%3D
+              - generic [ref=e622]: Process Engineer
+            - generic [ref=e624]:
+              - heading "Process Engineer" [level=3] [ref=e625]
+              - heading "Tenth Revolution Group" [level=4] [ref=e626]:
+                - link "Tenth Revolution Group" [ref=e627] [cursor=pointer]:
+                  - /url: https://uk.linkedin.com/company/tenthrevolution?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e628]:
+                - generic [ref=e629]: Hartsville, SC
+                - generic [ref=e632]: Medical insurance +3 benefits
+                - time [ref=e633]: 4 days ago
+        - listitem [ref=e634]:
+          - generic [ref=e635]:
+            - link "Process Engineer, Cell Assembly" [ref=e636] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-cell-assembly-at-tesla-4411766699?position=39&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=JOZNgYStdCPuanwTgb2Tsg%3D%3D
+              - generic [ref=e637]: Process Engineer, Cell Assembly
+            - generic [ref=e639]:
+              - heading "Process Engineer, Cell Assembly" [level=3] [ref=e640]
+              - heading "Tesla" [level=4] [ref=e641]:
+                - link "Tesla" [ref=e642] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/tesla-motors?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e643]:
+                - generic [ref=e644]: Fremont, CA
+                - generic [ref=e647]: Actively Hiring
+                - time [ref=e648]: 4 days ago
+        - listitem [ref=e649]:
+          - generic [ref=e650]:
+            - link "Process Engineer" [ref=e651] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-a-hiring-company-4412928199?position=40&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=HtjpoKHBBlYFPuEUhHYWTg%3D%3D
+              - generic [ref=e652]: Process Engineer
+            - generic [ref=e654]:
+              - heading "Process Engineer" [level=3] [ref=e655]
+              - heading "A Hiring Company" [level=4] [ref=e656]:
+                - link "A Hiring Company" [ref=e657] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/a-hiring-company?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e658]:
+                - generic [ref=e659]: Tempe, AZ
+                - generic [ref=e662]: Be an early applicant
+                - time [ref=e663]: 1 day ago
+        - listitem [ref=e664]:
+          - generic [ref=e665]:
+            - link "Process Engineer" [ref=e666] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-rh-aero-systems-4399913006?position=41&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=CbxdRBsVAOqsVCEB2vwO4Q%3D%3D
+              - generic [ref=e667]: Process Engineer
+            - generic [ref=e669]:
+              - heading "Process Engineer" [level=3] [ref=e670]
+              - heading "RH Aero Systems" [level=4] [ref=e671]:
+                - link "RH Aero Systems" [ref=e672] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/rh-aero-systems?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e673]:
+                - generic [ref=e674]: Mason, OH
+                - time [ref=e675]: 6 days ago
+        - listitem [ref=e676]:
+          - generic [ref=e677]:
+            - link "Process Engineer II (MSAT)" [ref=e678] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-ii-msat-at-oxb-4389921685?position=42&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=WVSBM6phoGLBdbKI9WFP%2Fg%3D%3D
+              - generic [ref=e679]: Process Engineer II (MSAT)
+            - generic [ref=e681]:
+              - heading "Process Engineer II (MSAT)" [level=3] [ref=e682]
+              - heading "OXB" [level=4] [ref=e683]:
+                - link "OXB" [ref=e684] [cursor=pointer]:
+                  - /url: https://uk.linkedin.com/company/oxford-biomedica?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e685]:
+                - generic [ref=e686]: Durham, NC
+                - generic [ref=e689]: Actively Hiring
+                - time [ref=e690]: 4 days ago
+        - listitem [ref=e691]:
+          - generic [ref=e692]:
+            - link "Process Engineer" [ref=e693] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-net2source-n2s-4412918826?position=43&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=9Lwfom73SABp2vcf3XAGIg%3D%3D
+              - generic [ref=e694]: Process Engineer
+            - generic [ref=e696]:
+              - heading "Process Engineer" [level=3] [ref=e697]
+              - heading "Net2Source (N2S)" [level=4] [ref=e698]:
+                - link "Net2Source (N2S)" [ref=e699] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/n2s-global?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e700]:
+                - generic [ref=e701]: Seattle, WA
+                - generic [ref=e704]: Actively Hiring
+                - time [ref=e705]: 1 day ago
+        - listitem [ref=e706]:
+          - generic [ref=e707]:
+            - link "Process Engineer" [ref=e708] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-cypress-hcm-4379450181?position=44&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=3SGPXtlpPF4uAYUG9FIaEA%3D%3D
+              - generic [ref=e709]: Process Engineer
+            - generic [ref=e711]:
+              - heading "Process Engineer" [level=3] [ref=e712]
+              - heading "Cypress HCM" [level=4] [ref=e713]:
+                - link "Cypress HCM" [ref=e714] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/cypress-hcm?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e715]:
+                - generic [ref=e716]: Milpitas, CA
+                - generic [ref=e719]: Be an early applicant
+                - time [ref=e720]: 4 days ago
+        - listitem [ref=e721]:
+          - generic [ref=e722]:
+            - link "Process Engineer" [ref=e723] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-mj-recruiters-4412154806?position=45&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=lptXo3IUfOxsGKxswt2etQ%3D%3D
+              - generic [ref=e724]: Process Engineer
+            - generic [ref=e726]:
+              - heading "Process Engineer" [level=3] [ref=e727]
+              - heading "MJ Recruiters" [level=4] [ref=e728]:
+                - link "MJ Recruiters" [ref=e729] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/mj-recruiters-llc?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e730]:
+                - generic [ref=e731]: Akron, OH
+                - generic [ref=e734]: Actively Hiring +4 benefits
+                - time [ref=e735]: 4 days ago
+        - listitem [ref=e736]:
+          - generic [ref=e737]:
+            - link "Process Engineer" [ref=e738] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-spark-life-solutions-inc-4409292358?position=46&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=dZzrgyPKEQAhsl8pOnOKrw%3D%3D
+              - generic [ref=e739]: Process Engineer
+            - generic [ref=e741]:
+              - heading "Process Engineer" [level=3] [ref=e742]
+              - heading "Spark Life Solutions Inc" [level=4] [ref=e743]:
+                - link "Spark Life Solutions Inc" [ref=e744] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/sparklifesolutions?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e745]:
+                - generic [ref=e746]: North Carolina, United States
+                - time [ref=e747]: 5 days ago
+        - listitem [ref=e748]:
+          - generic [ref=e749]:
+            - link "Process Improvement Manufacturing Engineer" [ref=e750] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-improvement-manufacturing-engineer-at-rolls-royce-4410234258?position=47&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=8tTgBUOOXr0xU1Bj8h2%2FJA%3D%3D
+              - generic [ref=e751]: Process Improvement Manufacturing Engineer
+            - generic [ref=e753]:
+              - heading "Process Improvement Manufacturing Engineer" [level=3] [ref=e754]
+              - heading "Rolls-Royce" [level=4] [ref=e755]:
+                - link "Rolls-Royce" [ref=e756] [cursor=pointer]:
+                  - /url: https://uk.linkedin.com/company/rolls-royce?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e757]:
+                - generic [ref=e758]: Greater Indianapolis
+                - generic [ref=e761]: Actively Hiring
+                - time [ref=e762]: 15 hours ago
+        - listitem [ref=e763]:
+          - generic [ref=e764]:
+            - link "LNG Optimization Process Engineer" [ref=e765] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/lng-optimization-process-engineer-at-nextdecade-4321350964?position=48&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=WXADeDYn03oWHHEHaIRqTg%3D%3D
+              - generic [ref=e766]: LNG Optimization Process Engineer
+            - generic [ref=e768]:
+              - heading "LNG Optimization Process Engineer" [level=3] [ref=e769]
+              - heading "NextDecade" [level=4] [ref=e770]:
+                - link "NextDecade" [ref=e771] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/next-decade?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e772]:
+                - generic [ref=e773]: Brownsville, TX
+                - generic [ref=e776]: Be an early applicant
+                - time [ref=e777]: 1 day ago
+        - listitem [ref=e778]:
+          - generic [ref=e779]:
+            - link "Process Development Engineer" [ref=e780] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-development-engineer-at-lumicity-4401447838?position=49&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=Ak97qx1h0S9WdZPKdTioZg%3D%3D
+              - generic [ref=e781]: Process Development Engineer
+            - generic [ref=e783]:
+              - heading "Process Development Engineer" [level=3] [ref=e784]
+              - heading "Lumicity" [level=4] [ref=e785]:
+                - link "Lumicity" [ref=e786] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/lumicity?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e787]:
+                - generic [ref=e788]: Minneapolis, MN
+                - generic [ref=e791]: Actively Hiring +4 benefits
+                - time [ref=e792]: 15 hours ago
+        - listitem [ref=e793]:
+          - generic [ref=e794]:
+            - link "Prototype Process Engineer" [ref=e795] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/prototype-process-engineer-at-meta-4401207642?position=50&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=To%2BHyd%2B%2BvxDY0kEuGR9Nrw%3D%3D
+              - generic [ref=e796]: Prototype Process Engineer
+            - generic [ref=e798]:
+              - heading "Prototype Process Engineer" [level=3] [ref=e799]
+              - heading "Meta" [level=4] [ref=e800]:
+                - link "Meta" [ref=e801] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/meta?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e802]:
+                - generic [ref=e803]: Redmond, WA
+                - generic [ref=e806]: Actively Hiring
+                - time [ref=e807]: 3 days ago
+        - listitem [ref=e808]:
+          - generic [ref=e809]:
+            - link "Process Engineer" [ref=e810] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-winland-foods-4390672170?position=51&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=lMuePt1U%2FVbGmB%2B4P72FkQ%3D%3D
+              - generic [ref=e811]: Process Engineer
+            - generic [ref=e813]:
+              - heading "Process Engineer" [level=3] [ref=e814]
+              - heading "Winland Foods" [level=4] [ref=e815]:
+                - link "Winland Foods" [ref=e816] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/winland-foods?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e817]:
+                - generic [ref=e818]: North East, PA
+                - generic [ref=e821]: Actively Hiring
+                - time [ref=e822]: 5 days ago
+        - listitem [ref=e823]:
+          - generic [ref=e824]:
+            - link "Prototype Process Engineer" [ref=e825] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/prototype-process-engineer-at-meta-4401276035?position=52&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=ZT7XznjNjj3%2F2X%2Fyn%2BtLvg%3D%3D
+              - generic [ref=e826]: Prototype Process Engineer
+            - generic [ref=e828]:
+              - heading "Prototype Process Engineer" [level=3] [ref=e829]
+              - heading "Meta" [level=4] [ref=e830]:
+                - link "Meta" [ref=e831] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/meta?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e832]:
+                - generic [ref=e833]: Burlingame, CA
+                - generic [ref=e836]: Actively Hiring
+                - time [ref=e837]: 2 days ago
+        - listitem [ref=e838]:
+          - generic [ref=e839]:
+            - link "Process Engineer" [ref=e840] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-movement-search-delivery-4410814317?position=53&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=v7ynVbPFOIf9p0cVGfi5yg%3D%3D
+              - generic [ref=e841]: Process Engineer
+            - generic [ref=e843]:
+              - heading "Process Engineer" [level=3] [ref=e844]
+              - heading "Movement Search & Delivery" [level=4] [ref=e845]:
+                - link "Movement Search & Delivery" [ref=e846] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/movement-search-&-delivery?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e847]:
+                - generic [ref=e848]: Groveport, OH
+                - generic [ref=e851]: Actively Hiring
+                - time [ref=e852]: 5 days ago
+        - listitem [ref=e853]:
+          - generic [ref=e854]:
+            - link "Process Engineer / Analyst" [ref=e855] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-analyst-at-rockwoods-inc-4410843100?position=54&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=CV5QwUuNQ%2FBs4eoi3h8egA%3D%3D
+              - generic [ref=e856]: Process Engineer / Analyst
+            - generic [ref=e858]:
+              - heading "Process Engineer / Analyst" [level=3] [ref=e859]
+              - heading "Rockwoods Inc" [level=4] [ref=e860]:
+                - link "Rockwoods Inc" [ref=e861] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/rockwoods-inc?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e862]:
+                - generic [ref=e863]: Newport News, VA
+                - time [ref=e864]: 5 days ago
+        - listitem [ref=e865]:
+          - generic [ref=e866]:
+            - link "Process Engineer II" [ref=e867] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-ii-at-dc-water-4410184960?position=55&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=7GiMaPSNwVqU1psacTdz6A%3D%3D
+              - generic [ref=e868]: Process Engineer II
+            - generic [ref=e870]:
+              - heading "Process Engineer II" [level=3] [ref=e871]
+              - heading "DC Water" [level=4] [ref=e872]:
+                - link "DC Water" [ref=e873] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/dc-water?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e874]:
+                - generic [ref=e875]: District of Columbia, United States
+                - generic [ref=e878]: Be an early applicant
+                - time [ref=e879]: 12 hours ago
+        - listitem [ref=e880]:
+          - generic [ref=e881]:
+            - link "Process Development Engineer" [ref=e882] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-development-engineer-at-insync-staffing-4409991690?position=56&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=jTRBPrZpNcaUSjFGgygobw%3D%3D
+              - generic [ref=e883]: Process Development Engineer
+            - generic [ref=e885]:
+              - heading "Process Development Engineer" [level=3] [ref=e886]
+              - heading "inSync Staffing" [level=4] [ref=e887]:
+                - link "inSync Staffing" [ref=e888] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/insync-staffing?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e889]:
+                - generic [ref=e890]: Campbell, CA
+                - generic [ref=e893]: Actively Hiring +4 benefits
+                - time [ref=e894]: 6 days ago
+        - listitem [ref=e895]:
+          - generic [ref=e896]:
+            - link "Process Engineer" [ref=e897] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-north-american-lighting-inc-4381838757?position=57&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=D7E9v5Iw33cHK1qnVtmPdg%3D%3D
+              - generic [ref=e898]: Process Engineer
+            - generic [ref=e900]:
+              - heading "Process Engineer" [level=3] [ref=e901]
+              - heading "North American Lighting, Inc." [level=4] [ref=e902]:
+                - link "North American Lighting, Inc." [ref=e903] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/north-american-lighting?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e904]:
+                - generic [ref=e905]: Greater Terre Haute Area
+                - generic [ref=e908]: Medical insurance +3 benefits
+                - time [ref=e909]: 6 days ago
+        - listitem [ref=e910]:
+          - generic [ref=e911]:
+            - link "Process Engineer" [ref=e912] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/process-engineer-at-pinnacle-search-4392109346?position=58&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=b3Wjg%2BnjJnZGM0HQULAvyw%3D%3D
+              - generic [ref=e913]: Process Engineer
+            - generic [ref=e915]:
+              - heading "Process Engineer" [level=3] [ref=e916]
+              - heading "Pinnacle Search" [level=4] [ref=e917]:
+                - link "Pinnacle Search" [ref=e918] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/pinnacle-search-partners?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e919]:
+                - generic [ref=e920]: Mocksville, NC
+                - generic [ref=e923]: Actively Hiring +1 benefits
+                - time [ref=e924]: 1 day ago
+        - listitem [ref=e925]:
+          - generic [ref=e926]:
+            - link "Sr. Process Engineer" [ref=e927] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/sr-process-engineer-at-berkner-group-4412630831?position=59&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=KX8I0odIYtW58reIHo8fDQ%3D%3D
+              - generic [ref=e928]: Sr. Process Engineer
+            - generic [ref=e930]:
+              - heading "Sr. Process Engineer" [level=3] [ref=e931]
+              - heading "Berkner Group" [level=4] [ref=e932]:
+                - link "Berkner Group" [ref=e933] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/berkner-group?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e934]:
+                - generic [ref=e935]: Carmel, IN
+                - generic [ref=e938]: Be an early applicant
+                - time [ref=e939]: 2 days ago
+        - listitem [ref=e940]:
+          - generic [ref=e941]:
+            - link "Sr Process Engineer" [ref=e942] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/view/sr-process-engineer-at-jbl-resources-4411885943?position=60&pageNum=0&refId=uitLYmXs86wabG8U4Pqfgw%3D%3D&trackingId=lizs1aoKj5oYXLRboNwzBw%3D%3D
+              - generic [ref=e943]: Sr Process Engineer
+            - generic [ref=e945]:
+              - heading "Sr Process Engineer" [level=3] [ref=e946]
+              - heading "JBL Resources" [level=4] [ref=e947]:
+                - link "JBL Resources" [ref=e948] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/jbl-resources?trk=public_jobs_jserp-result_job-search-card-subtitle
+              - generic [ref=e949]:
+                - generic [ref=e950]: Ann Arbor, MI
+                - generic [ref=e953]: Be an early applicant +3 benefits
+                - time [ref=e954]: 4 days ago
+      - generic [ref=e955]:
+        - heading "Search similar titles" [level=3] [ref=e956]
+        - list [ref=e957]:
+          - listitem [ref=e958]:
+            - link "Senior Process Development Engineer jobs" [ref=e959] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/senior-process-development-engineer-jobs?trk=public_jobs_similar-title
+          - listitem [ref=e960]:
+            - link "Process Integration Engineer jobs" [ref=e961] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/process-integration-engineer-jobs?trk=public_jobs_similar-title
+          - listitem [ref=e962]:
+            - link "Process Equipment Engineer jobs" [ref=e963] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/process-equipment-engineer-jobs?trk=public_jobs_similar-title
+  - generic [ref=e966]:
+    - button "More searches" [ref=e967] [cursor=pointer]: More searches
+    - list
+  - contentinfo [ref=e969]:
+    - list [ref=e970]:
+      - listitem [ref=e971]:
+        - generic [ref=e972]: LinkedIn
+        - generic [ref=e974]: © 2026
+      - listitem [ref=e975]:
+        - link "About" [ref=e976] [cursor=pointer]:
+          - /url: https://about.linkedin.com?trk=public_jobs_footer-about
+      - listitem [ref=e977]:
+        - link "Accessibility" [ref=e978] [cursor=pointer]:
+          - /url: https://www.linkedin.com/accessibility?trk=public_jobs_footer-accessibility
+      - listitem [ref=e979]:
+        - link "User Agreement" [ref=e980] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/user-agreement?trk=public_jobs_footer-user-agreement
+      - listitem [ref=e981]:
+        - link "Privacy Policy" [ref=e982] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/privacy-policy?trk=public_jobs_footer-privacy-policy
+      - listitem [ref=e983]:
+        - link "Your California Privacy Choices" [ref=e984] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/california-privacy-disclosure?trk=public_jobs_footer-california-privacy-rights-act
+      - listitem [ref=e985]:
+        - link "Cookie Policy" [ref=e986] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/cookie-policy?trk=public_jobs_footer-cookie-policy
+      - listitem [ref=e987]:
+        - link "Copyright Policy" [ref=e988] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/copyright-policy?trk=public_jobs_footer-copyright-policy
+      - listitem [ref=e989]:
+        - link "Brand Policy" [ref=e990] [cursor=pointer]:
+          - /url: https://brand.linkedin.com/policies?trk=public_jobs_footer-brand-policy
+      - listitem [ref=e991]:
+        - link "Guest Controls" [ref=e992] [cursor=pointer]:
+          - /url: https://www.linkedin.com/psettings/guest-controls?trk=public_jobs_footer-guest-controls
+      - listitem [ref=e993]:
+        - link "Community Guidelines" [ref=e994] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/professional-community-policies?trk=public_jobs_footer-community-guide
+      - listitem [ref=e995]:
+        - button "Language" [ref=e997]: Language
