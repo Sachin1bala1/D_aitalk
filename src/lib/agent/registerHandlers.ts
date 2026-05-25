@@ -1648,6 +1648,7 @@ export function registerHandlers() {
       store.addTab({
         id: tabId,
         type: "sql_editor",
+        isSheet: true,
         title,
         sql: "",
         connectionId: store.activeConnectionId,
