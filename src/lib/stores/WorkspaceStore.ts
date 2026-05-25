@@ -263,6 +263,7 @@ export interface TabStateBase {
   isExecuting: boolean;
   queryView: QueryViewState;
   restoredSnapshotAt?: number | null;
+  isSheet?: boolean;
 }
 
 export interface QueryTabState extends TabStateBase {
