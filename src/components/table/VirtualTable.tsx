@@ -686,6 +686,10 @@ export function VirtualTable({ isLoading, totalRows }: VirtualTableProps = {}) {
   const setChartRequest = useWorkspaceStore((s) => s.setChartRequest);
   const activeConnectionId = useWorkspaceStore((s) => s.activeConnectionId);
   const activeTabId = useWorkspaceStore((s) => s.activeTabId);
+  const activeTabIsSheet = useWorkspaceStore((s) => {
+    const tab = s.tabs.find((t) => t.id === s.activeTabId);
+    return !!(tab as { isSheet?: boolean } | null)?.isSheet;
+  });
   const connections = useWorkspaceStore((s) => s.connections);
   const activeTab = useWorkspaceStore((s) =>
     s.tabs.find((tab) => tab.id === s.activeTabId) ?? null
@@ -729,6 +733,13 @@ export function VirtualTable({ isLoading, totalRows }: VirtualTableProps = {}) {
   const [graphBuilderVisible, setGraphBuilderVisible] = useState(false);
   const [pivotMode, setPivotMode] = useState(false);
   const lastTrackedChartSignatureRef = useRef<string | null>(null);
+  const [colContextMenu, setColContextMenu] = useState<{
+    colName: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [addColOpen, setAddColOpen] = useState(false);
+  const [newColName, setNewColName] = useState("");
   const consumedGraphBuilderRequestIdRef = useRef<string | null>(null);
 
   // Legacy lightweight preview charts remain opt-in; AI chart requests should prefer Graph Builder.
@@ -1453,7 +1464,13 @@ export function VirtualTable({ isLoading, totalRows }: VirtualTableProps = {}) {
                 key={col.name}
                 className="relative flex items-center gap-1.5 px-3 border-r border-[#1a1a1a] shrink-0 overflow-hidden hover:bg-white/[0.03] transition-colors group/header"
                 style={{ width: w, height: HEADER_HEIGHT }}
+                onContextMenu={(e) => {
+                  if (!activeTabIsSheet) return;
+                  e.preventDefault();
+                  setColContextMenu({ colName: col.name, x: e.clientX, y: e.clientY });
+                }}
               >
+
                 {/* Sort clickable area */}
                 <button
                   onClick={() => handleSortClick(col.name)}
@@ -1535,6 +1552,20 @@ export function VirtualTable({ isLoading, totalRows }: VirtualTableProps = {}) {
               </div>
             );
           })}
+          {activeTabIsSheet && (
+            <div
+              style={{ width: 36, flexShrink: 0 }}
+              className="flex items-center justify-center h-full border-l border-[#1a1a1a]"
+            >
+              <button
+                onClick={() => { setNewColName(""); setAddColOpen(true); }}
+                className="text-white/20 hover:text-emerald-400 transition-colors"
+                title="Add column"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1792,6 +1823,109 @@ export function VirtualTable({ isLoading, totalRows }: VirtualTableProps = {}) {
             ? ` of ${totalRows.toLocaleString()}`
             : ""}
         </div>
+      )}
+
+      {/* Column context menu (sheet tabs only) */}
+      {colContextMenu && activeTabIsSheet && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setColContextMenu(null)} />
+          <div
+            className="fixed z-50 bg-[#141414] border border-[#2a2a2a] rounded-xl shadow-2xl py-1 min-w-[140px]"
+            style={{ left: colContextMenu.x, top: colContextMenu.y }}
+          >
+            <button
+              className="w-full text-left px-3 py-1.5 text-xs text-white/60 hover:text-white hover:bg-white/5"
+              onClick={() => {
+                const newName = prompt("Rename column:", colContextMenu.colName);
+                if (newName && newName.trim() && currentQueryResult) {
+                  const newFields = currentQueryResult.fields.map((f) =>
+                    f.name === colContextMenu.colName ? { ...f, name: newName.trim() } : f
+                  );
+                  const newRows = (currentQueryResult.rows ?? []).map((row) => {
+                    const renamed = { ...row };
+                    renamed[newName.trim()] = renamed[colContextMenu.colName];
+                    delete renamed[colContextMenu.colName];
+                    return renamed;
+                  });
+                  useWorkspaceStore.getState().updateSheetColumns(activeTabId, newFields, newRows);
+                }
+                setColContextMenu(null);
+              }}
+            >
+              Rename column
+            </button>
+            <button
+              className="w-full text-left px-3 py-1.5 text-xs text-red-400/70 hover:text-red-400 hover:bg-white/5"
+              onClick={() => {
+                if (currentQueryResult) {
+                  const newFields = currentQueryResult.fields.filter((f) => f.name !== colContextMenu.colName);
+                  const newRows = (currentQueryResult.rows ?? []).map((row) => {
+                    const r = { ...row };
+                    delete r[colContextMenu.colName];
+                    return r;
+                  });
+                  useWorkspaceStore.getState().updateSheetColumns(activeTabId, newFields, newRows);
+                }
+                setColContextMenu(null);
+              }}
+            >
+              Delete column
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Add column form (sheet tabs only) */}
+      {addColOpen && activeTabIsSheet && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setAddColOpen(false)} />
+          <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 bg-[#141414] border border-[#2a2a2a] rounded-xl shadow-2xl p-3 flex flex-col gap-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Add Column</p>
+            <input
+              autoFocus
+              value={newColName}
+              onChange={(e) => setNewColName(e.target.value)}
+              placeholder="Column name"
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setAddColOpen(false);
+                if (e.key === "Enter") {
+                  if (!newColName.trim() || !currentQueryResult) return;
+                  const newFields = [...currentQueryResult.fields, { name: newColName.trim() }];
+                  const newRows = (currentQueryResult.rows ?? []).map((row) => ({
+                    ...row,
+                    [newColName.trim()]: null,
+                  }));
+                  useWorkspaceStore.getState().updateSheetColumns(activeTabId, newFields, newRows);
+                  setAddColOpen(false);
+                }
+              }}
+              className="text-xs bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-white/80 focus:outline-none focus:border-emerald-500/50 placeholder:text-white/20"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  if (!newColName.trim() || !currentQueryResult) return;
+                  const newFields = [...currentQueryResult.fields, { name: newColName.trim() }];
+                  const newRows = (currentQueryResult.rows ?? []).map((row) => ({
+                    ...row,
+                    [newColName.trim()]: null,
+                  }));
+                  useWorkspaceStore.getState().updateSheetColumns(activeTabId, newFields, newRows);
+                  setAddColOpen(false);
+                }}
+                className="flex-1 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-bold hover:bg-emerald-500/30 transition-colors"
+              >
+                Add
+              </button>
+              <button
+                onClick={() => setAddColOpen(false)}
+                className="px-3 py-1.5 rounded-lg bg-white/5 text-white/40 text-xs hover:bg-white/10 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
