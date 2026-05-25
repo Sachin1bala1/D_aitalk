@@ -308,7 +308,7 @@ export const AGENT_TOOLS: UnifiedTool[] = [
   {
     name: "create_analysis_chart",
     description:
-      "Open an editable chart in Graph Builder from analysis result rows produced in the current turn, such as feature importance rankings or correlation summaries. Use this when you want to plot computed results rather than the raw query table.",
+      "Open an editable chart in Graph Builder from analysis result rows you supply directly. Use ONLY for correlation summaries or custom computed rows. Do NOT use after analyze_loaded_feature_importance — that tool auto-creates the chart in Graph Builder automatically.",
     parameters: {
       type: "object",
       properties: {
@@ -500,7 +500,7 @@ export const AGENT_TOOLS: UnifiedTool[] = [
   {
     name: "analyze_loaded_feature_importance",
     description:
-      "Rank which loaded numeric columns most influence a target column using the currently loaded query results. Prefer this over refetching or DuckDB when the relevant rows are already in memory.",
+      "Rank which loaded numeric columns most influence a target column using the currently loaded query results. Prefer this over refetching or DuckDB when the relevant rows are already in memory. After this tool runs, a bar chart is automatically opened in Graph Builder — do NOT call create_analysis_chart or create_derived_table afterwards unless the user explicitly asks.",
     parameters: {
       type: "object",
       properties: {

@@ -231,6 +231,7 @@ function buildFastSystemPrompt(
     parts.push(
       `CHART RULE: create_chart requires column names from the list above.\n` +
       `After analyze_loaded_feature_importance, the chart is created AUTOMATICALLY in Graph Builder — do NOT call create_analysis_chart, it is handled automatically.\n` +
+      `After create_derived_table opens a new tab with rows, if the user wants to chart it, call create_chart (NOT create_analysis_chart) using the column names visible in that tab's results.\n` +
       `For derived columns (e.g. ratios), write SQL with alias, execute_sql, then create_chart with the alias.\n` +
       `CORRELATION: If user asks what factors affect a column — try analyze_loaded_correlation first. If it fails, use execute_sql with CORR() e.g. SELECT CORR("col_a","target") AS c1, CORR("col_b","target") AS c2 FROM "schema"."table". Never attempt more than 2 approaches.`
     );
@@ -499,15 +500,17 @@ When the user asks "what factors affect X" or "correlation" or "what impacts Y":
 
 ## CRITICAL: Two Chart Tools — Do Not Confuse Them
 - **create_chart**: plots columns from the CURRENTLY LOADED SQL RESULTS. Only use column names that appear verbatim in "EXACT COLUMN NAMES" above. NEVER invent column names.
-- **create_analysis_chart**: plots rows you supply directly (e.g. analysis output). Use this after analyze_loaded_* tools.
+- **create_analysis_chart**: plots rows you supply directly (e.g. correlation summaries or custom computed rows). Do NOT use after analyze_loaded_feature_importance.
 
 ## After Analysis Tools — Results and Derived Tables
 After analyze_loaded_feature_importance: the chart is AUTOMATICALLY created in Graph Builder. Do NOT call create_analysis_chart — handled automatically. Just confirm the analysis is done.
 
-If the user asks to "save the results as a table", "keep these factors", or "create a derived table": call create_derived_table with:
+If the user says "save as table", "I want to analyze this data", "keep these factors", or "create a derived table": call create_derived_table with:
   name: "feature_importance_<target_column>" (snake_case)
   rows: the detailed_factors array from the analysis result
   title: "Feature Importance — <Target Column>"
+After calling create_derived_table, tell the user: "The data is now in a new tab — you can chart it by clicking the chart icon or asking me to chart it."
+If the user then asks to chart the derived table data, call create_chart (NOT create_analysis_chart) using the column names shown in that tab's results.
 
 After analyze_loaded_correlation returns, the result has correlations: [{column, correlation, ...}].
 To chart it: call create_analysis_chart with rows=result.correlations, xKey="column", yKey="correlation", chartType="bar".
