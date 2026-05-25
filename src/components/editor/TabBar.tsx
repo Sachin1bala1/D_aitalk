@@ -119,10 +119,10 @@ export function TabBar() {
             className={`group relative flex items-center gap-2 px-3 h-full min-w-0 max-w-[180px] cursor-pointer select-none border-r border-[#1a1a1a] shrink-0 transition-colors ${
               isActive
                 ? isSheet
-                  ? "bg-[#00d2ff]/10 text-white/80"
+                  ? "bg-emerald-500/10 text-white/80"
                   : "bg-[#0d0d0d] text-white/80"
                 : isSheet
-                  ? "bg-[#00d2ff]/5 text-white/30 hover:text-white/50 hover:bg-[#00d2ff]/10"
+                  ? "bg-emerald-500/5 text-white/30 hover:text-white/50 hover:bg-emerald-500/10"
                   : "bg-[#0a0a0a] text-white/30 hover:text-white/50 hover:bg-[#0c0c0c]"
             }`}
           >
