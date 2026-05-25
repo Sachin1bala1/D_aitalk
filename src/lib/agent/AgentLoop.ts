@@ -17,7 +17,7 @@ import type { WorkspaceRule } from "../memory/WorkspaceRuleStore";
 import type { FullSchema } from "../db/DbClient";
 import type { QueryResults } from "../stores/WorkspaceStore";
 import type { AIProvider, ConversationTurn, ToolCall } from "../ai/types";
-import { withRetry, withTimeout, withToolTimeout } from "../ai/resilience";
+import { withRetry } from "../ai/resilience";
 import { ContextEngine } from './harness/ContextEngine';
 import { DATAIQ_HOOKS, detectStruggle } from './harness/HarnessLifecycle';
 import type { SessionContext } from './harness/HarnessLifecycle';
@@ -54,6 +54,8 @@ export interface AgentLoopOptions {
   currentSQL: string | null;
   currentResults: QueryResults | null;
   onToken: (token: string) => void;
+  /** Called with a status string while thinking/running tools, null to clear. */
+  onThinking?: (status: string | null) => void;
   onToolStart: (toolName: string, input: unknown) => void;
   onToolEnd: (toolName: string, result: CommandResult) => void;
   onPlanQueued: (stepId: string, description: string) => void;
@@ -93,8 +95,6 @@ export function isVisualizationRequest(question: string): boolean {
 }
 
 const RESULT_FETCHING_TOOL_NAMES = new Set(["execute_sql", "open_table", "run_duckdb_analysis"]);
-const FAST_MODE_ROUND_TIMEOUT_MS = 22_000;
-const DEEP_MODE_ROUND_TIMEOUT_MS = 45_000;
 
 export function isUnderspecifiedVisualizationRequest(question: string): boolean {
   if (!isVisualizationRequest(question)) return false;
@@ -218,11 +218,22 @@ function buildFastSystemPrompt(
   }
 
   if (currentResults) {
-    const cols = currentResults.fields.map((f) => f.name).join(", ");
+    const cols = currentResults.fields.map((f) => f.name);
+    const colList = cols.map((c) => `"${c}"`).join(", ");
     const sample = JSON.stringify(currentResults.rows.slice(0, 2), null, 2);
-    parts.push(`LAST RESULTS: ${currentResults.rowCount} rows. Columns: ${cols}\nSample:\n${sample}`);
+    parts.push(
+      `LAST RESULTS: ${currentResults.rowCount} rows.\n` +
+      `EXACT COLUMN NAMES (use verbatim in create_chart — do NOT invent names): ${colList}\n` +
+      `Sample:\n${sample}`
+    );
     const profile = buildLoadedResultsProfile(currentResults);
     if (profile) parts.push(profile);
+    parts.push(
+      `CHART RULE: create_chart requires column names from the list above.\n` +
+      `After analyze_loaded_feature_importance, the chart is created AUTOMATICALLY in Graph Builder — do NOT call create_analysis_chart, it is handled automatically.\n` +
+      `For derived columns (e.g. ratios), write SQL with alias, execute_sql, then create_chart with the alias.\n` +
+      `CORRELATION: If user asks what factors affect a column — try analyze_loaded_correlation first. If it fails, use execute_sql with CORR() e.g. SELECT CORR("col_a","target") AS c1, CORR("col_b","target") AS c2 FROM "schema"."table". Never attempt more than 2 approaches.`
+    );
   }
 
   if (memoryContext?.workspaceRules?.length) {
@@ -370,10 +381,13 @@ WHERE clause extraction rules:
   }
 
   if (currentResults) {
-    const cols = currentResults.fields.map((f) => f.name).join(", ");
+    const cols = currentResults.fields.map((f) => f.name);
+    const colList = cols.map((c) => `"${c}"`).join(", ");
     const sample = JSON.stringify(currentResults.rows.slice(0, 3), null, 2);
     parts.push(
-      `LAST QUERY RESULTS: ${currentResults.rowCount} rows in ${currentResults.elapsedMs}ms\nColumns: ${cols}\nSample:\n${sample}`
+      `LAST QUERY RESULTS: ${currentResults.rowCount} rows in ${currentResults.elapsedMs}ms\n` +
+      `EXACT COLUMN NAMES (use these verbatim — do NOT invent column names): ${colList}\n` +
+      `Sample:\n${sample}`
     );
     const profile = buildLoadedResultsProfile(currentResults);
     if (profile) parts.push(profile);
@@ -468,17 +482,53 @@ For any question about anomalies, quality issues, process upsets, or unexplained
 - Never call delete_rows or drop_column without explicit user confirmation
 - When the user states a durable preference, governance rule, or reporting convention that should persist across sessions, call propose_workspace_rule so it can be explicitly reviewed and approved
 
+## Correlation Analysis — Preferred Workflow
+When the user asks "what factors affect X" or "correlation" or "what impacts Y":
+1. FIRST try: analyze_loaded_correlation with targetColumn="<target>" if results are already loaded (>0 rows in LAST QUERY RESULTS).
+2. If that returns an error OR no results are loaded: use execute_sql with PostgreSQL CORR():
+   Example — finding what affects "Tool wear [min]":
+   SELECT
+     CORR("Air temperature [K]", "Tool wear [min]") AS corr_air_temp,
+     CORR("Process temperature [K]", "Tool wear [min]") AS corr_proc_temp,
+     CORR("Rotational speed [rpm]", "Tool wear [min]") AS corr_rpm,
+     CORR("Torque [Nm]", "Tool wear [min]") AS corr_torque
+   FROM "schema"."table"
+   Then create_chart with the result columns.
+3. Do NOT attempt more than 2 different approaches. If both fail, explain what happened.
+4. Never loop through 4+ tool attempts on the same request.
+
+## CRITICAL: Two Chart Tools — Do Not Confuse Them
+- **create_chart**: plots columns from the CURRENTLY LOADED SQL RESULTS. Only use column names that appear verbatim in "EXACT COLUMN NAMES" above. NEVER invent column names.
+- **create_analysis_chart**: plots rows you supply directly (e.g. analysis output). Use this after analyze_loaded_* tools.
+
+## After Analysis Tools — Results and Derived Tables
+After analyze_loaded_feature_importance: the chart is AUTOMATICALLY created in Graph Builder. Do NOT call create_analysis_chart — handled automatically. Just confirm the analysis is done.
+
+If the user asks to "save the results as a table", "keep these factors", or "create a derived table": call create_derived_table with:
+  name: "feature_importance_<target_column>" (snake_case)
+  rows: the detailed_factors array from the analysis result
+  title: "Feature Importance — <Target Column>"
+
+After analyze_loaded_correlation returns, the result has correlations: [{column, correlation, ...}].
+To chart it: call create_analysis_chart with rows=result.correlations, xKey="column", yKey="correlation", chartType="bar".
+If user asks to save it: call create_derived_table with name="correlation_<target>", rows=result.correlations.
+
+Derived tables open automatically in a new tab — the user can inspect, filter, and chart from there.
+
+## Creating Derived Columns for Analysis
+When the user wants to analyze a relationship that requires a computed column (ratio, difference, log transform, etc.):
+1. Write SQL that computes it with an alias: SELECT col_a, col_b, (col_a / NULLIF(col_b, 0)) AS ratio_a_b FROM "schema"."table"
+2. Call execute_sql to run it — the derived column will appear in LAST QUERY RESULTS
+3. Then use create_chart with the derived column name (e.g. xColumn: "ratio_a_b")
+NEVER call create_chart with a column name that isn't in the loaded results.
+
 ## Visualization Execution Rules
 - If the user asks for a plot/chart and the request is underspecified, ask a clarifying question instead of guessing.
-- If the needed rows are already loaded in LAST QUERY RESULTS, prefer create_chart so the plot opens in editable Graph Builder.
-- If the needed rows are already loaded and the user asks which factors drive an outcome, what correlates with it, or what is most important, use analyze_loaded_correlation or analyze_loaded_feature_importance before fetching more data.
-- If the user wants coefficient-style detail, how much each factor matters, or a more rigorous explanation of the effect sizes, use analyze_loaded_regression on the loaded rows.
 - If no suitable rows are loaded yet, execute_sql first, then create_chart using the returned columns.
-- If the user says "by type", "by group", "colored by", or wants separate categories in the same plot, pass that grouping column as colorColumn when calling create_chart.
-- If you are plotting computed analysis outputs such as feature rankings, percent importance, or correlation summaries, use create_analysis_chart instead of create_chart.
-- Use create_gog_chart only when aggregation/binning is genuinely required.
+- If the user says "by type", "by group", "colored by", wants separate categories, pass that grouping column as colorColumn.
+- Use create_gog_chart only when the table is too large for interactive Graph Builder (100k+ rows).
 - Never say a chart was created unless the chart tool returned success.
-- If a chart tool fails, choose the next valid fallback and continue in the same turn before concluding.
+- If a chart tool fails, read the error carefully — it usually says which column was missing. Fix the column name and retry.
 - For plotting requests, do not stop after only writing SQL into the editor unless the user explicitly asked for SQL only.`);
 
   if (memoryContext) {
@@ -539,24 +589,6 @@ For any question about anomalies, quality issues, process upsets, or unexplained
   return parts.join("\n\n");
 }
 
-function getRoundTimeoutMs(
-  providerId: string,
-  model: string,
-  queryDepth: "fast" | "deep",
-  userMessage: string,
-): number {
-  let timeoutMs = queryDepth === "fast" ? FAST_MODE_ROUND_TIMEOUT_MS : DEEP_MODE_ROUND_TIMEOUT_MS;
-  const lowerProvider = providerId.toLowerCase();
-  const lowerModel = model.toLowerCase();
-  const wordCount = userMessage.trim().split(/\s+/).filter(Boolean).length;
-
-  if (wordCount > 20) timeoutMs += 4_000;
-  if (queryDepth === "deep") timeoutMs += Math.min(wordCount, 40) * 250;
-  if (lowerProvider.includes("ollama") || lowerProvider.includes("nim")) timeoutMs += 8_000;
-  if (lowerModel.includes("opus") || lowerModel.includes("gpt-5") || lowerModel.includes("claude")) timeoutMs += 6_000;
-
-  return Math.min(timeoutMs, 75_000);
-}
 
 // ── Tool input → AgentCommand ─────────────────────────────────────────────────
 
@@ -857,6 +889,7 @@ export async function runAgentLoop(
     currentSQL,
     currentResults,
     onToken,
+    onThinking,
     onToolStart,
     onToolEnd,
     onPlanQueued,
@@ -919,36 +952,49 @@ export async function runAgentLoop(
 
   const userToolDefs = useUserToolStore.getState().tools.map(userToolToUnifiedTool);
   const allTools = [...AGENT_TOOLS, ...userToolDefs];
-  const roundTimeoutMs = getRoundTimeoutMs(provider.id, model, queryDepth, userMessage);
-
   let finalText = "";
   const pendingApprovalSteps: string[] = [];
-  const MAX_ROUNDS = queryDepth === "fast" ? 4 : 8;
+  const MAX_ROUNDS = queryDepth === "fast" ? 6 : 12;
   const toolSignatureCounts = new Map<string, number>();
   let resultFetchingAttempts = 0;
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
+    // Show a single updating "Thinking…" status while waiting for the first token.
+    const roundStart = Date.now();
+    let firstTokenReceived = false;
+    onThinking?.("Thinking…");
+    const thinkingTimer = setInterval(() => {
+      if (!firstTokenReceived) {
+        const elapsed = Math.round((Date.now() - roundStart) / 1000);
+        onThinking?.(`Thinking… ${elapsed}s`);
+      }
+    }, 1_000);
+    const wrappedOnToken = (tok: string) => {
+      if (!firstTokenReceived) {
+        firstTokenReceived = true;
+        clearInterval(thinkingTimer);
+        onThinking?.(null);
+      }
+      onToken(tok);
+    };
+
     const { text, toolCalls, stopReason } = await withRetry(
       () =>
-        withTimeout(
-          provider.stream({
-            system,
-            history: working,
-            model,
-            tools: allTools,
-            onToken,
-          }),
-          roundTimeoutMs,
-          "Agent model round",
-        ),
+        provider.stream({
+          system,
+          history: working,
+          model,
+          tools: allTools,
+          onToken: wrappedOnToken,
+        }),
       {
         maxAttempts: 3,
-        baseDelayMs: 1_000,
+        baseDelayMs: 2_000,
         onRetry: (attempt, delayMs, _err) => {
           onToken(`\n\n⚠ Rate limited — retrying in ${(delayMs / 1000).toFixed(0)}s (attempt ${attempt}/3)…\n\n`);
         },
       }
-    );
+    ).finally(() => clearInterval(thinkingTimer));
 
     finalText += text;
 
@@ -1059,10 +1105,25 @@ export async function runAgentLoop(
 
         try {
           const toolStartTime = Date.now();
-          const result = await withToolTimeout(
-            commandBus.dispatch(cmd),
-            tc.name,
-          );
+          // No hard timeout — tools run to completion.
+          // Show elapsed-time ETA every 5s for slow tools so the user sees progress.
+          const INSTANT_TOOLS = new Set(["create_chart", "create_analysis_chart", "create_gog_chart",
+            "set_editor_content", "focus_schema_node", "close_tab", "notify_user",
+            "declare_hypotheses", "declare_confidence", "propose_workspace_rule"]);
+
+          let progressTimer: ReturnType<typeof setInterval> | null = null;
+          if (!INSTANT_TOOLS.has(tc.name)) {
+            onThinking?.(`Running ${tc.name}…`);
+            progressTimer = setInterval(() => {
+              const elapsed = Math.round((Date.now() - toolStartTime) / 1000);
+              onThinking?.(`Running ${tc.name}… ${elapsed}s`);
+            }, 1_000);
+          }
+
+          const result = await commandBus.dispatch(cmd).finally(() => {
+            if (progressTimer) clearInterval(progressTimer);
+            if (!INSTANT_TOOLS.has(tc.name)) onThinking?.(null);
+          });
           if (RESULT_FETCHING_TOOL_NAMES.has(tc.name)) resultFetchingAttempts++;
 
           // Push to undo stack on successful non-safe mutations
@@ -1132,6 +1193,7 @@ export async function runAgentLoop(
     errorCount: sessionCtx.errorsSoFar.length,
   });
 
+  onThinking?.(null);
   // Trim to last 40 turns to keep context manageable
   const compacted = ContextEngine.compactHistory(working);
   return { finalText, updatedHistory: compacted, queryDepth, pendingApprovalSteps };

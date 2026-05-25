@@ -329,6 +329,43 @@ export const AGENT_TOOLS: UnifiedTool[] = [
     },
   },
   {
+    name: "create_derived_table",
+    description:
+      "Persist analysis results as a named derived data table stored in the app's local database. After correlation or any analysis that produces rows, call this to save the result as a queryable table that opens in a new tab for inspection and charting. Use snake_case for the name (e.g. 'feature_importance_lean_rate'). Only call this if the user explicitly asks to save results as a table — feature importance already auto-charts without needing this.",
+    parameters: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Snake_case table name, e.g. 'feature_importance_lean_rate'.",
+        },
+        rows: {
+          type: "array",
+          items: { type: "object" } as any,
+          description: "Array of result row objects to store.",
+        } as any,
+        columns: {
+          type: "array",
+          items: { type: "string" } as any,
+          description: "Optional explicit column order. If omitted, derived from first row keys.",
+        } as any,
+        title: {
+          type: "string",
+          description: "Human-readable table title shown in the tab header.",
+        },
+        permanent: {
+          type: "boolean",
+          description: "If true, table persists across app restarts. Default false.",
+        },
+        openInTab: {
+          type: "boolean",
+          description: "If true (default), open the derived table in a new tab immediately.",
+        },
+      },
+      required: ["name", "rows"],
+    },
+  },
+  {
     name: "explain_chart",
     description:
       "Ask the AI to explain the visible patterns in an existing chart artifact. Provide the artifactId. The AI will describe trends, anomalies, outliers, and statistical patterns in plain English.",

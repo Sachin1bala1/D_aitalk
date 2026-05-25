@@ -225,6 +225,17 @@ export interface CreateAnalysisChartCmd {
   risk: "safe";
 }
 
+export interface CreateDerivedTableCmd {
+  type: "create_derived_table";
+  name: string;
+  rows: Record<string, unknown>[];
+  columns?: string[];
+  title?: string;
+  permanent?: boolean;
+  openInTab?: boolean;
+  risk: "safe";
+}
+
 export interface CreateGoGChartCmd {
   type: "create_gog_chart";
   table: string;
@@ -387,7 +398,8 @@ export type AgentCommand =
   | DeclareConfidenceCmd
   | PISearchTagsCmd
   | PIGetHistoryCmd
-  | PIGetCurrentCmd;
+  | PIGetCurrentCmd
+  | CreateDerivedTableCmd;
 
 export type CommandType = AgentCommand["type"];
 
@@ -444,5 +456,6 @@ export function describeCommand(cmd: AgentCommand): string {
     case "pi_search_tags": return `PI search tags: "${cmd.query}"`;
     case "pi_get_history": return `PI history for ${cmd.webIds.length} tag(s): ${cmd.start} → ${cmd.end}`;
     case "pi_get_current": return `PI current values for ${cmd.webIds.length} tag(s)`;
+    case "create_derived_table": return `Save derived table "${cmd.name}" (${cmd.rows.length} rows)`;
   }
 }
