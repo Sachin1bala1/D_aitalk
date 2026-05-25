@@ -125,7 +125,7 @@ export class ContextEngine {
 
       if (msg.role === "assistant") {
         assistantCount++;
-        if (assistantCount <= 6) {
+        if (assistantCount <= 10) {
           totalTokens += est;
           kept.unshift(msg);
           continue;

@@ -71,11 +71,15 @@ export const EpisodicMemory = {
       connection_id: connectionId ?? null,
     });
     const episodes = raw.map(fromRaw);
-    // Score by cosine similarity
-    const scored = episodes.map((ep) => ({
-      ep,
-      score: ep.embedding ? cosineSimilarity(qvec, ep.embedding) : 0,
-    }));
+    const now = Date.now();
+    const ONE_DAY_MS = 86_400_000;
+    // Score = 70% semantic similarity + 30% recency (half-life ~7 days)
+    const scored = episodes.map((ep) => {
+      const similarity = ep.embedding ? cosineSimilarity(qvec, ep.embedding) : 0;
+      const ageInDays = (now - ep.createdAt) / ONE_DAY_MS;
+      const recency = Math.exp(-0.1 * ageInDays);
+      return { ep, score: similarity * 0.7 + recency * 0.3 };
+    });
     scored.sort((a, b) => b.score - a.score);
     return scored.slice(0, limit).map((s) => s.ep);
   },

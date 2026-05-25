@@ -328,6 +328,28 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
     toolsCalledRef.current = [];
     toolOutcomeRef.current = [];
 
+    // Session continuity: if in-context history is empty but prior episodes exist,
+    // inject a synthetic prior-session summary so the agent doesn't start blind.
+    if (historyRef.current.length === 0 && memoryContext && memoryContext.recentEpisodes.length > 0) {
+      const priorLines = memoryContext.recentEpisodes
+        .slice(0, 3)
+        .map((ep) => {
+          const date = new Date(ep.createdAt).toLocaleDateString();
+          const summary = ep.outcome ?? (typeof ep.findings?.["summary"] === "string" ? ep.findings["summary"] as string : "");
+          const tables = Array.isArray(ep.findings?.["tablesAccessed"])
+            ? ` (tables: ${(ep.findings["tablesAccessed"] as string[]).join(", ")})`
+            : "";
+          return `[${date}] "${ep.problem.slice(0, 80)}"${tables} → ${summary.slice(0, 150)}`;
+        })
+        .join("\n");
+      historyRef.current = [
+        {
+          role: "assistant",
+          text: `[PRIOR SESSION MEMORY — from past conversations, not this one]\n${priorLines}\n[Current conversation starts now]`,
+        },
+      ];
+    }
+
     try {
       const sharedTaskOptions = {
         provider,
@@ -485,15 +507,44 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       }
 
       try {
+        // Build richer findings: capture tables accessed and tool result summaries
+        const tablesAccessed: string[] = [];
+        const toolResultSnippets: string[] = [];
+        for (const turn of updatedHistory) {
+          if (!turn.toolResults) continue;
+          for (const tr of turn.toolResults) {
+            if (!tr.isError) {
+              try {
+                const parsed = JSON.parse(tr.content) as Record<string, unknown>;
+                if (parsed?.fields) {
+                  const fields = parsed.fields as Array<{ name: string }>;
+                  toolResultSnippets.push(
+                    `${tr.name}: ${fields.map((f) => f.name).join(", ")} (${parsed.rowCount ?? "?"} rows)`
+                  );
+                }
+              } catch { /* ignore */ }
+              if (tr.content.includes('"')) {
+                const tableMatches = tr.content.match(/"([^"]+)"\."([^"]+)"/g);
+                if (tableMatches) tablesAccessed.push(...tableMatches);
+              }
+            }
+          }
+        }
         await EpisodicMemory.store({
           sessionId: `session-${Date.now()}`,
           connectionId: connectionId ?? undefined,
           problem: userMsg,
           toolsUsed: toolsCalledRef.current,
-          findings: { summary: finalText?.slice(0, 300) ?? "" },
-          outcome: finalText?.slice(0, 300) ?? "",
+          findings: {
+            summary: finalText?.slice(0, 500) ?? "",
+            toolResults: toolResultSnippets.slice(0, 6).join(" | "),
+            tablesAccessed: [...new Set(tablesAccessed)].slice(0, 10),
+            toolCount: toolsCalledRef.current.length,
+          },
+          outcome: finalText?.slice(0, 500) ?? "",
         });
       } catch {
+        // Memory failure must not block the agent
       }
     } catch (e: unknown) {
       finalizeStream();

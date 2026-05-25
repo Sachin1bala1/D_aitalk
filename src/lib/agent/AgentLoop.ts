@@ -482,6 +482,7 @@ For any question about anomalies, quality issues, process upsets, or unexplained
 - Quote all SQL identifiers: "schema"."table"."column"
 - Never call delete_rows or drop_column without explicit user confirmation
 - When the user states a durable preference, governance rule, or reporting convention that should persist across sessions, call propose_workspace_rule so it can be explicitly reviewed and approved
+- When you discover a statistically significant relationship (R > 0.6 or importance > 10%), call propose_workspace_rule with kind="analysis" to save it. Example: title="UDI drives Tool wear", instruction="UDI has 57.97% feature importance for Tool wear [min] with R=0.999 — always check UDI when analyzing tool wear". Do this at the END of the turn after your main answer.
 
 ## Correlation Analysis — Preferred Workflow
 When the user asks "what factors affect X" or "correlation" or "what impacts Y":
@@ -537,15 +538,26 @@ NEVER call create_chart with a column name that isn't in the loaded results.
   if (memoryContext) {
     if (memoryContext.recentEpisodes.length > 0) {
       const episodeLines = memoryContext.recentEpisodes
-        .slice(0, 5)
+        .slice(0, 3)
         .map((ep) => {
           const date = new Date(ep.createdAt).toLocaleDateString();
-          const rawSummary = ep.findings?.["summary"];
-          const summary = ep.outcome ?? (typeof rawSummary === "string" ? rawSummary : "");
-          return `- [${date}] User asked: "${ep.problem.slice(0, 80)}". Finding: ${summary}`;
+          const summary = ep.outcome ?? (typeof ep.findings?.["summary"] === "string" ? ep.findings["summary"] as string : "");
+          const toolResults = typeof ep.findings?.["toolResults"] === "string" ? ep.findings["toolResults"] as string : "";
+          const tables = Array.isArray(ep.findings?.["tablesAccessed"]) ? (ep.findings["tablesAccessed"] as string[]).join(", ") : "";
+          const lines = [
+            `- [${date}] "${ep.problem.slice(0, 100)}"`,
+            `  Finding: ${summary.slice(0, 200)}`,
+            tables ? `  Tables accessed: ${tables}` : null,
+            toolResults ? `  Data seen: ${toolResults.slice(0, 120)}` : null,
+          ].filter(Boolean);
+          return lines.join("\n");
         })
         .join("\n");
-      parts.push(`## Your Memory of Past Analyses\n${episodeLines}`);
+      parts.push(
+        `## PRIOR SESSION CONTEXT (from memory — these are snapshots from past sessions, not the current conversation)\n` +
+        `Use these to recall prior findings and avoid repeating work. Re-verify if the user's question depends on them.\n` +
+        episodeLines
+      );
     }
     if (memoryContext.priorityParams.length > 0) {
       parts.push(
