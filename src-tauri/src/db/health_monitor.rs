@@ -3,12 +3,14 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+use futures::FutureExt;
 use tokio::time;
 use tauri::{AppHandle, Emitter};
 
 use crate::db::connection_manager::ConnectionManager;
 
 const PING_INTERVAL: Duration = Duration::from_secs(30);
+const PING_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_RECONNECT_ATTEMPTS: u32 = 3;
 
 #[derive(serde::Serialize, Clone)]
@@ -27,7 +29,12 @@ pub async fn run(app: AppHandle, manager: Arc<ConnectionManager>) {
         let connection_ids: Vec<String> = manager.list_connection_ids().await;
 
         for id in connection_ids {
-            let alive = manager.ping(&id).await;
+            // Ping with a hard timeout so slow servers don't starve the connection pool
+            let ping_future = std::panic::AssertUnwindSafe(manager.ping(&id)).catch_unwind();
+            let alive = match tokio::time::timeout(PING_TIMEOUT, ping_future).await {
+                Ok(Ok(result)) => result,
+                _ => false, // timed out or panicked → treat as failure
+            };
 
             if alive {
                 // Reset failure count; if was failed, emit restored
