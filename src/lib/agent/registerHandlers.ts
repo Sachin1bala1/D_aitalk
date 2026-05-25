@@ -1647,11 +1647,11 @@ export function registerHandlers() {
       const tabId = `tab-derived-${Date.now()}`;
       store.addTab({
         id: tabId,
-        type: "sql_editor",
+        type: "table_viewer",   // data is pre-loaded; no SQL editor needed
         isSheet: true,
         title,
         sql: "",
-        connectionId: store.activeConnectionId,
+        connectionId: null,     // null prevents re-executing SQL against wrong DB
         queryResults,
         isExecuting: false,
       });
