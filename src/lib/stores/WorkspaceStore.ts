@@ -707,6 +707,7 @@ export interface WorkspaceState {
 
   setEditorSql: (sql: string, tabId?: string) => void;
   setQueryResults: (results: QueryResults, tabId?: string) => void;
+  updateSheetColumns: (tabId: string, fields: { name: string }[], rows: Record<string, unknown>[]) => void;
   setTabExecuting: (executing: boolean, tabId?: string) => void;
 
   workingMemory: WorkingMemoryState;
@@ -1275,6 +1276,18 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           tab.queryResults = results;
           tab.restoredSnapshotAt = null;
         }
+      }),
+
+    updateSheetColumns: (tabId, fields, rows) =>
+      set((state) => {
+        const tab = state.tabs.find((t) => t.id === tabId);
+        if (!tab || !tab.queryResults) return;
+        tab.queryResults = {
+          ...tab.queryResults,
+          fields,
+          rows,
+          rowCount: rows.length,
+        };
       }),
 
     setTabExecuting: (executing, tabId) =>
