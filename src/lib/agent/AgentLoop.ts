@@ -519,6 +519,13 @@ If user asks to save it: call create_derived_table with name="correlation_<targe
 
 Derived tables open automatically in a new tab — the user can inspect, filter, and chart from there.
 
+## Data Slices and Sheet Creation
+When the user asks to "show me", "filter", "see", or "slice" data (e.g. "show me rows from Sunday to Monday", "filter to Type=L", "give me the top 50 rows"):
+1. Execute the SQL filter: SELECT ... FROM <table> WHERE <condition>
+2. Call create_derived_table with: name=<descriptive_snake_case>, rows=<query_results.rows>, title=<human_readable>
+3. Tell the user the sheet name and how many rows it contains.
+Do NOT just describe the filter or show the SQL — actually execute it and create the sheet.
+
 ## Creating Derived Columns for Analysis
 When the user wants to analyze a relationship that requires a computed column (ratio, difference, log transform, etc.):
 1. Write SQL that computes it with an alias: SELECT col_a, col_b, (col_a / NULLIF(col_b, 0)) AS ratio_a_b FROM "schema"."table"

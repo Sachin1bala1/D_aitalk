@@ -331,7 +331,7 @@ export const AGENT_TOOLS: UnifiedTool[] = [
   {
     name: "create_derived_table",
     description:
-      "Persist analysis results as a named derived data table stored in the app's local database. After correlation or any analysis that produces rows, call this to save the result as a queryable table that opens in a new tab for inspection and charting. Use snake_case for the name (e.g. 'feature_importance_lean_rate'). Only call this if the user explicitly asks to save results as a table — feature importance already auto-charts without needing this.",
+      "Create a named data sheet (like a JMP or Excel sheet tab) from any set of rows — filtered data, analysis results, time-range slices, or aggregations. The sheet opens in a new teal-tinted tab and persists in the local database. Use this when: (1) the user wants to 'see', 'show', 'filter', 'slice', or 'subset' data — execute the SQL filter first, then call this with the result rows; (2) the user says 'save as table' or 'keep these results'; (3) after correlation/analysis and the user wants to inspect the data. Use snake_case for the name (e.g. 'type_l_rows', 'monday_data', 'feature_importance_lean_rate'). Do NOT call this after analyze_loaded_feature_importance unless the user explicitly asks.",
     parameters: {
       type: "object",
       properties: {
