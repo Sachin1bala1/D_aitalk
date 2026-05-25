@@ -8,7 +8,7 @@ export class ClaudeProvider implements AIProvider {
   private client: Anthropic;
 
   constructor(apiKey: string) {
-    this.client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
+    this.client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true, timeout: 300_000 });
   }
 
   async stream(params: {

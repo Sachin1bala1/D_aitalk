@@ -988,10 +988,15 @@ export async function runAgentLoop(
           onToken: wrappedOnToken,
         }),
       {
-        maxAttempts: 3,
+        maxAttempts: 4,
         baseDelayMs: 2_000,
-        onRetry: (attempt, delayMs, _err) => {
-          onToken(`\n\n⚠ Rate limited — retrying in ${(delayMs / 1000).toFixed(0)}s (attempt ${attempt}/3)…\n\n`);
+        onRetry: (attempt, delayMs, err) => {
+          const isTimeout = err instanceof Error && (err.message.toLowerCase().includes("timed out") || err.message.toLowerCase().includes("timeout"));
+          if (isTimeout) {
+            onToken(`\n\n⏳ Model is taking longer than expected — retrying (attempt ${attempt}/4)…\n\n`);
+          } else {
+            onToken(`\n\n⚠ Rate limited — retrying in ${(delayMs / 1000).toFixed(0)}s (attempt ${attempt}/4)…\n\n`);
+          }
         },
       }
     ).finally(() => clearInterval(thinkingTimer));

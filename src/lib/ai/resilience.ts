@@ -43,6 +43,9 @@ function isPermanentQuotaErrorMessage(msg: string): boolean {
 }
 
 function isRetryable(err: unknown): boolean {
+  // TimeoutError: allow ONE retry, but the caller controls max attempts.
+  // We return true so withRetry will retry, but AgentLoop uses maxAttempts=3
+  // which means at most 2 retries for timeouts.
   if (err instanceof TimeoutError) return true;
   if (err instanceof Error) {
     const msg = err.message.toLowerCase();
@@ -54,6 +57,8 @@ function isRetryable(err: unknown): boolean {
     if (msg.includes("500") || msg.includes("502") || msg.includes("503") || msg.includes("504")) return true;
     // Anthropic SDK specific
     if (msg.includes("overloaded")) return true;
+    // Timeout — model was slow, worth retrying
+    if (msg.includes("timed out") || msg.includes("timeout") || msg.includes("time out")) return true;
   }
   // Check if it's an API error object with a status field
   if (typeof err === "object" && err !== null) {

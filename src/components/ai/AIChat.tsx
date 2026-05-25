@@ -168,6 +168,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
   const [messages, setMessages] = useState<ChatMessage[]>(() => aiSession?.messages as ChatMessage[] ?? [WELCOME]);
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [thinkingStatus, setThinkingStatus] = useState<string | null>(null);
   const [queryDepth, setQueryDepth] = useState<'fast' | 'deep' | null>(aiSession?.queryDepth ?? null);
   const [sessionSections, setSessionSections] = useState<AnalysisSection[]>(aiSession?.sessionSections ?? []);
   const [reportPanelOpen, setReportPanelOpen] = useState(false);
@@ -338,6 +339,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
         memoryContext,
 
         onToken: appendToken,
+        onThinking: setThinkingStatus,
 
         onToolStart: (toolName: string, input: unknown) => {
           toolsCalledRef.current.push(toolName);
@@ -502,9 +504,9 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
         hint =
           "Gemini accepted the key, but this project has no usable quota for the selected model right now. Enable billing in Google AI Studio / Google Cloud, switch to a Gemini model with available quota, or use another provider.";
       }
-      if (rawMsg.toLowerCase().includes("timed out")) {
+      if (rawMsg.toLowerCase().includes("timed out") || rawMsg.toLowerCase().includes("timeout")) {
         hint =
-          "The model took longer than the interactive budget for this request. The runtime now retries slow rounds automatically, but this provider or model is still responding slowly right now. Try again or switch to a faster model/provider for routine work.";
+          "The model is responding slowly and all retries timed out. Click Send again to retry — it often works on the next attempt. For heavy analysis, consider switching to a faster model in Configure Provider.";
       }
       if (rawMsg === "Connection error." || rawMsg.includes("fetch")) {
         if (provider === "ollama") {
@@ -516,6 +518,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       addMsg({ role: "error", content: `Agent error: ${hint}` });
     } finally {
       setIsProcessing(false);
+      setThinkingStatus(null);
     }
   }, [
     activeModel,
@@ -670,10 +673,10 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
           return null;
         })}
 
-        {isProcessing && messages[messages.length - 1]?.role !== "assistant" && (
-          <div className="flex items-center gap-2 text-xs text-[#00d2ff]/70 font-mono animate-pulse">
-            <Sparkles className="w-3 h-3" />
-            <span>Thinking…</span>
+        {isProcessing && thinkingStatus && (
+          <div className="flex items-center gap-2 text-xs text-white/50 font-mono px-1">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse shrink-0" />
+            <span>{thinkingStatus}</span>
           </div>
         )}
       </div>
