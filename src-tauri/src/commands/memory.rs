@@ -201,6 +201,33 @@ pub struct TelemetryEdge {
     pub created_at: i64,
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+pub struct DerivedTableMeta {
+    pub name: String,
+    pub display_title: String,
+    pub columns: Vec<String>,
+    pub row_count: i64,
+    pub permanent: bool,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+pub struct SaveDerivedTableInput {
+    pub name: String,
+    pub display_title: Option<String>,
+    pub columns: Vec<String>,
+    pub rows_json: String,
+    pub permanent: Option<bool>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+pub struct SaveDerivedTableResult {
+    pub name: String,
+    pub row_count: i64,
+    pub permanent: bool,
+}
+
 async fn get_pool(state: &State<'_, AppState>) -> Result<SqlitePool, String> {
     state
         .memory_db
@@ -1218,4 +1245,164 @@ pub async fn harness_get_telemetry_graph(
     .await
     .map_err(|e| e.to_string())?;
     Ok(edges)
+}
+
+#[tauri::command]
+pub async fn save_derived_table(
+    input: SaveDerivedTableInput,
+    state: State<'_, AppState>,
+) -> Result<SaveDerivedTableResult, String> {
+    let pool = get_pool(&state).await?;
+    let now = Utc::now().timestamp_millis();
+    let permanent = input.permanent.unwrap_or(false);
+    let display_title = input
+        .display_title
+        .unwrap_or_else(|| input.name.replace('_', " "));
+
+    let rows: Vec<Value> = serde_json::from_str(&input.rows_json)
+        .map_err(|e| format!("Invalid rows_json: {e}"))?;
+    let row_count = rows.len() as i64;
+
+    let safe_name: String = input
+        .name
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' })
+        .collect();
+
+    sqlx::query(&format!("DROP TABLE IF EXISTS derived__{safe_name}"))
+        .execute(&pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !input.columns.is_empty() {
+        let col_defs: Vec<String> = input
+            .columns
+            .iter()
+            .map(|c| {
+                let safe_col: String = c
+                    .chars()
+                    .map(|ch| if ch.is_alphanumeric() || ch == '_' { ch } else { '_' })
+                    .collect();
+                format!("\"{safe_col}\" TEXT")
+            })
+            .collect();
+        let create_sql = format!(
+            "CREATE TABLE IF NOT EXISTS derived__{safe_name} ({})",
+            col_defs.join(", ")
+        );
+        sqlx::query(&create_sql)
+            .execute(&pool)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        for row in &rows {
+            let obj = row.as_object().ok_or("Each row must be a JSON object")?;
+            let placeholders: Vec<String> = (0..input.columns.len()).map(|_| "?".to_string()).collect();
+            let col_names: Vec<String> = input
+                .columns
+                .iter()
+                .map(|c| {
+                    let safe_col: String = c
+                        .chars()
+                        .map(|ch| if ch.is_alphanumeric() || ch == '_' { ch } else { '_' })
+                        .collect();
+                    format!("\"{safe_col}\"")
+                })
+                .collect();
+            let insert_sql = format!(
+                "INSERT INTO derived__{safe_name} ({}) VALUES ({})",
+                col_names.join(", "),
+                placeholders.join(", ")
+            );
+            let mut query = sqlx::query(&insert_sql);
+            for col in &input.columns {
+                let val = obj.get(col).cloned().unwrap_or(Value::Null);
+                let s = match &val {
+                    Value::Null => None,
+                    Value::String(s) => Some(s.clone()),
+                    other => Some(other.to_string()),
+                };
+                query = query.bind(s);
+            }
+            query.execute(&pool).await.map_err(|e| e.to_string())?;
+        }
+    }
+
+    let columns_json = serde_json::to_string(&input.columns).map_err(|e| e.to_string())?;
+    sqlx::query(
+        "INSERT OR REPLACE INTO derived_tables
+         (name, display_title, columns_json, row_count, permanent, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)",
+    )
+    .bind(&safe_name)
+    .bind(&display_title)
+    .bind(&columns_json)
+    .bind(row_count)
+    .bind(permanent as i64)
+    .bind(now)
+    .bind(now)
+    .execute(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(SaveDerivedTableResult {
+        name: safe_name,
+        row_count,
+        permanent,
+    })
+}
+
+#[tauri::command]
+pub async fn list_derived_tables(
+    state: State<'_, AppState>,
+) -> Result<Vec<DerivedTableMeta>, String> {
+    let pool = get_pool(&state).await?;
+    let rows = sqlx::query(
+        "SELECT name, display_title, columns_json, row_count, permanent, created_at, updated_at
+         FROM derived_tables ORDER BY updated_at DESC",
+    )
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    rows.into_iter()
+        .map(|row| {
+            let columns_json: String = row.try_get("columns_json").unwrap_or_default();
+            let columns: Vec<String> = serde_json::from_str(&columns_json).unwrap_or_default();
+            Ok(DerivedTableMeta {
+                name: row.try_get("name").unwrap_or_default(),
+                display_title: row.try_get("display_title").unwrap_or_default(),
+                columns,
+                row_count: row.try_get("row_count").unwrap_or(0),
+                permanent: {
+                    let v: i64 = row.try_get("permanent").unwrap_or(0);
+                    v != 0
+                },
+                created_at: row.try_get("created_at").unwrap_or(0),
+                updated_at: row.try_get("updated_at").unwrap_or(0),
+            })
+        })
+        .collect()
+}
+
+#[tauri::command]
+pub async fn drop_derived_table(
+    name: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let pool = get_pool(&state).await?;
+    let safe_name: String = name
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' })
+        .collect();
+    sqlx::query(&format!("DROP TABLE IF EXISTS derived__{safe_name}"))
+        .execute(&pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    sqlx::query("DELETE FROM derived_tables WHERE name = ?")
+        .bind(&safe_name)
+        .execute(&pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }

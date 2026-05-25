@@ -280,5 +280,20 @@ pub async fn open_memory_db(path: &str) -> Result<SqlitePool, String> {
     .await
     .map_err(|e| e.to_string())?;
 
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS derived_tables (
+            name TEXT PRIMARY KEY,
+            display_title TEXT NOT NULL,
+            columns_json TEXT NOT NULL,
+            row_count INTEGER NOT NULL DEFAULT 0,
+            permanent INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        )",
+    )
+    .execute(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
     Ok(pool)
 }

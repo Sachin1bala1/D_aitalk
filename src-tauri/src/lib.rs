@@ -22,7 +22,7 @@ pub fn run() {
         )
         .init();
 
-    let duckdb = DuckDbEngine::new().expect("DuckDB init failed");
+    let duckdb = DuckDbEngine::new_in_memory();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -41,7 +41,7 @@ pub fn run() {
             app.manage(store);
             let app_handle = app.handle().clone();
             let manager = app.state::<AppState>().connections.clone();
-            tokio::spawn(async move {
+            tauri::async_runtime::spawn(async move {
                 crate::db::health_monitor::run(app_handle, manager).await;
             });
             Ok(())
@@ -87,6 +87,7 @@ pub fn run() {
             commands::delete_app_document,
             commands::store_api_key,
             commands::get_api_key,
+            commands::has_api_key,
             commands::delete_api_key,
             commands::save_credential,
             commands::get_credential,
@@ -129,6 +130,9 @@ pub fn run() {
             commands::remove_license,
             commands::test_rest_connection,
             commands::import_excel_file,
+            commands::save_derived_table,
+            commands::list_derived_tables,
+            commands::drop_derived_table,
             commands::clear_query_cache,
         ])
         .run(tauri::generate_context!())
