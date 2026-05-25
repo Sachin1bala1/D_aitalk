@@ -3,10 +3,11 @@
  * - Click to switch tab
  * - Double-click title to rename inline
  * - × button to close (also Ctrl+W)
- * - + button / Ctrl+T for new tab
+ * - + button / Ctrl+T for new SQL editor tab
+ * - ⊞ button → New Sheet popover (creates isSheet tab)
  */
 import React, { useState, useRef, useEffect } from "react";
-import { X, Plus } from "lucide-react";
+import { X, Plus, Grid2X2 } from "lucide-react";
 import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
 
 export function TabBar() {
@@ -16,6 +17,12 @@ export function TabBar() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
+
+  // New Sheet popover state
+  const [showSheetPopover, setShowSheetPopover] = useState(false);
+  const [sheetName, setSheetName] = useState("");
+  const [sheetSql, setSheetSql] = useState("SELECT * FROM ");
+  const sheetNameRef = useRef<HTMLInputElement>(null);
 
   const handleNewTab = () => {
     const id = `tab-${Date.now()}`;
@@ -28,6 +35,29 @@ export function TabBar() {
       queryResults: null,
       isExecuting: false,
     });
+  };
+
+  const openSheetPopover = () => {
+    setSheetName(`Sheet ${tabs.filter((t) => (t as { isSheet?: boolean }).isSheet).length + 1}`);
+    setSheetSql("SELECT * FROM ");
+    setShowSheetPopover(true);
+    setTimeout(() => sheetNameRef.current?.focus(), 30);
+  };
+
+  const createSheet = () => {
+    const name = sheetName.trim() || `Sheet ${tabs.length + 1}`;
+    const id = `tab-sheet-${Date.now()}`;
+    addTab({
+      id,
+      type: "sql_editor",
+      isSheet: true,
+      title: name,
+      sql: sheetSql,
+      connectionId: activeConnectionId,
+      queryResults: null,
+      isExecuting: false,
+    });
+    setShowSheetPopover(false);
   };
 
   // Tab keyboard shortcuts
@@ -43,7 +73,6 @@ export function TabBar() {
         e.preventDefault();
         handleNewTab();
       } else if (e.key === "Tab") {
-        // Ctrl+Tab → next tab; Ctrl+Shift+Tab → previous tab
         e.preventDefault();
         const currentIdx = tabs.findIndex((t) => t.id === activeTabId);
         if (currentIdx === -1) return;
@@ -73,10 +102,11 @@ export function TabBar() {
   };
 
   return (
-    <div className="flex items-end h-9 bg-[#0a0a0a] border-b border-[#262626] overflow-x-auto shrink-0 scrollbar-none">
+    <div className="relative flex items-end h-9 bg-[#0a0a0a] border-b border-[#262626] overflow-x-auto shrink-0 scrollbar-none">
       {tabs.map((tab) => {
         const isActive = tab.id === activeTabId;
         const isRenaming = renamingId === tab.id;
+        const isSheet = !!(tab as { isSheet?: boolean }).isSheet;
         const isDisconnected =
           !!tab.connectionId && !connections.some((connection) => connection.id === tab.connectionId);
         const hasRestoredSnapshot =
@@ -86,20 +116,29 @@ export function TabBar() {
           <div
             key={tab.id}
             onClick={() => { if (!isRenaming) setActiveTab(tab.id); }}
-            className={`group relative flex items-center gap-2 px-4 h-full min-w-0 max-w-[180px] cursor-pointer select-none border-r border-[#1a1a1a] shrink-0 transition-colors ${
+            className={`group relative flex items-center gap-2 px-3 h-full min-w-0 max-w-[180px] cursor-pointer select-none border-r border-[#1a1a1a] shrink-0 transition-colors ${
               isActive
-                ? "bg-[#0d0d0d] text-white/80"
-                : "bg-[#0a0a0a] text-white/30 hover:text-white/50 hover:bg-[#0c0c0c]"
+                ? isSheet
+                  ? "bg-[#00d2ff]/10 text-white/80"
+                  : "bg-[#0d0d0d] text-white/80"
+                : isSheet
+                  ? "bg-[#00d2ff]/5 text-white/30 hover:text-white/50 hover:bg-[#00d2ff]/10"
+                  : "bg-[#0a0a0a] text-white/30 hover:text-white/50 hover:bg-[#0c0c0c]"
             }`}
           >
             {/* Active tab top accent */}
             {isActive && (
-              <span className="absolute top-0 left-0 right-0 h-[2px] bg-[#00d2ff]" />
+              <span className={`absolute top-0 left-0 right-0 h-[2px] ${isSheet ? "bg-emerald-400" : "bg-[#00d2ff]"}`} />
             )}
 
             {/* Executing indicator */}
             {tab.isExecuting && (
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+            )}
+
+            {/* Sheet icon */}
+            {isSheet && !tab.isExecuting && (
+              <Grid2X2 className={`w-3 h-3 shrink-0 ${isActive ? "text-emerald-400" : "text-emerald-600"}`} />
             )}
 
             {/* Title — inline rename on double-click */}
@@ -159,14 +198,67 @@ export function TabBar() {
         );
       })}
 
-      {/* New tab button */}
+      {/* New SQL tab button */}
       <button
         onClick={handleNewTab}
         className="flex items-center justify-center w-8 h-full text-white/20 hover:text-white/50 hover:bg-white/5 transition-colors shrink-0"
-        title="New tab (Ctrl+T)"
+        title="New query tab (Ctrl+T)"
       >
         <Plus className="w-3.5 h-3.5" />
       </button>
+
+      {/* New Sheet button */}
+      <button
+        onClick={openSheetPopover}
+        className="flex items-center justify-center w-8 h-full text-emerald-700 hover:text-emerald-400 hover:bg-emerald-400/5 transition-colors shrink-0"
+        title="New sheet (data table)"
+      >
+        <Grid2X2 className="w-3.5 h-3.5" />
+      </button>
+
+      {/* New Sheet popover */}
+      {showSheetPopover && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setShowSheetPopover(false)}
+          />
+          <div className="absolute top-10 right-0 z-50 w-72 bg-[#141414] border border-[#2a2a2a] rounded-xl shadow-2xl p-3 flex flex-col gap-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1">New Sheet</p>
+            <input
+              ref={sheetNameRef}
+              value={sheetName}
+              onChange={(e) => setSheetName(e.target.value)}
+              placeholder="Sheet name"
+              onKeyDown={(e) => { if (e.key === "Enter") createSheet(); if (e.key === "Escape") setShowSheetPopover(false); }}
+              className="text-xs bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-white/80 focus:outline-none focus:border-emerald-500/50 placeholder:text-white/20"
+            />
+            <textarea
+              value={sheetSql}
+              onChange={(e) => setSheetSql(e.target.value)}
+              placeholder="SELECT * FROM ..."
+              rows={3}
+              className="text-xs bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-white/80 focus:outline-none focus:border-emerald-500/50 placeholder:text-white/20 font-mono resize-none"
+            />
+            <p className="text-[9px] text-white/25">Write SQL and press Run in the new tab to load data.</p>
+            <div className="flex gap-2 mt-1">
+              <button
+                onClick={createSheet}
+                className="flex-1 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-bold hover:bg-emerald-500/30 transition-colors"
+              >
+                Create Sheet
+              </button>
+              <button
+                onClick={() => setShowSheetPopover(false)}
+                className="px-3 py-1.5 rounded-lg bg-white/5 text-white/40 text-xs hover:bg-white/10 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
