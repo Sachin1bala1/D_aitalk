@@ -61,6 +61,8 @@ export interface AgentLoopOptions {
   onToolEnd: (toolName: string, result: CommandResult) => void;
   onPlanQueued: (stepId: string, description: string) => void;
   memoryContext?: MemoryContext;
+  /** Abort signal — checked at the start of each agent round. Fires immediately on abort. */
+  signal?: AbortSignal;
 }
 
 // ── Query Depth Classifier ────────────────────────────────────────────────────
@@ -1104,6 +1106,7 @@ export async function runAgentLoop(
     onToolStart,
     onToolEnd,
     onPlanQueued,
+    signal,
   } = options;
 
   const { agentMode, addPlanStep, currentTask } = useWorkspaceStore.getState();
@@ -1172,6 +1175,9 @@ export async function runAgentLoop(
   let confidenceGateFired = false;
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
+    if (signal?.aborted) {
+      throw new DOMException("Aborted", "AbortError");
+    }
     // Show a single updating "Thinking…" status while waiting for the first token.
     const roundStart = Date.now();
     let firstTokenReceived = false;
@@ -1203,6 +1209,7 @@ export async function runAgentLoop(
       {
         maxAttempts: 4,
         baseDelayMs: 2_000,
+        signal,
         onRetry: (attempt, delayMs, err) => {
           const isTimeout = err instanceof Error && (err.message.toLowerCase().includes("timed out") || err.message.toLowerCase().includes("timeout"));
           if (isTimeout) {
