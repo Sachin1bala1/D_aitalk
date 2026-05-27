@@ -179,6 +179,11 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
   const toolsCalledRef = useRef<string[]>([]);
   const toolOutcomeRef = useRef<ToolExecutionOutcome[]>([]);
   const [sessionQuestion, setSessionQuestion] = useState(aiSession?.sessionQuestion ?? "");
+  const [proactiveSuggestion, setProactiveSuggestion] = useState<{
+    summary: string;
+    date: string;
+    continuePrompt: string;
+  } | null>(null);
 
   // Load API keys from OS keychain on mount and merge into settings
   useEffect(() => {
@@ -300,15 +305,41 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
     setSessionQuestion("");
     setSessionQuestion(userMsg);
     addMsg({ role: "user", content: visibleUserMessage });
+    setProactiveSuggestion(null);
     setIsProcessing(true);
     clearTaskCheckpoint();
 
     let memoryContext: MemoryContext | undefined;
     try {
-      const [episodes, profile] = await Promise.all([
-        EpisodicMemory.search(userMsg, 5, connectionId ?? undefined),
+      const [scoredEpisodes, profile] = await Promise.all([
+        EpisodicMemory.searchWithScores(userMsg, 5, connectionId ?? undefined),
         UserCalibrationProfile.getProfile(),
       ]);
+      const episodes = scoredEpisodes.map((s) => s.episode);
+
+      // Proactive suggestion: surface top match if score is high and session just started
+      const topMatch = scoredEpisodes[0];
+      if (
+        topMatch &&
+        topMatch.score > 0.7 &&
+        historyRef.current.length === 0
+      ) {
+        const ep = topMatch.episode;
+        const date = new Date(ep.createdAt).toLocaleDateString();
+        const summary =
+          ep.outcome ??
+          (typeof ep.findings?.["summary"] === "string"
+            ? (ep.findings["summary"] as string)
+            : ep.problem.slice(0, 120));
+        setProactiveSuggestion({
+          summary: summary.slice(0, 160),
+          date,
+          continuePrompt: `Continue the analysis from ${date}: ${ep.problem.slice(0, 80)}`,
+        });
+      } else {
+        setProactiveSuggestion(null);
+      }
+
       const workspaceRules = useWorkspaceRuleStore.getState().getApprovedRules(connectionId ?? null);
       const [customerBrief, pendingOutcomes] = await Promise.all([
         BusinessClient.getCustomerBrief().catch(() => []),
@@ -633,6 +664,34 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
 
   return (
     <div className="flex flex-col h-full bg-[#0d0d0d]">
+      {/* Proactive memory suggestion */}
+      {proactiveSuggestion && !isProcessing && (
+        <div className="mx-3 mt-2 mb-1 px-3 py-2 rounded-lg bg-[#4f8ef7]/10 border border-[#4f8ef7]/20 flex items-start gap-2 text-xs">
+          <Sparkles className="w-3.5 h-3.5 text-[#4f8ef7] mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <span className="text-white/50">{proactiveSuggestion.date}: </span>
+            <span className="text-white/70">{proactiveSuggestion.summary}</span>
+          </div>
+          <div className="flex gap-1 shrink-0">
+            <button
+              onClick={() => {
+                setInput(proactiveSuggestion.continuePrompt);
+                setProactiveSuggestion(null);
+                inputRef.current?.focus();
+              }}
+              className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#4f8ef7]/20 text-[#4f8ef7] hover:bg-[#4f8ef7]/30"
+            >
+              Continue
+            </button>
+            <button
+              onClick={() => setProactiveSuggestion(null)}
+              className="px-2 py-0.5 rounded text-[10px] font-medium text-white/30 hover:text-white/60"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
         {/* Hypothesis Panel — shown only when there are active hypotheses */}
         {taskCheckpoint?.lifecycle === "interrupted" && (

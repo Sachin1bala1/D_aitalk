@@ -84,6 +84,29 @@ export const EpisodicMemory = {
     return scored.slice(0, limit).map((s) => s.ep);
   },
 
+  async searchWithScores(
+    query: string,
+    limit = 5,
+    connectionId?: string,
+  ): Promise<Array<{ episode: Episode; score: number }>> {
+    const qvec = embed(query);
+    const raw = await invoke<RawEpisode[]>("memory_get_episodes", {
+      limit: 200,
+      connection_id: connectionId ?? null,
+    });
+    const episodes = raw.map(fromRaw);
+    const now = Date.now();
+    const ONE_DAY_MS = 86_400_000;
+    const scored = episodes.map((ep) => {
+      const similarity = ep.embedding ? cosineSimilarity(qvec, ep.embedding) : 0;
+      const ageInDays = (now - ep.createdAt) / ONE_DAY_MS;
+      const recency = Math.exp(-0.1 * ageInDays);
+      return { episode: ep, score: similarity * 0.7 + recency * 0.3 };
+    });
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, limit);
+  },
+
   async getRecent(limit = 10): Promise<Episode[]> {
     const raw = await invoke<RawEpisode[]>("memory_get_episodes", {
       limit,
