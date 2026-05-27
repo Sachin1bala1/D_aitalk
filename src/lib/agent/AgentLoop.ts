@@ -217,6 +217,57 @@ export function buildReflectionGuidance(
   return content;
 }
 
+/**
+ * buildDataEvidence — compact numeric summary appended to execute_sql results.
+ *
+ * Provides grounded min/max/mean for up to 6 numeric columns so the model
+ * never needs to guess or hallucinate statistics from sample rows alone.
+ * Returns null for empty result sets (nothing to summarise).
+ */
+export function buildDataEvidence(results: QueryResults): string | null {
+  if (!results || results.rowCount === 0) return null;
+
+  const numericCols = results.fields
+    .map((f) => f.name)
+    .filter((name) => {
+      for (const row of results.rows.slice(0, 20)) {
+        const v = row[name];
+        if (v === null || v === undefined) continue;
+        if (typeof v === "number" && Number.isFinite(v)) return true;
+        if (typeof v === "string" && v.trim() !== "" && !Number.isNaN(Number(v))) return true;
+        return false;
+      }
+      return false;
+    })
+    .slice(0, 6);
+
+  const lines: string[] = [
+    `DATA_EVIDENCE (use these values verbatim — do not round, extrapolate, or invent):`,
+    `• ${results.rowCount} rows returned`,
+  ];
+
+  for (const col of numericCols) {
+    const numVals = results.rows
+      .map((r) => {
+        const v = r[col];
+        if (typeof v === "number" && Number.isFinite(v)) return v;
+        if (typeof v === "string" && v.trim() !== "" && !Number.isNaN(Number(v))) return Number(v);
+        return null;
+      })
+      .filter((v): v is number => v !== null);
+
+    if (numVals.length === 0) continue;
+    const min = Math.min(...numVals);
+    const max = Math.max(...numVals);
+    const mean = numVals.reduce((a, b) => a + b, 0) / numVals.length;
+    lines.push(
+      `• ${col}: n=${numVals.length}, min=${Number(min.toFixed(4))}, max=${Number(max.toFixed(4))}, mean=${Number(mean.toFixed(4))}`
+    );
+  }
+
+  return lines.join("\n");
+}
+
 function buildCompactSchemaSummary(schema: FullSchema | null): string | null {
   if (!schema) return null;
   const tableLines = schema.tables
@@ -1232,10 +1283,25 @@ export async function runAgentLoop(
           const rawContent = result.success
             ? JSON.stringify(result.result ?? "done")
             : `Error: ${result.error}`;
+
+          // Append data evidence summary for execute_sql results with rows
+          let enrichedContent = rawContent;
+          if (result.success && tc.name === "execute_sql") {
+            try {
+              const qr = result.result as QueryResults | undefined;
+              if (qr) {
+                const evidence = buildDataEvidence(qr);
+                if (evidence) enrichedContent = rawContent + "\n\n" + evidence;
+              }
+            } catch {
+              // non-fatal — proceed without evidence
+            }
+          }
+
           return {
             toolCallId: tc.id,
             name: tc.name,
-            content: buildReflectionGuidance(tc.name, rawContent, !result.success),
+            content: buildReflectionGuidance(tc.name, enrichedContent, !result.success),
             isError: !result.success,
           };
         } catch (err) {

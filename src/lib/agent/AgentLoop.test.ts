@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  buildDataEvidence,
   buildReflectionGuidance,
   buildVisualizationClarifier,
   inferNumericColumns,
@@ -230,5 +231,71 @@ describe("buildReflectionGuidance", () => {
     const content = JSON.stringify({ rows: [], rowCount: null, fields: [] });
     const out = buildReflectionGuidance("execute_sql", content, false);
     expect(out).toBe(content); // unchanged — null is not 0
+  });
+});
+
+describe("buildDataEvidence", () => {
+  it("returns null for empty results", () => {
+    const results: QueryResults = {
+      rows: [],
+      fields: [{ name: "Torque" }],
+      rowCount: 0,
+      elapsedMs: 5,
+      queryId: "q1",
+      source_tables: [],
+    };
+    expect(buildDataEvidence(results)).toBeNull();
+  });
+
+  it("includes row count and numeric column stats", () => {
+    const results: QueryResults = {
+      rows: [
+        { "Torque [Nm]": 40, Type: "L" },
+        { "Torque [Nm]": 60, Type: "M" },
+      ],
+      fields: [{ name: "Torque [Nm]" }, { name: "Type" }],
+      rowCount: 2,
+      elapsedMs: 10,
+      queryId: "q2",
+      source_tables: ["public.data"],
+    };
+    const evidence = buildDataEvidence(results);
+    expect(evidence).not.toBeNull();
+    expect(evidence).toContain("2 rows");
+    expect(evidence).toContain("Torque [Nm]");
+    expect(evidence).toContain("min=40");
+    expect(evidence).toContain("max=60");
+    expect(evidence).toContain("mean=50");
+  });
+
+  it("skips non-numeric columns but still returns row count", () => {
+    const results: QueryResults = {
+      rows: [{ Type: "L" }, { Type: "M" }],
+      fields: [{ name: "Type" }],
+      rowCount: 2,
+      elapsedMs: 5,
+      queryId: "q3",
+      source_tables: [],
+    };
+    const evidence = buildDataEvidence(results);
+    expect(evidence).toContain("2 rows");
+    expect(evidence).not.toContain("min=");
+  });
+
+  it("caps numeric summary at 6 columns", () => {
+    const fields = Array.from({ length: 10 }, (_, i) => ({ name: `col${i}` }));
+    const row: Record<string, unknown> = {};
+    fields.forEach((f, i) => { row[f.name] = i + 1; });
+    const results: QueryResults = {
+      rows: [row, row],
+      fields,
+      rowCount: 2,
+      elapsedMs: 5,
+      queryId: "q4",
+      source_tables: [],
+    };
+    const evidence = buildDataEvidence(results);
+    const matches = (evidence ?? "").match(/min=/g) ?? [];
+    expect(matches.length).toBeLessThanOrEqual(6);
   });
 });
