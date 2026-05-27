@@ -35,6 +35,7 @@ const DEFAULT_OPTS: Required<RetryOptions> = {
   baseDelayMs: 1_000,
   maxDelayMs: 16_000,
   onRetry: () => {},
+  signal: undefined as unknown as AbortSignal,
 };
 
 function isPermanentQuotaErrorMessage(msg: string): boolean {

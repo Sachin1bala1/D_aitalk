@@ -5,7 +5,7 @@
  * Streams text tokens live, shows inline tool steps, handles Plan Mode queuing.
  */
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Sparkles, Settings2, Clock, Trash2, Wrench, FileText } from "lucide-react";
+import { Send, Sparkles, Settings2, Clock, Trash2, Wrench, FileText, Square } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import type { FullSchema } from "../../lib/db/DbClient";
 import type { QueryResults } from "../../lib/stores/WorkspaceStore";
@@ -176,6 +176,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [conversationTurns, setConversationTurns] = useState<ConversationTurn[]>(aiSession?.conversationTurns ?? []);
   const historyRef = useRef<ConversationTurn[]>(aiSession?.conversationTurns ?? []);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const toolsCalledRef = useRef<string[]>([]);
   const toolOutcomeRef = useRef<ToolExecutionOutcome[]>([]);
   const [sessionQuestion, setSessionQuestion] = useState(aiSession?.sessionQuestion ?? "");
@@ -285,7 +286,11 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
     preserveQueryDepth?: boolean;
     resumeCheckpoint?: TaskCheckpoint | null;
   }) => {
-    if (!userMsg.trim() || isProcessing) return;
+    if (!userMsg.trim()) return;
+    // Abort any stale in-flight request before starting fresh
+    abortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
     const provider = getProvider(providerSettings);
     if (!provider) {
       setSettingsOpen(true);
@@ -390,6 +395,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
         currentSQL,
         currentResults,
         memoryContext,
+        signal: abortController.signal,
 
         onToken: appendToken,
         onThinking: setThinkingStatus,
@@ -579,6 +585,10 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       }
     } catch (e: unknown) {
       finalizeStream();
+      if (e instanceof DOMException && e.name === "AbortError") {
+        addMsg({ role: "assistant", content: "⏹ Interrupted" });
+        return;
+      }
       const rawMsg: string = e instanceof Error ? e.message : String(e);
       const provider = providerSettings.activeProvider;
       let hint = rawMsg;
@@ -614,7 +624,6 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
     currentSQL,
     currentSchema,
     finalizeStream,
-    isProcessing,
     providerSettings,
     setSessionSections,
     setSessionQuestion,
@@ -625,7 +634,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
 
   const handleSend = async () => {
     const userMsg = input.trim();
-    if (!userMsg || isProcessing) return;
+    if (!userMsg) return;
     setInput("");
     await executeAgentRequest(userMsg);
   };
@@ -807,21 +816,30 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                handleSend();
+                void handleSend();
               }
             }}
             placeholder={connectionId ? "Ask Daitalk AI… (Ctrl+K)" : "Connect a database first…"}
-            disabled={isProcessing}
-            className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg pl-4 pr-12 py-3 text-sm focus:outline-none focus:border-[#00d2ff] resize-none min-h-[44px] max-h-32 disabled:opacity-50"
+            className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg pl-4 pr-12 py-3 text-sm focus:outline-none focus:border-[#00d2ff] resize-none min-h-[44px] max-h-32"
             rows={1}
           />
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || isProcessing || !connectionId}
-            className="absolute right-2 bottom-2 p-2 bg-[#00d2ff] text-black rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity"
-          >
-            <Send className="w-3.5 h-3.5" />
-          </button>
+          {isProcessing ? (
+            <button
+              onClick={() => abortControllerRef.current?.abort()}
+              className="absolute right-2 bottom-2 p-2 bg-red-500/20 text-red-400 rounded-md hover:bg-red-500/30 transition-colors"
+              title="Stop (interrupt agent)"
+            >
+              <Square className="w-3.5 h-3.5 fill-current" />
+            </button>
+          ) : (
+            <button
+              onClick={() => void handleSend()}
+              disabled={!input.trim() || !connectionId}
+              className="absolute right-2 bottom-2 p-2 bg-[#00d2ff] text-black rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity"
+            >
+              <Send className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Footer bar: provider badge + mode + settings */}
