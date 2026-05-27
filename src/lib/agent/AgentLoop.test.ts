@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildDataEvidence,
+  buildOpenTabsSummary,
   buildReflectionGuidance,
   buildVisualizationClarifier,
   inferNumericColumns,
@@ -10,7 +11,7 @@ import {
 import { commandBus } from "./CommandBus";
 import type { AIProvider } from "../ai/types";
 import { useWorkspaceStore } from "../stores/WorkspaceStore";
-import type { QueryResults } from "../stores/WorkspaceStore";
+import type { QueryResults, TabState } from "../stores/WorkspaceStore";
 
 const SAMPLE_RESULTS: QueryResults = {
   rows: [
@@ -297,5 +298,64 @@ describe("buildDataEvidence", () => {
     const evidence = buildDataEvidence(results);
     const matches = (evidence ?? "").match(/min=/g) ?? [];
     expect(matches.length).toBeLessThanOrEqual(6);
+  });
+});
+
+describe("buildOpenTabsSummary", () => {
+  const makeTab = (overrides: Partial<TabState>): TabState =>
+    ({
+      id: "t1",
+      type: "sql_editor" as const,
+      title: "Query",
+      connectionId: "conn1",
+      sql: "",
+      queryResults: null,
+      isExecuting: false,
+      queryView: "results" as const,
+      isSheet: false,
+      ...overrides,
+    } as TabState);
+
+  const makeResults = (rowCount: number, fields: string[]) => ({
+    rows: Array.from({ length: Math.min(rowCount, 1) }, () =>
+      Object.fromEntries(fields.map((f) => [f, 1]))
+    ),
+    fields: fields.map((name) => ({ name })),
+    rowCount,
+    elapsedMs: 5,
+    queryId: "q1",
+    source_tables: [],
+  });
+
+  it("returns null when no tabs have results", () => {
+    expect(buildOpenTabsSummary([])).toBeNull();
+    expect(buildOpenTabsSummary([makeTab({ queryResults: null })])).toBeNull();
+  });
+
+  it("returns null when only the active tab has results", () => {
+    const tab = makeTab({ id: "active", queryResults: makeResults(10, ["x"]) });
+    expect(buildOpenTabsSummary([tab], "active")).toBeNull();
+  });
+
+  it("includes non-active tabs with results", () => {
+    const tabs: TabState[] = [
+      makeTab({ id: "active", title: "Live Query", queryResults: makeResults(10, ["x"]) }),
+      makeTab({ id: "sheet1", title: "Type-L rows", isSheet: true, queryResults: makeResults(150, ["Torque", "Type"]) }),
+    ];
+    const summary = buildOpenTabsSummary(tabs, "active");
+    expect(summary).not.toBeNull();
+    expect(summary).toContain("Type-L rows");
+    expect(summary).toContain("150 rows");
+    expect(summary).toContain("Torque");
+    expect(summary).toContain("sheet");
+  });
+
+  it("caps at 5 tabs to limit tokens", () => {
+    const tabs = Array.from({ length: 8 }, (_, i) =>
+      makeTab({ id: `t${i}`, title: `Tab ${i}`, queryResults: makeResults(i + 1, ["v"]) })
+    );
+    const summary = buildOpenTabsSummary(tabs) ?? "";
+    const matches = summary.match(/Tab \d/g) ?? [];
+    expect(matches.length).toBeLessThanOrEqual(5);
   });
 });

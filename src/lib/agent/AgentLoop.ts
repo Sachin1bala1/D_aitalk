@@ -13,6 +13,7 @@ import { userToolToUnifiedTool } from "../tools/user.tools";
 import { statToolToKernelKey } from "../tools/stat.tools";
 import type { CommandResult } from "./CommandBus";
 import { useWorkspaceStore } from "../stores/WorkspaceStore";
+import type { TabState } from "../stores/WorkspaceStore";
 import type { WorkspaceRule } from "../memory/WorkspaceRuleStore";
 import type { FullSchema } from "../db/DbClient";
 import type { QueryResults } from "../stores/WorkspaceStore";
@@ -268,6 +269,45 @@ export function buildDataEvidence(results: QueryResults): string | null {
   return lines.join("\n");
 }
 
+/**
+ * buildOpenTabsSummary — lists all open tabs with loaded data, excluding
+ * the active tab (already in LAST QUERY RESULTS).
+ *
+ * Gives the agent cross-tab situational awareness: it can reference sheet
+ * tabs with pre-loaded derived data without running additional SQL queries.
+ * Capped at 5 tabs to limit token spend.
+ */
+export function buildOpenTabsSummary(
+  tabs: TabState[],
+  activeTabId?: string,
+): string | null {
+  const candidates = tabs
+    .filter(
+      (t) =>
+        t.id !== activeTabId &&
+        t.queryResults != null &&
+        t.queryResults.rowCount > 0,
+    )
+    .slice(0, 5);
+
+  if (candidates.length === 0) return null;
+
+  const lines = candidates.map((t) => {
+    const fields = t.queryResults?.fields ?? [];
+    const cols = fields.map((f) => f.name).slice(0, 6).join(", ");
+    const moreCols = fields.length > 6 ? ` +${fields.length - 6} more` : "";
+    const kind = t.isSheet ? "sheet" : "sql";
+    return `- "${t.title}" (${kind}, ${t.queryResults!.rowCount} rows, cols: ${cols}${moreCols})`;
+  });
+
+  return (
+    `OTHER OPEN TABS WITH DATA (reference these directly — no SQL needed to access them):\n` +
+    lines.join("\n") +
+    `\nTo chart or analyse data from a sheet tab, use create_analysis_chart with the tab's rows ` +
+    `or ask the user to make that tab active first.`
+  );
+}
+
 function buildCompactSchemaSummary(schema: FullSchema | null): string | null {
   if (!schema) return null;
   const tableLines = schema.tables
@@ -339,6 +379,11 @@ function buildFastSystemPrompt(
       .join("\n");
     parts.push(`APPROVED RULES:\n${lines}`);
   }
+
+  // Cross-tab awareness (fast path)
+  const fastStoreState = useWorkspaceStore.getState();
+  const fastOpenTabsSummary = buildOpenTabsSummary(fastStoreState.tabs, fastStoreState.activeTabId);
+  if (fastOpenTabsSummary) parts.push(fastOpenTabsSummary);
 
   return parts.join("\n\n");
 }
@@ -710,6 +755,11 @@ NEVER call create_chart with a column name that isn't in the loaded results.
       parts.push(`## Open Learning Loops\n${lines}`);
     }
   }
+
+  // Cross-tab awareness
+  const storeState = useWorkspaceStore.getState();
+  const openTabsSummary = buildOpenTabsSummary(storeState.tabs, storeState.activeTabId);
+  if (openTabsSummary) parts.push(openTabsSummary);
 
   if (harnessAdditions) {
     parts.push(`## Harness Guidance (Auto-Updated)\n${harnessAdditions}`);
