@@ -361,6 +361,91 @@ describe("buildOpenTabsSummary", () => {
   });
 });
 
+describe("confidence gate integration", () => {
+  it("blocks a caution command after declare_confidence < 0.5", async () => {
+    // Mock provider: round 1 calls declare_confidence(0.3), round 2 calls add_column
+    let callCount = 0;
+    const mockProvider: AIProvider = {
+      id: "openai",
+      name: "Test Provider",
+      stream: vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          // First call: declare low confidence
+          return Promise.resolve({
+            text: "I have low confidence about this.",
+            toolCalls: [
+              {
+                id: "tc1",
+                name: "declare_confidence",
+                input: {
+                  confidence: 0.3,
+                  confidence_label: "low",
+                  what_would_change_conclusion: "More data needed",
+                },
+              },
+            ],
+            stopReason: "tool_use",
+          });
+        }
+        if (callCount === 2) {
+          // Second call: try a caution command
+          return Promise.resolve({
+            text: "Adding column now.",
+            toolCalls: [
+              {
+                id: "tc2",
+                name: "add_column",
+                input: {
+                  schema: "public",
+                  table: "test_table",
+                  columnName: "new_col",
+                  dataType: "text",
+                  nullable: true,
+                },
+              },
+            ],
+            stopReason: "tool_use",
+          });
+        }
+        // Final call: agent wraps up after gate
+        return Promise.resolve({
+          text: "I'll inform the user about my uncertainty before proceeding.",
+          toolCalls: [],
+          stopReason: "end_turn",
+        });
+      }),
+    };
+
+    // Track dispatched commands
+    const dispatchedCommands: string[] = [];
+    const dispatchSpy = vi.spyOn(commandBus, "dispatch").mockImplementation(async (cmd) => {
+      dispatchedCommands.push(cmd.type);
+      return { success: true };
+    });
+
+    const result = await runAgentLoop("add a new column", [], {
+      provider: mockProvider,
+      model: "test-model",
+      connectionId: "conn1",
+      schema: null,
+      currentSQL: null,
+      currentResults: null,
+      onToken: vi.fn(),
+      onToolStart: vi.fn(),
+      onToolEnd: vi.fn(),
+      onPlanQueued: vi.fn(),
+    });
+
+    // The add_column command should NOT have been dispatched
+    expect(dispatchedCommands).not.toContain("add_column");
+    // The final text should include something about uncertainty (the gate message was returned as tool result, agent responded to it)
+    expect(result.finalText).toBeTruthy();
+
+    dispatchSpy.mockRestore();
+  });
+});
+
 describe("buildConfidenceGateMessage", () => {
   it("returns null when confidence was never declared (null)", () => {
     expect(buildConfidenceGateMessage(null, "add_column", "caution")).toBeNull();

@@ -2,7 +2,7 @@ import { vi } from "vitest";
 
 // Mock Tauri APIs — not available in jsdom/Node
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn(),
+  invoke: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@tauri-apps/api/app", () => ({
