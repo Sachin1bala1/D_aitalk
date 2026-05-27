@@ -1205,6 +1205,7 @@ export async function runAgentLoop(
           model,
           tools: allTools,
           onToken: wrappedOnToken,
+          signal,
         }),
       {
         maxAttempts: 4,
