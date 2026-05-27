@@ -17,8 +17,9 @@ export class ClaudeProvider implements AIProvider {
     model: string;
     tools: UnifiedTool[];
     onToken: (text: string) => void;
+    signal?: AbortSignal;
   }): Promise<StreamResult> {
-    const { system, history, model, tools, onToken } = params;
+    const { system, history, model, tools, onToken, signal } = params;
 
     const messages = historyToAnthropic(history);
     const claudeTools: Anthropic.Tool[] = tools.map((t) => ({
@@ -33,7 +34,7 @@ export class ClaudeProvider implements AIProvider {
       system,
       messages,
       tools: claudeTools,
-    });
+    }, { signal });
 
     let text = "";
     for await (const event of await stream) {

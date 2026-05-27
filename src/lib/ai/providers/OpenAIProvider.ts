@@ -30,8 +30,9 @@ export class OpenAIProvider implements AIProvider {
     model: string;
     tools: UnifiedTool[];
     onToken: (text: string) => void;
+    signal?: AbortSignal;
   }): Promise<StreamResult> {
-    const { system, history, model, tools, onToken } = params;
+    const { system, history, model, tools, onToken, signal } = params;
 
     const messages = historyToOpenAI(system, history);
     const openAITools: OpenAI.Chat.ChatCompletionTool[] = tools.map((t) => ({
@@ -57,6 +58,11 @@ export class OpenAIProvider implements AIProvider {
         },
       });
 
+      // Check if aborted after invoke returns
+      if (signal?.aborted) {
+        throw new DOMException("Aborted", "AbortError");
+      }
+
       if (response.text) {
         onToken(response.text);
       }
@@ -73,7 +79,7 @@ export class OpenAIProvider implements AIProvider {
       messages,
       tools: openAITools.length > 0 ? openAITools : undefined,
       stream: true,
-    });
+    }, { signal });
 
     let text = "";
     // Accumulate fragmented tool call deltas

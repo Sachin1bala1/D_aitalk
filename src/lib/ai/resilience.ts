@@ -30,12 +30,11 @@ export class TimeoutError extends Error {
   }
 }
 
-const DEFAULT_OPTS: Required<RetryOptions> = {
+const DEFAULT_OPTS: Required<Omit<RetryOptions, 'signal'>> = {
   maxAttempts: 3,
   baseDelayMs: 1_000,
   maxDelayMs: 16_000,
   onRetry: () => {},
-  signal: undefined as unknown as AbortSignal,
 };
 
 function isPermanentQuotaErrorMessage(msg: string): boolean {
@@ -155,10 +154,11 @@ export async function withRetry<T>(
   fn: () => Promise<T>,
   opts: RetryOptions = {}
 ): Promise<T> {
-  const { maxAttempts, baseDelayMs, maxDelayMs, onRetry, signal } = {
+  const { maxAttempts, baseDelayMs, maxDelayMs, onRetry } = {
     ...DEFAULT_OPTS,
     ...opts,
   };
+  const { signal } = opts;
 
   let lastError: unknown;
 

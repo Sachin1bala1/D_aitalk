@@ -31,8 +31,9 @@ export class OllamaProvider implements AIProvider {
     model: string;
     tools: UnifiedTool[];
     onToken: (text: string) => void;
+    signal?: AbortSignal;
   }): Promise<StreamResult> {
-    const { system, history, model, tools, onToken } = params;
+    const { system, history, model, tools, onToken, signal } = params;
 
     const messages = historyToOpenAI(system, history);
     const openAITools: OpenAI.Chat.ChatCompletionTool[] = tools.map((t) => ({
@@ -49,7 +50,7 @@ export class OllamaProvider implements AIProvider {
       messages,
       tools: openAITools.length > 0 ? openAITools : undefined,
       stream: true,
-    });
+    }, { signal });
 
     let text = "";
     const toolCallAccum: Record<number, { id: string; name: string; args: string }> = {};
