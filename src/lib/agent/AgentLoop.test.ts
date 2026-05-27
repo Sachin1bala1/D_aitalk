@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  buildConfidenceGateMessage,
   buildDataEvidence,
   buildOpenTabsSummary,
   buildReflectionGuidance,
@@ -357,5 +358,39 @@ describe("buildOpenTabsSummary", () => {
     const summary = buildOpenTabsSummary(tabs) ?? "";
     const matches = summary.match(/Tab \d/g) ?? [];
     expect(matches.length).toBeLessThanOrEqual(5);
+  });
+});
+
+describe("buildConfidenceGateMessage", () => {
+  it("returns null when confidence was never declared (null)", () => {
+    expect(buildConfidenceGateMessage(null, "add_column", "caution")).toBeNull();
+  });
+
+  it("returns null when confidence is high enough (>= 0.5)", () => {
+    expect(buildConfidenceGateMessage(0.8, "add_column", "caution")).toBeNull();
+    expect(buildConfidenceGateMessage(0.5, "delete_rows", "destructive")).toBeNull();
+  });
+
+  it("returns null for safe commands regardless of confidence", () => {
+    expect(buildConfidenceGateMessage(0.1, "execute_sql", "safe")).toBeNull();
+  });
+
+  it("returns gate message for low confidence + caution command", () => {
+    const msg = buildConfidenceGateMessage(0.3, "add_column", "caution");
+    expect(msg).not.toBeNull();
+    expect(msg).toContain("30%");
+    expect(msg).toContain("CONFIDENCE GATE");
+    expect(msg).toContain("NOT been executed");
+  });
+
+  it("returns gate message for low confidence + destructive command", () => {
+    const msg = buildConfidenceGateMessage(0.2, "delete_rows", "destructive");
+    expect(msg).not.toBeNull();
+    expect(msg).toContain("CONFIDENCE GATE");
+  });
+
+  it("rounds confidence percentage correctly", () => {
+    const msg = buildConfidenceGateMessage(0.449, "add_column", "caution");
+    expect(msg).toContain("45%");
   });
 });

@@ -308,6 +308,38 @@ export function buildOpenTabsSummary(
   );
 }
 
+/**
+ * buildConfidenceGateMessage — produces a gate message when the agent has
+ * declared low confidence (<50%) and is about to take a non-safe action.
+ *
+ * Returns null when:
+ * - confidence was never declared (null)
+ * - confidence >= 0.5
+ * - the command is safe (read-only)
+ *
+ * When the gate fires, the content is returned as a tool result instead of
+ * executing the command. The agent must surface its uncertainty to the user.
+ */
+export function buildConfidenceGateMessage(
+  sessionConfidenceScore: number | null,
+  commandType: string,
+  riskLevel: "safe" | "caution" | "destructive",
+): string | null {
+  if (sessionConfidenceScore === null) return null;
+  if (sessionConfidenceScore >= 0.5) return null;
+  if (riskLevel === "safe") return null;
+
+  const pct = Math.round(sessionConfidenceScore * 100);
+  return (
+    `CONFIDENCE GATE: You declared ${pct}% confidence earlier in this session. ` +
+    `The action "${commandType}" (${riskLevel}) has NOT been executed.\n` +
+    `Before proceeding:\n` +
+    `1. Tell the user what specific data or information is missing that causes uncertainty.\n` +
+    `2. Ask whether to gather more evidence first or proceed despite the uncertainty.\n` +
+    `Do not attempt this action again until the user explicitly confirms.`
+  );
+}
+
 function buildCompactSchemaSummary(schema: FullSchema | null): string | null {
   if (!schema) return null;
   const tableLines = schema.tables
@@ -1136,6 +1168,8 @@ export async function runAgentLoop(
   const MAX_ROUNDS = queryDepth === "fast" ? 6 : 12;
   const toolSignatureCounts = new Map<string, number>();
   let resultFetchingAttempts = 0;
+  let sessionConfidenceScore: number | null = null;
+  let confidenceGateFired = false;
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
     // Show a single updating "Thinking…" status while waiting for the first token.
@@ -1236,6 +1270,27 @@ export async function runAgentLoop(
           const errMsg = policyErr instanceof Error ? policyErr.message : String(policyErr);
           onToolEnd(tc.name, { success: false, error: errMsg });
           return { toolCallId: tc.id, name: tc.name, content: errMsg, isError: true };
+        }
+
+        // ── Track declared confidence ─────────────────────────────────────
+        if (tc.name === "declare_confidence" && typeof tc.input.confidence === "number") {
+          sessionConfidenceScore = tc.input.confidence as number;
+          if (sessionConfidenceScore >= 0.5) confidenceGateFired = false; // reset if confidence recovers
+        }
+
+        // ── Confidence gate — block non-safe actions after low confidence ─
+        if (!confidenceGateFired) {
+          const gateMsg = buildConfidenceGateMessage(sessionConfidenceScore, cmd.type, cmd.risk);
+          if (gateMsg) {
+            confidenceGateFired = true;
+            onToolEnd(tc.name, { success: false, error: "Confidence gate" });
+            return {
+              toolCallId: tc.id,
+              name: tc.name,
+              content: gateMsg,
+              isError: false,
+            };
+          }
         }
 
         onToolStart(tc.name, tc.input);
