@@ -173,6 +173,50 @@ export function buildVisualizationClarifier(
   return "Which columns or relationship do you want plotted? Please tell me the X and Y fields, or name the table plus the columns to use.";
 }
 
+/**
+ * buildReflectionGuidance — appends structured self-diagnosis guidance to
+ * tool result content when the result is empty or errored.
+ *
+ * The model reads tool results verbatim. By embedding the reflection prompt
+ * inside the result string, the model is forced to diagnose before retrying.
+ */
+export function buildReflectionGuidance(
+  toolName: string,
+  content: string,
+  isError: boolean,
+): string {
+  if (isError) {
+    return (
+      content +
+      `\n\n⚠️ ERROR REFLECTION — diagnose before the next action:\n` +
+      `1. Read the error message above carefully. What exactly failed?\n` +
+      `2. Is this a column name mismatch? A schema qualification issue? A type error?\n` +
+      `3. Choose a DIFFERENT approach — do NOT repeat the identical call.\n` +
+      `State your diagnosis in your next response, then take a corrective action.`
+    );
+  }
+
+  if (toolName === "execute_sql") {
+    try {
+      const parsed = JSON.parse(content) as { rowCount?: number };
+      if (parsed.rowCount === 0) {
+        return (
+          content +
+          `\n\n⚠️ ZERO RESULTS REFLECTION — diagnose before the next action:\n` +
+          `1. Is this a derived table? If the table name comes from create_derived_table, it lives in SQLite only — execute_sql queries PostgreSQL/MySQL and will always return empty. Use the pre-loaded tab data directly.\n` +
+          `2. WHERE clause? Try removing the filter to check if the base table has rows.\n` +
+          `3. Schema/table name? PostgreSQL requires "schema"."table" with double-quotes.\n` +
+          `State your diagnosis, then choose a DIFFERENT approach — do NOT repeat the same query.`
+        );
+      }
+    } catch {
+      // not JSON — leave content unchanged
+    }
+  }
+
+  return content;
+}
+
 function buildCompactSchemaSummary(schema: FullSchema | null): string | null {
   if (!schema) return null;
   const tableLines = schema.tables
@@ -504,20 +548,32 @@ When the user asks "what factors affect X" or "correlation" or "what impacts Y":
 - **create_analysis_chart**: plots rows you supply directly (e.g. correlation summaries or custom computed rows). Do NOT use after analyze_loaded_feature_importance.
 
 ## After Analysis Tools — Results and Derived Tables
+
+⚠️ CRITICAL — READ BEFORE CALLING create_derived_table:
+Derived tables are stored in an internal SQLite memory database, NOT in the live PostgreSQL/MySQL connection.
+After create_derived_table runs, the data is ALREADY PRE-LOADED in the sheet tab.
+NEVER call execute_sql to query a derived table by name — it will query the wrong database (PostgreSQL) and return empty, causing a loop.
+
 After analyze_loaded_feature_importance: the chart is AUTOMATICALLY created in Graph Builder. Do NOT call create_analysis_chart — handled automatically. Just confirm the analysis is done.
 
-If the user says "save as table", "I want to analyze this data", "keep these factors", or "create a derived table": call create_derived_table with:
-  name: "feature_importance_<target_column>" (snake_case)
-  rows: the detailed_factors array from the analysis result
-  title: "Feature Importance — <Target Column>"
-After calling create_derived_table, tell the user: "The data is now in a new tab — you can chart it by clicking the chart icon or asking me to chart it."
-If the user then asks to chart the derived table data, call create_chart (NOT create_analysis_chart) using the column names shown in that tab's results.
+CORRECT workflow for feature importance → table → chart:
+1. analyze_loaded_feature_importance runs → chart auto-appears in Graph Builder ✓
+2. If user asks to save/keep results: call create_derived_table with rows=result.detailed_factors, name="feature_importance_<target>" → sheet tab opens with data PRE-LOADED ✓
+3. If user then wants a chart from the sheet: call create_analysis_chart with rows=result.detailed_factors (use the SAME rows from step 2, not a SQL query) ✓
+STOP after step 2 — do NOT run execute_sql on the derived table name.
 
-After analyze_loaded_correlation returns, the result has correlations: [{column, correlation, ...}].
-To chart it: call create_analysis_chart with rows=result.correlations, xKey="column", yKey="correlation", chartType="bar".
-If user asks to save it: call create_derived_table with name="correlation_<target>", rows=result.correlations.
+CORRECT workflow for correlation → table → chart:
+1. analyze_loaded_correlation runs → result has correlations: [{column, correlation, p_value, sample_size}]
+2. Chart: call create_analysis_chart with rows=result.correlations, xKey="column", yKey="correlation", chartType="bar"
+3. If user asks to save: call create_derived_table with name="correlation_<target>", rows=result.correlations — sheet tab opens with data PRE-LOADED ✓
+STOP after step 3 — do NOT run execute_sql on the derived table name.
 
-Derived tables open automatically in a new tab — the user can inspect, filter, and chart from there.
+CORRECT workflow for data slice → table:
+1. execute_sql with WHERE clause to filter live data → get rows from the live database ✓
+2. create_derived_table with those rows → sheet tab opens with data PRE-LOADED ✓
+STOP — do NOT run execute_sql on the derived table name.
+
+After any create_derived_table call: tell the user the sheet tab is ready with N rows. If they want a chart, call create_analysis_chart with the same rows you just saved (NOT a SQL query).
 
 ## Data Slices and Sheet Creation
 When the user asks to "show me", "filter", "see", or "slice" data (e.g. "show me rows from Sunday to Monday", "filter to Type=L", "give me the top 50 rows"):
@@ -1173,12 +1229,13 @@ export async function runAgentLoop(
             sessionCtx.errorsSoFar.push({ tool: tc.name, error: result.error ?? 'unknown' });
           }
           onToolEnd(tc.name, result);
+          const rawContent = result.success
+            ? JSON.stringify(result.result ?? "done")
+            : `Error: ${result.error}`;
           return {
             toolCallId: tc.id,
             name: tc.name,
-            content: result.success
-              ? JSON.stringify(result.result ?? "done")
-              : `Error: ${result.error}`,
+            content: buildReflectionGuidance(tc.name, rawContent, !result.success),
             isError: !result.success,
           };
         } catch (err) {

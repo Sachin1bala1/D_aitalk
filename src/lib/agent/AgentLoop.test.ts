@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  buildReflectionGuidance,
   buildVisualizationClarifier,
   inferNumericColumns,
   isUnderspecifiedVisualizationRequest,
@@ -179,5 +180,38 @@ describe("destructive command approval enforcement", () => {
 
     expect(dispatchSpy).toHaveBeenCalledTimes(1);
     expect(useWorkspaceStore.getState().planQueue).toHaveLength(0);
+  });
+});
+
+describe("buildReflectionGuidance", () => {
+  it("returns content unchanged for successful non-empty execute_sql", () => {
+    const content = JSON.stringify({ rows: [{ a: 1 }], rowCount: 1 });
+    expect(buildReflectionGuidance("execute_sql", content, false)).toBe(content);
+  });
+
+  it("appends ZERO RESULTS block when execute_sql returns empty rows", () => {
+    const content = JSON.stringify({ rows: [], rowCount: 0, fields: [], elapsedMs: 5 });
+    const out = buildReflectionGuidance("execute_sql", content, false);
+    expect(out).toContain("ZERO RESULTS");
+    expect(out).toContain("derived table");
+    expect(out).toContain(content);
+  });
+
+  it("appends ERROR REFLECTION block on tool error", () => {
+    const content = "Error: column not found";
+    const out = buildReflectionGuidance("execute_sql", content, true);
+    expect(out).toContain("ERROR REFLECTION");
+    expect(out).toContain(content);
+  });
+
+  it("appends ERROR REFLECTION for non-execute_sql tool errors", () => {
+    const content = "Error: connection refused";
+    const out = buildReflectionGuidance("analyze_loaded_correlation", content, true);
+    expect(out).toContain("ERROR REFLECTION");
+  });
+
+  it("returns content unchanged for successful non-execute_sql tool", () => {
+    const content = JSON.stringify({ correlations: [{ column: "A", correlation: 0.9 }] });
+    expect(buildReflectionGuidance("analyze_loaded_correlation", content, false)).toBe(content);
   });
 });
