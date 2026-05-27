@@ -199,7 +199,7 @@ export function buildReflectionGuidance(
   if (toolName === "execute_sql") {
     try {
       const parsed = JSON.parse(content) as { rowCount?: number };
-      if (parsed.rowCount === 0) {
+      if (typeof parsed?.rowCount === "number" && parsed.rowCount === 0) {
         return (
           content +
           `\n\n⚠️ ZERO RESULTS REFLECTION — diagnose before the next action:\n` +
@@ -1241,10 +1241,11 @@ export async function runAgentLoop(
         } catch (err) {
           const errMsg = err instanceof Error ? err.message : String(err);
           onToolEnd(tc.name, { success: false, error: errMsg });
+          const catchContent = `Tool error: ${errMsg}`;
           return {
             toolCallId: tc.id,
             name: tc.name,
-            content: `Tool error: ${errMsg}`,
+            content: buildReflectionGuidance(tc.name, catchContent, true),
             isError: true,
           };
         }

@@ -214,4 +214,21 @@ describe("buildReflectionGuidance", () => {
     const content = JSON.stringify({ correlations: [{ column: "A", correlation: 0.9 }] });
     expect(buildReflectionGuidance("analyze_loaded_correlation", content, false)).toBe(content);
   });
+
+  it("returns content unchanged for execute_sql with non-JSON content and no error", () => {
+    // Tests the catch path for non-JSON content
+    expect(buildReflectionGuidance("execute_sql", "plain text result", false)).toBe("plain text result");
+  });
+
+  it("appends ERROR REFLECTION for empty-string content on error", () => {
+    const out = buildReflectionGuidance("execute_sql", "", true);
+    expect(out).toContain("ERROR REFLECTION");
+  });
+
+  it("does NOT append ZERO RESULTS when rowCount is null (not zero)", () => {
+    // rowCount: null must NOT trigger the zero-rows branch
+    const content = JSON.stringify({ rows: [], rowCount: null, fields: [] });
+    const out = buildReflectionGuidance("execute_sql", content, false);
+    expect(out).toBe(content); // unchanged — null is not 0
+  });
 });
