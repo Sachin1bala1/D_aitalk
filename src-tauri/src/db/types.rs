@@ -189,6 +189,8 @@ pub struct ConnectionConfig {
     pub read_only: bool,
     #[serde(default)]
     pub pi_config: Option<PIConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rest_config: Option<RestConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -206,6 +208,8 @@ pub enum DbDriver {
     Redis,
     ClickHouse,
     PIHistorian,
+    RestApi,
+    DuckDb,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -216,3 +220,30 @@ pub struct PIConfig {
     #[serde(default = "default_true")]
     pub verify_ssl: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RestConfig {
+    /// Base URL — may contain `{param}` placeholders
+    pub url: String,
+    /// HTTP method: "GET" or "POST"
+    #[serde(default = "default_get")]
+    pub method: String,
+    /// Auth type: "none", "bearer", "api_key", "basic"
+    #[serde(default)]
+    pub auth_type: String,
+    /// Token / API key value
+    #[serde(default)]
+    pub auth_value: String,
+    /// Header name for API key auth (e.g. "X-API-Key")
+    #[serde(default)]
+    pub auth_header: String,
+    /// JSONPath to the array of records, e.g. "$.data.items" or "$" for root array
+    #[serde(default = "default_root")]
+    pub response_path: String,
+    /// Cache response for N seconds (0 = no cache)
+    #[serde(default)]
+    pub cache_ttl_secs: u64,
+}
+
+fn default_get() -> String { "GET".to_string() }
+fn default_root() -> String { "$".to_string() }

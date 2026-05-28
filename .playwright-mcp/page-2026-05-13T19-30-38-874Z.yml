@@ -1,0 +1,327 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - button "Main menu" [ref=e5] [cursor=pointer]:
+          - img [ref=e6]
+        - link "Careers" [ref=e10] [cursor=pointer]:
+          - /url: /about/careers/applications/
+          - generic [ref=e12]: Careers
+      - generic [ref=e13]:
+        - link "Skip navigation links" [ref=e14]:
+          - generic: Skip navigation links
+        - generic [ref=e23]:
+          - generic [ref=e24]:
+            - generic [ref=e25] [cursor=pointer]:
+              - generic [ref=e26]: help_outline
+              - link "Help link" [ref=e27]:
+                - /url: https://support.google.com/googlecareers
+            - tooltip [ref=e28]: Help link
+          - generic [ref=e29]:
+            - button "Send feedback" [ref=e30] [cursor=pointer]:
+              - generic [ref=e31]: feedback
+            - tooltip [ref=e32]: Send feedback
+      - generic [ref=e34]:
+        - button "Google apps" [ref=e38] [cursor=pointer]:
+          - img [ref=e39]
+        - 'button "Google Account: Sachin Bala (sachin1bala1@gmail.com)" [ref=e44] [cursor=pointer]':
+          - img [ref=e46]
+          - img [ref=e52]
+  - generic [ref=e61]:
+    - generic [ref=e62]:
+      - generic [ref=e63]:
+        - generic:
+          - generic: keyboard_arrow_left
+        - tablist "Application stepper" [ref=e64]:
+          - tab "Step 1 - Careers profile" [ref=e65]:
+            - generic [ref=e69]:
+              - generic [ref=e71]: done
+              - generic [ref=e72]:
+                - generic [ref=e73]: Careers profile
+                - generic [ref=e74]: 5-10 minutes
+                - generic: Completed
+          - tab "Step 2 - Role Information" [ref=e75]:
+            - generic [ref=e79]:
+              - generic [ref=e81]: done
+              - generic [ref=e82]:
+                - generic [ref=e83]: Role Information
+                - generic [ref=e84]: less than 1 minute
+                - generic: Completed
+          - tab "Step 3 - Voluntary self-identification" [ref=e85]:
+            - generic [ref=e89]:
+              - generic [ref=e91]: done
+              - generic [ref=e92]:
+                - generic [ref=e93]: Voluntary self-identification
+                - generic [ref=e94]: less than 1 minute
+                - generic: Completed
+          - tab "Step 4 - Review & apply" [selected] [ref=e95]:
+            - generic [ref=e99]:
+              - generic [ref=e100]: "4"
+              - generic [ref=e102]: Review & apply
+        - generic:
+          - generic: keyboard_arrow_right
+      - tabpanel "Step 4 - Review & apply"
+    - generic [ref=e103]:
+      - generic [ref=e104]:
+        - heading "Review your application" [level=1] [ref=e105]
+        - paragraph [ref=e106]: Okay, look over your application before you submit it. You can't change your application for this job after you click Submit, so if you see anything wrong edit it now. For your convenience, this application has been saved as a draft under Applications.
+      - generic [ref=e108]:
+        - generic [ref=e110]: work
+        - heading "Product Data Scientist, Operations - Austin, Addison, Atlanta or Thornton" [level=2] [ref=e112]
+      - generic [ref=e113]:
+        - generic [ref=e114]:
+          - heading "Careers profile" [level=2] [ref=e116]
+          - button "Edit Careers profile" [ref=e117]:
+            - generic [ref=e120]: Edit
+        - generic [ref=e121]:
+          - paragraph [ref=e122]: Google is committed to equal opportunity employment regardless of race, color, ancestry, religion, sex, national origin, sexual orientation, gender identity, age, citizenship, marital status, disability or Veteran status. Disclosure is voluntary.
+          - generic [ref=e123]:
+            - heading "Resume" [level=3] [ref=e124]
+            - generic [ref=e126]:
+              - generic [ref=e127]: article
+              - text: resume_sachin_google.pdf
+          - generic [ref=e128]:
+            - heading "Legal name" [level=3] [ref=e129]
+            - generic [ref=e130]: Sachin Bala
+          - generic [ref=e131]:
+            - heading "Address" [level=3] [ref=e132]
+            - generic [ref=e133]:
+              - text: 10346 Blue Bluff Road, 1303
+              - text: Austin, TX 78724
+              - text: United States
+          - generic [ref=e134]:
+            - heading "Emails" [level=3] [ref=e135]
+            - generic [ref=e136]:
+              - text: sachin1bala1@gmail.com
+              - text: sachin.bala@wmich.edu
+          - generic [ref=e137]:
+            - heading "Phone" [level=3] [ref=e138]
+            - generic [ref=e139]: +1 2697799757
+          - generic [ref=e140]:
+            - heading "Website" [level=3] [ref=e141]
+            - generic [ref=e142]: https://github.com/sachin1bala1
+          - generic [ref=e143]:
+            - heading "Education" [level=3] [ref=e144]
+            - generic [ref=e145]:
+              - text: Western Michigan University
+              - text: Bachelor in Science
+              - text: Graduated
+              - text: United States
+          - generic [ref=e146]:
+            - heading "Work experience" [level=3] [ref=e147]
+            - generic [ref=e148]:
+              - text: Tesla
+              - text: Associate Process Development Engineer
+              - text: February 2025 – Present
+              - text: Austin, TX
+              - text: United States
+              - text: Tesla
+              - text: Engineering Tech
+              - text: August 2023 – February 2025
+              - text: Austin, TX
+              - text: United States
+              - text: Scherdel SST
+              - text: Engineering Intern
+              - text: June 2022 – June 2022
+              - text: Muskegon, MI
+              - text: United States
+          - generic [ref=e149]:
+            - heading "Have you worked at Alphabet before in any capacity" [level=3] [ref=e150]
+            - generic [ref=e151]: "No"
+          - generic [ref=e152]:
+            - heading "Skills" [level=3] [ref=e153]
+            - generic [ref=e155]:
+              - generic [ref=e156]:
+                - heading "CODING LANGUAGE" [level=4] [ref=e157]
+                - list [ref=e158]:
+                  - listitem [ref=e159]: LabVIEW
+                  - listitem [ref=e160]: Python
+                  - listitem [ref=e161]: TypeScript
+              - generic [ref=e162]:
+                - heading "GENERAL" [level=4] [ref=e163]
+                - list [ref=e164]:
+                  - listitem [ref=e165]: Assessments
+                  - listitem [ref=e166]: Collaboration
+                  - listitem [ref=e167]: Design
+                  - listitem [ref=e168]: Design for Excellence
+                  - listitem [ref=e169]: Drive
+                  - listitem [ref=e170]: Driving
+                  - listitem [ref=e171]: Execution
+                  - listitem [ref=e172]: Factory Readiness
+                  - listitem [ref=e173]: Inspection
+                  - listitem [ref=e174]: Lean
+                  - listitem [ref=e175]: Lean Manufacturing
+                  - listitem [ref=e176]: Manufacturing
+                  - listitem [ref=e177]: Mechanical Engineering
+                  - listitem [ref=e178]: Predictive Maintenance
+                  - listitem [ref=e179]: Supply Chain
+              - generic [ref=e180]:
+                - heading "TECHNICAL" [level=4] [ref=e181]
+                - list [ref=e182]:
+                  - listitem [ref=e183]: 5S
+                  - listitem [ref=e184]: Analysis
+                  - listitem [ref=e185]: Analytics
+                  - listitem [ref=e186]: Anomaly Detection
+                  - listitem [ref=e187]: AutoCAD
+                  - listitem [ref=e188]: Closure
+                  - listitem [ref=e189]: Computer Vision
+                  - listitem [ref=e190]: Consistency
+                  - listitem [ref=e191]: Dashboards
+                  - listitem [ref=e192]: Data Analysis
+                  - listitem [ref=e193]: Data Analytics
+                  - listitem [ref=e194]: F1
+                  - listitem [ref=e195]: InfluxDB
+                  - listitem [ref=e196]: JMP
+                  - listitem [ref=e197]: MATLAB
+                  - listitem [ref=e198]: Manufacturing AI
+                  - listitem [ref=e199]: Mathematics
+                  - listitem [ref=e200]: Monitoring
+                  - listitem [ref=e201]: Pandas
+                  - listitem [ref=e202]: Process Capability
+                  - listitem [ref=e203]: Process Control
+                  - listitem [ref=e204]: Protocols
+                  - listitem [ref=e205]: SQL
+                  - listitem [ref=e206]: Sites
+                  - listitem [ref=e207]: Six Sigma
+                  - listitem [ref=e208]: Solidworks
+                  - listitem [ref=e209]: Statistical Process Control
+                  - listitem [ref=e210]: Web Browsers
+                  - listitem [ref=e211]: cs
+                  - listitem [ref=e212]: report
+          - generic [ref=e213]:
+            - heading "Cover letter/other notes" [level=3] [ref=e214]
+            - generic [ref=e215]: "I am writing to apply for the Product Data Scientist, Operations role at Google. With a background in data-driven process engineering and hands-on experience building analytics pipelines, statistical models, and real-time dashboards in high-volume manufacturing environments, I am excited to bring that same analytical rigor to Google's cloud infrastructure operations supporting Google Compute Engine and Vertex AI products. At Tesla, I work at the intersection of operations and data science every day. I designed and deployed data collection and visualization pipelines using MySQL, Python, R, JMP, and Grafana to generate predictive insights into tool and process performance, directly enabling operational and financial decisions at the factory level. I applied DOE, SPC, and statistical capability analysis to large operational datasets, formulating quantifiable hypotheses, evaluating custom metrics, and delivering findings to engineering and business stakeholders. I also built a real-time Grafana monitoring pipeline for production tools, giving the team proactive visibility into equipment health before failures escalated -- the same kind of insight generation Google's operations team pursues for cloud reliability. Earlier, I built a predictive failure-detection model using ML algorithms that improved manufacturing accuracy by 25%, and a Computer Vision defect detection system validated with Gauge R&R and F1-score analysis. Outside of work, I build AI software: my open-source project DataIQ (github.com/Sachin1bala1) is a Tauri + React desktop IDE where an AI agent autonomously queries databases, builds pipelines, and surfaces insights -- directly relevant to your team's goal of bringing AI into data science workflows. Google's mission to make data work smarter for infrastructure operations aligns closely with the work I have been doing -- translating messy operational data into clear metrics, dashboards, and corrective actions. I am based in Austin, TX and eager to contribute to the GCE and Vertex product operations team. Thank you for your time and consideration. I look forward to the opportunity. Sincerely, Sachin Bala"
+      - generic [ref=e216]:
+        - generic [ref=e217]:
+          - heading "Voluntary self-identification" [level=2] [ref=e219]
+          - button "Edit Voluntary self-identification" [ref=e220]:
+            - generic [ref=e223]: Edit
+        - paragraph [ref=e225]: "Completed: 1 second ago"
+      - generic [ref=e226]:
+        - generic [ref=e227]:
+          - heading "Role information" [level=2] [ref=e229]
+          - button "Edit Role information" [ref=e230]:
+            - generic [ref=e233]: Edit
+        - generic [ref=e234]:
+          - generic [ref=e235]:
+            - heading "Preferred location" [level=3] [ref=e236]
+            - generic [ref=e237]: Austin, TX, USA
+          - generic [ref=e238]:
+            - heading "Additional location(s)" [level=3] [ref=e239]
+            - generic [ref=e240]: Addison, TX, USA
+          - generic [ref=e241]:
+            - heading "Work Authorization" [level=3] [ref=e242]
+            - generic [ref=e243]:
+              - text: Are you legally eligible to work in the country of employment?
+              - text: "Yes"
+              - text: Do you currently need, or will you someday require, Google to sponsor work authorization for you to work in the country of employment?
+              - text: "Yes"
+      - generic [ref=e246]:
+        - generic [ref=e247] [cursor=pointer]:
+          - checkbox "I understand that the information I submit as part of my job application will be used in accordance with Google's applicant and candidate privacy policy (opens in a new tab) I consent to the processing of my information as described in that policy including that, in limited circumstances, Google may share my contact information with trusted third parties, to assist in certain phases of the hiring process (such as conducting background checks)." [ref=e248]
+          - generic:
+            - img
+        - paragraph [ref=e251]:
+          - text: I understand that the information I submit as part of my job application will be used in accordance with
+          - link "Google's applicant and candidate privacy policy (opens in a new tab)" [ref=e252] [cursor=pointer]:
+            - /url: ./privacy-policy
+            - text: Google's applicant and candidate privacy policy.
+          - generic [ref=e254]: open_in_new
+          - text: I consent to the processing of my information as described in that policy including that, in limited circumstances, Google may share my contact information with trusted third parties, to assist in certain phases of the hiring process (such as conducting background checks).
+      - generic [ref=e255]:
+        - generic [ref=e257]:
+          - generic [ref=e259]: Cancel
+          - link "Cancel and return to application dashboard" [ref=e260] [cursor=pointer]:
+            - /url: ./
+        - generic [ref=e261]:
+          - button "Back to careers profile" [ref=e263]:
+            - generic [ref=e266]: Back
+          - generic [ref=e267]:
+            - button "Apply" [disabled]:
+              - generic: Apply
+  - contentinfo [ref=e269]:
+    - generic [ref=e271]:
+      - generic [ref=e272]:
+        - heading "Follow Life at Google on" [level=2] [ref=e273]
+        - list [ref=e274]:
+          - listitem [ref=e275]:
+            - link "View our Instagram feed (opens in a new tab)" [ref=e276] [cursor=pointer]:
+              - /url: https://www.instagram.com/lifeatgoogle/
+          - listitem [ref=e281]:
+            - link "View our Twitter feed (opens in a new tab)" [ref=e282] [cursor=pointer]:
+              - /url: https://twitter.com/lifeatgoogle
+          - listitem [ref=e285]:
+            - link "View our YouTube channel (opens in a new tab)" [ref=e286] [cursor=pointer]:
+              - /url: https://www.youtube.com/lifeatgoogle
+          - listitem [ref=e289]:
+            - link "View LinkedIn (opens in a new tab)" [ref=e290] [cursor=pointer]:
+              - /url: https://www.linkedin.com/company/google/jobs/
+          - listitem [ref=e293]:
+            - link "View our Facebook (opens in a new tab)" [ref=e294] [cursor=pointer]:
+              - /url: https://www.facebook.com/lifeatgoogle/
+      - generic [ref=e299]:
+        - generic [ref=e300]:
+          - heading "More about us" [level=2] [ref=e301]
+          - generic [ref=e302]:
+            - link "About us (opens in a new tab)" [ref=e303] [cursor=pointer]:
+              - /url: https://about.google/
+              - text: About us
+              - generic [ref=e305]: open_in_new
+            - link "Contact us (opens in a new tab)" [ref=e306] [cursor=pointer]:
+              - /url: https://about.google/contact-google/
+              - text: Contact us
+              - generic [ref=e308]: open_in_new
+            - link "Press (opens in a new tab)" [ref=e309] [cursor=pointer]:
+              - /url: https://blog.google/press/
+              - text: Press
+              - generic [ref=e311]: open_in_new
+        - generic [ref=e312]:
+          - heading "Related information" [level=2] [ref=e313]
+          - generic [ref=e314]:
+            - link "Investor relations (opens in a new tab)" [ref=e315] [cursor=pointer]:
+              - /url: https://abc.xyz/investor/
+              - text: Investor relations
+              - generic [ref=e317]: open_in_new
+            - link "Blog (opens in a new tab)" [ref=e318] [cursor=pointer]:
+              - /url: https://blog.google/
+              - text: Blog
+              - generic [ref=e320]: open_in_new
+        - generic [ref=e321]:
+          - heading "Equal opportunity" [level=2] [ref=e322]
+          - paragraph [ref=e323]:
+            - text: Google is proud to be an equal opportunity and affirmative action employer. We are committed to building a workforce that is representative of the users we serve, creating a culture of belonging and providing an equal employment opportunity regardless of race, creed, colour, religion, gender, sexual orientation, gender identity/expression, national origin, disability, age, genetic information, veteran status, marital status, pregnancy or related condition (including breastfeeding), expecting or parents-to-be, criminal histories consistent with legal requirements or any other basis protected by law. See also
+            - link "Google's EEO Policy" [ref=e324] [cursor=pointer]:
+              - /url: https://www.google.com/about/careers/applications/eeo/
+            - text: ","
+            - 'link "Know your rights: workplace discrimination is illegal" [ref=e325] [cursor=pointer]':
+              - /url: https://careers.google.com/jobs/dist/legal/EEOC_KnowYourRights_10_20.pdf
+            - text: ","
+            - link "Belonging at Google" [ref=e326] [cursor=pointer]:
+              - /url: https://about.google/belonging/
+            - text: and
+            - link "How we hire" [ref=e327] [cursor=pointer]:
+              - /url: https://careers.google.com/how-we-hire/
+            - text: .
+      - generic [ref=e328]:
+        - link "google.com (opens in a new tab)" [ref=e330] [cursor=pointer]:
+          - /url: https://www.google.com/
+          - img "Google" [ref=e331]
+        - generic [ref=e332]:
+          - generic [ref=e333]:
+            - link "Privacy (opens in a new tab)" [ref=e335] [cursor=pointer]:
+              - /url: https://policies.google.com/privacy
+              - text: Privacy
+              - generic [ref=e337]: open_in_new
+            - link "Applicant and candidate privacy (opens in a new tab)" [ref=e339] [cursor=pointer]:
+              - /url: ./privacy-policy
+              - text: Applicant and candidate privacy
+              - generic [ref=e341]: open_in_new
+            - link "Terms (opens in a new tab)" [ref=e343] [cursor=pointer]:
+              - /url: https://policies.google.com/terms
+              - text: Terms
+              - generic [ref=e345]: open_in_new
+          - link "Help (opens in a new tab)" [ref=e347] [cursor=pointer]:
+            - /url: https://support.google.com/googlecareers/#topic=6095159
+            - generic [ref=e349]: help
+            - text: Help
+            - generic [ref=e351]: open_in_new

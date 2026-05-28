@@ -1,0 +1,78 @@
+<h2>DataIQ — Production Gap Map</h2>
+<p class="subtitle">Pick the top priority areas. We'll build the implementation plan around your choices.</p>
+
+<div class="options" data-multiselect>
+  <div class="option" data-choice="ux" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>🎯 First-Run UX &amp; Onboarding</h3>
+      <p>Guided API key setup, OnboardingTour wired to App, empty-state panels with action prompts, tab bar overflow fix. <strong>Currently:</strong> user lands with no AI, no direction.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Fixes</h4><ul><li>No AI provider CTA</li><li>13-tab overflow at 1280px</li><li>Tour scaffolded but not wired</li></ul></div>
+        <div class="cons"><h4>Effort</h4><ul><li>~2–3 days</li><li>Mostly frontend</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="stability" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>🛡️ Stability &amp; Error Handling</h3>
+      <p>React error boundaries, loading spinners, approval timeout (currently hangs forever), memory guards on billion-row scans, user-facing error messages.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Fixes</h4><ul><li>App crashes bubble to root</li><li>Agent hangs on approval</li><li>OOM risk on large tables</li></ul></div>
+        <div class="cons"><h4>Effort</h4><ul><li>~3–4 days</li><li>Rust + React</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="ai-speed" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>⚡ AI Agent Speed &amp; Intelligence</h3>
+      <p>Sub-2s first-token latency, smarter tool selection, streaming progress indicator, deeper statistical tools (regression, clustering, anomaly detection), context compression.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Wins</h4><ul><li>Beats Cursor on data tasks</li><li>Real-time analysis feel</li><li>Better than JMP automation</li></ul></div>
+        <div class="cons"><h4>Effort</h4><ul><li>~4–5 days</li><li>Agent + Harness layer</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="viz" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>📊 Visualization &amp; Dashboards</h3>
+      <p>Richer chart types (scatter matrix, heatmap, histogram, box plot), dashboard builder, chart-to-AI feedback loop ("explain this spike"), export to PNG/PDF/shareable link.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Wins</h4><ul><li>Beats PowerBI/Tableau on AI-native charts</li><li>Agent can create dashboards on demand</li></ul></div>
+        <div class="cons"><h4>Effort</h4><ul><li>~5–7 days</li><li>High visual impact</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="performance" onclick="toggleSelect(this)">
+    <div class="letter">E</div>
+    <div class="content">
+      <h3>🚀 Query Performance &amp; DuckDB</h3>
+      <p>DuckDB in-process for CSV/Parquet (already importable but not fully leveraged), query caching, explain plan UI, index suggestions, background query execution with progress.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Wins</h4><ul><li>Billions of rows, seconds not minutes</li><li>Offline-capable local analysis</li></ul></div>
+        <div class="cons"><h4>Effort</h4><ul><li>~4–5 days</li><li>Rust + Tauri layer</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="connectors" onclick="toggleSelect(this)">
+    <div class="letter">F</div>
+    <div class="content">
+      <h3>🔌 Data Connectors &amp; Import</h3>
+      <p>REST API connector, S3/GCS/Azure Blob ingestion, Excel/Google Sheets import, scheduled data pulls, SSH tunnel support for remote DBs.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Wins</h4><ul><li>Beats Tableau on setup friction</li><li>More data sources = more value</li></ul></div>
+        <div class="cons"><h4>Effort</h4><ul><li>~6–8 days</li><li>Mostly Rust backend</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:24px">Select all that matter (multi-select). Then tell me in the terminal which you'd tackle first.</p>

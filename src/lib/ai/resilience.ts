@@ -16,6 +16,8 @@ export interface RetryOptions {
   baseDelayMs?: number;       // default 1000ms
   maxDelayMs?: number;        // default 16_000ms
   onRetry?: (attempt: number, delayMs: number, error: unknown) => void;
+  /** When provided, abort fires during a retry delay and throws AbortError immediately. */
+  signal?: AbortSignal;
 }
 
 export class TimeoutError extends Error {
@@ -28,7 +30,7 @@ export class TimeoutError extends Error {
   }
 }
 
-const DEFAULT_OPTS: Required<RetryOptions> = {
+const DEFAULT_OPTS: Required<Omit<RetryOptions, 'signal'>> = {
   maxAttempts: 3,
   baseDelayMs: 1_000,
   maxDelayMs: 16_000,
@@ -43,6 +45,9 @@ function isPermanentQuotaErrorMessage(msg: string): boolean {
 }
 
 function isRetryable(err: unknown): boolean {
+  // TimeoutError: allow ONE retry, but the caller controls max attempts.
+  // We return true so withRetry will retry, but AgentLoop uses maxAttempts=3
+  // which means at most 2 retries for timeouts.
   if (err instanceof TimeoutError) return true;
   if (err instanceof Error) {
     const msg = err.message.toLowerCase();
@@ -54,6 +59,8 @@ function isRetryable(err: unknown): boolean {
     if (msg.includes("500") || msg.includes("502") || msg.includes("503") || msg.includes("504")) return true;
     // Anthropic SDK specific
     if (msg.includes("overloaded")) return true;
+    // Timeout — model was slow, worth retrying
+    if (msg.includes("timed out") || msg.includes("timeout") || msg.includes("time out")) return true;
   }
   // Check if it's an API error object with a status field
   if (typeof err === "object" && err !== null) {
@@ -88,8 +95,18 @@ function extractRetryAfterMs(err: unknown): number | null {
   return null;
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function delay(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const id = setTimeout(resolve, ms);
+    signal?.addEventListener("abort", () => {
+      clearTimeout(id);
+      reject(new DOMException("Aborted", "AbortError"));
+    }, { once: true });
+  });
 }
 
 export async function withTimeout<T>(
@@ -114,6 +131,18 @@ export async function withTimeout<T>(
 }
 
 /**
+ * Wraps a single tool dispatch with an 8-second hard timeout.
+ * Throws TimeoutError if the tool does not resolve in time.
+ */
+export function withToolTimeout<T>(
+  promise: Promise<T>,
+  toolName: string,
+  timeoutMs = 8_000,
+): Promise<T> {
+  return withTimeout(promise, timeoutMs, `Tool "${toolName}"`);
+}
+
+/**
  * Wraps an async function with exponential backoff retry.
  *
  * @param fn      The async function to execute (called with no args)
@@ -129,26 +158,34 @@ export async function withRetry<T>(
     ...DEFAULT_OPTS,
     ...opts,
   };
+  const { signal } = opts;
 
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (signal?.aborted) {
+      throw new DOMException("Aborted", "AbortError");
+    }
+
     try {
       return await fn();
     } catch (err) {
       lastError = err;
 
+      if (err instanceof DOMException && err.name === "AbortError") {
+        throw err;
+      }
+
       if (attempt === maxAttempts || !isRetryable(err)) {
         throw err;
       }
 
-      // Respect Retry-After if present, otherwise exponential backoff
       const retryAfterMs = extractRetryAfterMs(err);
       const backoff = Math.min(baseDelayMs * Math.pow(2, attempt - 1), maxDelayMs);
       const waitMs = retryAfterMs ?? backoff;
 
       onRetry(attempt, waitMs, err);
-      await delay(waitMs);
+      await delay(waitMs, signal);
     }
   }
 

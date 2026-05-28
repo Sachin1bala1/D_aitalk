@@ -1,0 +1,868 @@
+- generic [ref=e2]:
+  - link "Skip to main content" [ref=e3] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=e4]:
+    - navigation "Primary" [ref=e5]:
+      - link "LinkedIn" [ref=e6] [cursor=pointer]:
+        - /url: /?trk=public_jobs_nav-header-logo
+        - generic [ref=e7]: LinkedIn
+      - generic [ref=e9]:
+        - button "Manufacturing AI Engineer Data in United States Expand search" [ref=e10]:
+          - generic [ref=e12]: Manufacturing AI Engineer Data in United States
+          - generic [ref=e13]: Expand search
+        - status [ref=e14]
+      - generic [ref=e15]:
+        - link "Sign in" [ref=e16] [cursor=pointer]:
+          - /url: https://www.linkedin.com/login?emailAddress=&fromSignIn=&fromSignIn=true&session_redirect=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fsearch%2F%3Fkeywords%3Dmanufacturing%2BAI%2Bengineer%2Bdata%26location%3DUnited%2BStates%26f_TPR%3Dr604800&trk=public_jobs_nav-header-signin
+        - link "Join now" [ref=e17] [cursor=pointer]:
+          - /url: https://www.linkedin.com/signup/cold-join?source=jobs_registration&session_redirect=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fsearch%2F%3Fkeywords%3Dmanufacturing%2BAI%2Bengineer%2Bdata%26location%3DUnited%2BStates%26f_TPR%3Dr604800&trk=public_jobs_nav-header-join
+  - list [ref=e23]:
+    - listitem [ref=e24]:
+      - button "Date posted filter. Past week filter is currently applied. Clicking this button displays all Date posted filter options." [ref=e27] [cursor=pointer]: Past week
+    - listitem [ref=e29]:
+      - button "Company filter. Clicking this button displays all Company filter options." [ref=e32] [cursor=pointer]: Company
+    - listitem [ref=e34]:
+      - button "Job type filter. Clicking this button displays all Job type filter options." [ref=e37] [cursor=pointer]: Job type
+    - listitem [ref=e39]:
+      - button "Experience level filter. Clicking this button displays all Experience level filter options." [ref=e42] [cursor=pointer]: Experience level
+    - listitem [ref=e44]:
+      - button "Location filter. Clicking this button displays all Location filter options." [ref=e47] [cursor=pointer]: Location
+    - listitem [ref=e49]:
+      - button "Salary filter. Clicking this button displays all Salary filter options." [ref=e52] [cursor=pointer]: Salary
+    - listitem [ref=e54]:
+      - button "Remote filter. Clicking this button displays all Remote filter options." [ref=e57] [cursor=pointer]: Remote
+  - main [ref=e60]:
+    - generic [ref=e64]:
+      - paragraph [ref=e65]:
+        - text: Get notified about new Manufacturing AI Engineer Data jobs in
+        - strong [ref=e66]: United States
+        - text: .
+      - link "Sign in to create job alert" [ref=e67] [cursor=pointer]:
+        - /url: https://www.linkedin.com/login?emailAddress=&fromSignIn=&session_redirect=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fsearch%2F%3Fkeywords%3Dmanufacturing%2BAI%2Bengineer%2Bdata%26location%3DUnited%2BStates%26f_TPR%3Dr604800&trk=public_jobs_job-alert-guest-redirect-cta
+    - heading "5,000+ Manufacturing AI Engineer Data Jobs in United States" [level=1] [ref=e69]
+    - list [ref=e71]:
+      - listitem [ref=e72]:
+        - generic [ref=e73]:
+          - link "Junior AI Engineer" [ref=e74] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/junior-ai-engineer-at-onto-innovation-4310893067?position=1&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=ytOgiJoxjUA3JfOYPtNVXA%3D%3D
+            - generic [ref=e75]: Junior AI Engineer
+          - img [ref=e77]
+          - generic [ref=e78]:
+            - heading "Junior AI Engineer" [level=3] [ref=e79]
+            - heading "Onto Innovation" [level=4] [ref=e80]:
+              - link "Onto Innovation" [ref=e81] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/onto-innovation?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e82]:
+              - generic [ref=e83]: Wilmington, MA
+              - time [ref=e84]: 2 days ago
+      - listitem [ref=e85]:
+        - generic [ref=e86]:
+          - link "AI Research Engineer - Datadog AI Research (DAIR)" [ref=e87] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/ai-research-engineer-datadog-ai-research-dair-at-datadog-4289369289?position=2&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=hQHbGjQopockCea%2BntVWdg%3D%3D
+            - generic [ref=e88]: AI Research Engineer - Datadog AI Research (DAIR)
+          - img [ref=e90]
+          - generic [ref=e91]:
+            - heading "AI Research Engineer - Datadog AI Research (DAIR)" [level=3] [ref=e92]
+            - heading "Datadog" [level=4] [ref=e93]:
+              - link "Datadog" [ref=e94] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/datadog?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e95]:
+              - generic [ref=e96]: New York, NY
+              - time [ref=e97]: 6 days ago
+      - listitem [ref=e98]:
+        - generic [ref=e99]:
+          - link "Data Scientist" [ref=e100] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/data-scientist-at-los-angeles-lakers-4412393985?position=3&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=nTyF2TYwm1keHBVzT1iO7g%3D%3D
+            - generic [ref=e101]: Data Scientist
+          - img [ref=e103]
+          - generic [ref=e104]:
+            - heading "Data Scientist" [level=3] [ref=e105]
+            - heading "Los Angeles Lakers" [level=4] [ref=e106]:
+              - link "Los Angeles Lakers" [ref=e107] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/los-angeles-lakers?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e108]:
+              - generic [ref=e109]: El Segundo, CA
+              - time [ref=e110]: 2 days ago
+      - listitem [ref=e111]:
+        - generic [ref=e112]:
+          - link "data scientist, Data & Analytics (Nashville, TN)" [ref=e113] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/data-scientist-data-analytics-nashville-tn-at-starbucks-4411473326?position=4&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=gEOrgK12fQ3f5nPWDKgApg%3D%3D
+            - generic [ref=e114]: data scientist, Data & Analytics (Nashville, TN)
+          - img [ref=e116]
+          - generic [ref=e117]:
+            - heading "data scientist, Data & Analytics (Nashville, TN)" [level=3] [ref=e118]
+            - heading "Starbucks" [level=4] [ref=e119]:
+              - link "Starbucks" [ref=e120] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/starbucks?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e121]:
+              - generic [ref=e122]: Nashville, TN
+              - time [ref=e123]: 5 days ago
+      - listitem [ref=e124]:
+        - generic [ref=e125]:
+          - link "Artificial Intelligence Engineer" [ref=e126] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/artificial-intelligence-engineer-at-concord-4409383916?position=5&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=sty6Omv4zx3azjjb%2BsLW6g%3D%3D
+            - generic [ref=e127]: Artificial Intelligence Engineer
+          - generic [ref=e129]:
+            - heading "Artificial Intelligence Engineer" [level=3] [ref=e130]
+            - heading "Concord" [level=4] [ref=e131]:
+              - link "Concord" [ref=e132] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/concord?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e133]:
+              - generic [ref=e134]: United States
+              - time [ref=e135]: 1 day ago
+      - listitem [ref=e136]:
+        - generic [ref=e137]:
+          - link "Machine Learning Engineer" [ref=e138] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-at-adobe-4412982645?position=6&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=Gu%2BvkGZklk%2Bt5QsYJEfqzg%3D%3D
+            - generic [ref=e139]: Machine Learning Engineer
+          - generic [ref=e141]:
+            - heading "Machine Learning Engineer" [level=3] [ref=e142]
+            - heading "Adobe" [level=4] [ref=e143]:
+              - link "Adobe" [ref=e144] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/adobe?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e145]:
+              - generic [ref=e146]: San Jose, CA
+              - time [ref=e147]: 1 day ago
+      - listitem [ref=e148]:
+        - generic [ref=e149]:
+          - link "Machine Learning Engineer" [ref=e150] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-at-shipt-4402000096?position=7&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=jleh8VLx%2BHnJq1W1TAGjqw%3D%3D
+            - generic [ref=e151]: Machine Learning Engineer
+          - generic [ref=e153]:
+            - heading "Machine Learning Engineer" [level=3] [ref=e154]
+            - heading "Shipt" [level=4] [ref=e155]:
+              - link "Shipt" [ref=e156] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/shipt?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e157]:
+              - generic [ref=e158]: United States
+              - time [ref=e159]: 6 days ago
+      - listitem [ref=e160]:
+        - generic [ref=e161]:
+          - link "AI Engineer" [ref=e162] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/ai-engineer-at-decagon-4391121659?position=8&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=zz9iNxd0iD%2BTmf9StkACpw%3D%3D
+            - generic [ref=e163]: AI Engineer
+          - generic [ref=e165]:
+            - heading "AI Engineer" [level=3] [ref=e166]
+            - heading "Decagon" [level=4] [ref=e167]:
+              - link "Decagon" [ref=e168] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/decagon-ai?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e169]:
+              - generic [ref=e170]: San Francisco, CA
+              - time [ref=e171]: 4 days ago
+      - listitem [ref=e172]:
+        - generic [ref=e173]:
+          - link "Software Engineer, Machine Learning" [ref=e174] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/software-engineer-machine-learning-at-meta-4261168047?position=9&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=45l%2BD1PCVPIedSh1H%2FZchg%3D%3D
+            - generic [ref=e175]: Software Engineer, Machine Learning
+          - generic [ref=e177]:
+            - heading "Software Engineer, Machine Learning" [level=3] [ref=e178]
+            - heading "Meta" [level=4] [ref=e179]:
+              - link "Meta" [ref=e180] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/meta?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e181]:
+              - generic [ref=e182]: Menlo Park, CA
+              - time [ref=e183]: 6 days ago
+      - listitem [ref=e184]:
+        - generic [ref=e185]:
+          - link "Machine Learning Engineer, Relevance and Personalization" [ref=e186] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-relevance-and-personalization-at-airbnb-4413208897?position=10&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=1%2B6DjF%2BpdKQlGboYe4el2w%3D%3D
+            - generic [ref=e187]: Machine Learning Engineer, Relevance and Personalization
+          - generic [ref=e189]:
+            - heading "Machine Learning Engineer, Relevance and Personalization" [level=3] [ref=e190]
+            - heading "Airbnb" [level=4] [ref=e191]:
+              - link "Airbnb" [ref=e192] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/airbnb?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e193]:
+              - generic [ref=e194]: United States
+              - time [ref=e195]: 1 day ago
+      - listitem [ref=e196]:
+        - generic [ref=e197]:
+          - link "Machine Learning Engineer" [ref=e198] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-at-sap-4412973740?position=11&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=1FeEL6mZ491ISUNA%2FsmiZw%3D%3D
+            - generic [ref=e199]: Machine Learning Engineer
+          - generic [ref=e201]:
+            - heading "Machine Learning Engineer" [level=3] [ref=e202]
+            - heading "SAP" [level=4] [ref=e203]:
+              - link "SAP" [ref=e204] [cursor=pointer]:
+                - /url: https://de.linkedin.com/company/sap?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e205]:
+              - generic [ref=e206]: Palo Alto, CA
+              - time [ref=e207]: 1 day ago
+      - listitem [ref=e208]:
+        - generic [ref=e209]:
+          - link "Software Engineer, Machine Learning" [ref=e210] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/software-engineer-machine-learning-at-meta-4254372617?position=12&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=%2F48FQvT6ZiDW4jSrs%2FehgA%3D%3D
+            - generic [ref=e211]: Software Engineer, Machine Learning
+          - generic [ref=e213]:
+            - heading "Software Engineer, Machine Learning" [level=3] [ref=e214]
+            - heading "Meta" [level=4] [ref=e215]:
+              - link "Meta" [ref=e216] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/meta?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e217]:
+              - generic [ref=e218]: Sunnyvale, CA
+              - time [ref=e219]: 5 days ago
+      - listitem [ref=e220]:
+        - generic [ref=e221]:
+          - link "Software Engineer, Machine Learning" [ref=e222] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/software-engineer-machine-learning-at-meta-4254370680?position=13&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=4nfHMCkX%2BlYs1Qt4634fJQ%3D%3D
+            - generic [ref=e223]: Software Engineer, Machine Learning
+          - generic [ref=e225]:
+            - heading "Software Engineer, Machine Learning" [level=3] [ref=e226]
+            - heading "Meta" [level=4] [ref=e227]:
+              - link "Meta" [ref=e228] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/meta?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e229]:
+              - generic [ref=e230]: San Mateo, CA
+              - time [ref=e231]: 5 days ago
+      - listitem [ref=e232]:
+        - generic [ref=e233]:
+          - link "Machine Learning Engineer" [ref=e234] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-at-the-fountain-group-4413739281?position=14&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=PLXGmEwxqrj%2BxDh11ZFbqA%3D%3D
+            - generic [ref=e235]: Machine Learning Engineer
+          - generic [ref=e237]:
+            - heading "Machine Learning Engineer" [level=3] [ref=e238]
+            - heading "The Fountain Group" [level=4] [ref=e239]:
+              - link "The Fountain Group" [ref=e240] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/the-fountain-group?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e241]:
+              - generic [ref=e242]: Mountain View, CA
+              - time [ref=e243]: 10 hours ago
+      - listitem [ref=e244]:
+        - generic [ref=e245]:
+          - link "ML/AI Engineer" [ref=e246] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/ml-ai-engineer-at-amd-4395168107?position=15&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=iljgE7BmkmvoMOqegTNhTw%3D%3D
+            - generic [ref=e247]: ML/AI Engineer
+          - generic [ref=e249]:
+            - heading "ML/AI Engineer" [level=3] [ref=e250]
+            - heading "AMD" [level=4] [ref=e251]:
+              - link "AMD" [ref=e252] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/amd?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e253]:
+              - generic [ref=e254]: Austin, TX
+              - time [ref=e255]: 20 hours ago
+      - listitem [ref=e256]:
+        - generic [ref=e257]:
+          - link "Machine Learning Engineer" [ref=e258] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-at-nearmap-4412603790?position=16&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=KWG3KFh47Qh%2B8MsJQjqHDg%3D%3D
+            - generic [ref=e259]: Machine Learning Engineer
+          - generic [ref=e261]:
+            - heading "Machine Learning Engineer" [level=3] [ref=e262]
+            - heading "Nearmap" [level=4] [ref=e263]:
+              - link "Nearmap" [ref=e264] [cursor=pointer]:
+                - /url: https://au.linkedin.com/company/nearmap-com?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e265]:
+              - generic [ref=e266]: Carlsbad, CA
+              - time [ref=e267]: 2 days ago
+      - listitem [ref=e268]:
+        - generic [ref=e269]:
+          - link "AI/ML Platform Engineer (Azure & GCP)" [ref=e270] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/ai-ml-platform-engineer-azure-gcp-at-largeton-group-4412940466?position=17&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=NnW9dmMaSM%2BwQNBok%2Fiq1Q%3D%3D
+            - generic [ref=e271]: AI/ML Platform Engineer (Azure & GCP)
+          - generic [ref=e273]:
+            - heading "AI/ML Platform Engineer (Azure & GCP)" [level=3] [ref=e274]
+            - heading "Largeton Group" [level=4] [ref=e275]:
+              - link "Largeton Group" [ref=e276] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/largeton-inc?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e277]:
+              - generic [ref=e278]: Toronto, OH
+              - time [ref=e279]: 1 day ago
+      - listitem [ref=e280]:
+        - generic [ref=e281]:
+          - link "Software Engineer, Machine Learning" [ref=e282] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/software-engineer-machine-learning-at-meta-4254370678?position=18&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=CBvVxE0j6xnTwc2Ld%2BHMoQ%3D%3D
+            - generic [ref=e283]: Software Engineer, Machine Learning
+          - generic [ref=e285]:
+            - heading "Software Engineer, Machine Learning" [level=3] [ref=e286]
+            - heading "Meta" [level=4] [ref=e287]:
+              - link "Meta" [ref=e288] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/meta?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e289]:
+              - generic [ref=e290]: Foster City, CA
+              - time [ref=e291]: 5 days ago
+      - listitem [ref=e292]:
+        - generic [ref=e293]:
+          - link "Applied ML Engineer" [ref=e294] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/applied-ml-engineer-at-paramount-4413703811?position=19&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=3RrqHYDRaV0x%2BWdkYDGeZA%3D%3D
+            - generic [ref=e295]: Applied ML Engineer
+          - generic [ref=e297]:
+            - heading "Applied ML Engineer" [level=3] [ref=e298]
+            - heading "Paramount" [level=4] [ref=e299]:
+              - link "Paramount" [ref=e300] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/paramountco?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e301]:
+              - generic [ref=e302]: Los Angeles, CA
+              - time [ref=e303]: 11 hours ago
+      - listitem [ref=e304]:
+        - generic [ref=e305]:
+          - link "Data Scientist" [ref=e306] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/data-scientist-at-verse-4411631804?position=20&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=jAcbk%2FiH1HAYB2kEIUFLuA%3D%3D
+            - generic [ref=e307]: Data Scientist
+          - generic [ref=e309]:
+            - heading "Data Scientist" [level=3] [ref=e310]
+            - heading "Verse" [level=4] [ref=e311]:
+              - link "Verse" [ref=e312] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/versedotinc?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e313]:
+              - generic [ref=e314]: San Francisco, CA
+              - time [ref=e315]: 5 days ago
+      - listitem [ref=e316]:
+        - generic [ref=e317]:
+          - link "Software Engineer, Machine Learning" [ref=e318] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/software-engineer-machine-learning-at-meta-4255814153?position=21&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=S3RH7nC0KvZ%2F0caZP7ZA5g%3D%3D
+            - generic [ref=e319]: Software Engineer, Machine Learning
+          - generic [ref=e321]:
+            - heading "Software Engineer, Machine Learning" [level=3] [ref=e322]
+            - heading "Meta" [level=4] [ref=e323]:
+              - link "Meta" [ref=e324] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/meta?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e325]:
+              - generic [ref=e326]: Menlo Park, CA
+              - time [ref=e327]: 5 days ago
+      - listitem [ref=e328]:
+        - generic [ref=e329]:
+          - link "Machine Learning Engineer" [ref=e330] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-at-spotify-4380505566?position=22&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=YGJsb5d2iVTuUGPGa59PqA%3D%3D
+            - generic [ref=e331]: Machine Learning Engineer
+          - generic [ref=e333]:
+            - heading "Machine Learning Engineer" [level=3] [ref=e334]
+            - heading "Spotify" [level=4] [ref=e335]:
+              - link "Spotify" [ref=e336] [cursor=pointer]:
+                - /url: https://se.linkedin.com/company/spotify?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e337]:
+              - generic [ref=e338]: New York, NY
+              - time [ref=e339]: 5 days ago
+      - listitem [ref=e340]:
+        - generic [ref=e341]:
+          - link "Machine Learning Engineer" [ref=e342] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-at-quizlet-4410108137?position=23&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=FIw0zwLrBPLK8XCvbnAQqw%3D%3D
+            - generic [ref=e343]: Machine Learning Engineer
+          - generic [ref=e345]:
+            - heading "Machine Learning Engineer" [level=3] [ref=e346]
+            - heading "Quizlet" [level=4] [ref=e347]:
+              - link "Quizlet" [ref=e348] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/quizlet?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e349]:
+              - generic [ref=e350]: Albany, New York Metropolitan Area
+              - time [ref=e351]: 1 day ago
+      - listitem [ref=e352]:
+        - generic [ref=e353]:
+          - link "Software Engineer, Machine Learning" [ref=e354] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/software-engineer-machine-learning-at-meta-4258815160?position=24&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=ByOGZO8vGiZ%2BkCGA3o9PFQ%3D%3D
+            - generic [ref=e355]: Software Engineer, Machine Learning
+          - generic [ref=e357]:
+            - heading "Software Engineer, Machine Learning" [level=3] [ref=e358]
+            - heading "Meta" [level=4] [ref=e359]:
+              - link "Meta" [ref=e360] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/meta?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e361]:
+              - generic [ref=e362]: Burlingame, CA
+              - time [ref=e363]: 5 days ago
+      - listitem [ref=e364]:
+        - generic [ref=e365]:
+          - link "Machine Learning Developer (Freelance)" [ref=e366] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-developer-freelance-at-mindrift-4408818350?position=25&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=1UYQwXE%2BlqLen0QpESs3hw%3D%3D
+            - generic [ref=e367]: Machine Learning Developer (Freelance)
+          - generic [ref=e369]:
+            - heading "Machine Learning Developer (Freelance)" [level=3] [ref=e370]
+            - heading "Mindrift" [level=4] [ref=e371]:
+              - link "Mindrift" [ref=e372] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/mindrift-ai?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e373]:
+              - generic [ref=e374]: New York, United States
+              - generic [ref=e377]: Be an early applicant
+              - time [ref=e378]: 6 days ago
+      - listitem [ref=e379]:
+        - generic [ref=e380]:
+          - link "Data Scientist" [ref=e381] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/data-scientist-at-andiamo-4380624923?position=26&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=ae%2FFqp9FHWfHXkBWNGZOcw%3D%3D
+            - generic [ref=e382]: Data Scientist
+          - generic [ref=e384]:
+            - heading "Data Scientist" [level=3] [ref=e385]
+            - heading "Andiamo" [level=4] [ref=e386]:
+              - link "Andiamo" [ref=e387] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/andiamo-partners?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e388]:
+              - generic [ref=e389]: New York, NY
+              - time [ref=e390]: 4 days ago
+      - listitem [ref=e391]:
+        - generic [ref=e392]:
+          - link "Software Engineer, Machine Learning" [ref=e393] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/software-engineer-machine-learning-at-meta-4254373532?position=27&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=y3o4bS3Pfa9NYSsK5Qxt%2Fg%3D%3D
+            - generic [ref=e394]: Software Engineer, Machine Learning
+          - generic [ref=e396]:
+            - heading "Software Engineer, Machine Learning" [level=3] [ref=e397]
+            - heading "Meta" [level=4] [ref=e398]:
+              - link "Meta" [ref=e399] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/meta?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e400]:
+              - generic [ref=e401]: Bellevue, WA
+              - time [ref=e402]: 5 days ago
+      - listitem [ref=e403]:
+        - generic [ref=e404]:
+          - link "Artificial intelligence (AI) Engineer Intern" [ref=e405] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/artificial-intelligence-ai-engineer-intern-at-pindrop-4413465096?position=28&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=06G9ndWyHbc1VkC9jtHSZw%3D%3D
+            - generic [ref=e406]: Artificial intelligence (AI) Engineer Intern
+          - generic [ref=e408]:
+            - heading "Artificial intelligence (AI) Engineer Intern" [level=3] [ref=e409]
+            - heading "Pindrop" [level=4] [ref=e410]:
+              - link "Pindrop" [ref=e411] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/pindrop?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e412]:
+              - generic [ref=e413]: Atlanta, GA
+              - time [ref=e414]: 16 hours ago
+      - listitem [ref=e415]:
+        - generic [ref=e416]:
+          - link "Software Engineer, Machine Learning" [ref=e417] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/software-engineer-machine-learning-at-meta-4254367801?position=29&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=3%2FfLjlISdHw0Q0HMZ694KA%3D%3D
+            - generic [ref=e418]: Software Engineer, Machine Learning
+          - generic [ref=e420]:
+            - heading "Software Engineer, Machine Learning" [level=3] [ref=e421]
+            - heading "Meta" [level=4] [ref=e422]:
+              - link "Meta" [ref=e423] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/meta?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e424]:
+              - generic [ref=e425]: Redmond, WA
+              - time [ref=e426]: 5 days ago
+      - listitem [ref=e427]:
+        - generic [ref=e428]:
+          - link "Software Engineer, Machine Learning" [ref=e429] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/software-engineer-machine-learning-at-meta-4261119736?position=30&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=ZSUxwqGeAG5Kug1PB2ttUQ%3D%3D
+            - generic [ref=e430]: Software Engineer, Machine Learning
+          - generic [ref=e432]:
+            - heading "Software Engineer, Machine Learning" [level=3] [ref=e433]
+            - heading "Meta" [level=4] [ref=e434]:
+              - link "Meta" [ref=e435] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/meta?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e436]:
+              - generic [ref=e437]: Santa Clara, CA
+              - time [ref=e438]: 5 days ago
+      - listitem [ref=e439]:
+        - generic [ref=e440]:
+          - link "Software Engineer, Machine Learning" [ref=e441] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/software-engineer-machine-learning-at-meta-4255810908?position=31&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=Zmqt8Qb0suXfFQEY8WI8GA%3D%3D
+            - generic [ref=e442]: Software Engineer, Machine Learning
+          - generic [ref=e444]:
+            - heading "Software Engineer, Machine Learning" [level=3] [ref=e445]
+            - heading "Meta" [level=4] [ref=e446]:
+              - link "Meta" [ref=e447] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/meta?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e448]:
+              - generic [ref=e449]: Seattle, WA
+              - time [ref=e450]: 6 days ago
+      - listitem [ref=e451]:
+        - generic [ref=e452]:
+          - link "Machine Learning Engineer, Distributed & Scalable Training" [ref=e453] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-distributed-scalable-training-at-lila-sciences-4312073984?position=32&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=TBxYB9BlIsY4HQPQCROczQ%3D%3D
+            - generic [ref=e454]: Machine Learning Engineer, Distributed & Scalable Training
+          - generic [ref=e456]:
+            - heading "Machine Learning Engineer, Distributed & Scalable Training" [level=3] [ref=e457]
+            - heading "Lila Sciences" [level=4] [ref=e458]:
+              - link "Lila Sciences" [ref=e459] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/lila-sciences?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e460]:
+              - generic [ref=e461]: Cambridge, MA
+              - time [ref=e462]: 19 hours ago
+      - listitem [ref=e463]:
+        - generic [ref=e464]:
+          - link "Machine Learning Engineer" [ref=e465] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-at-adobe-4380612488?position=33&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=YUIGhBdn5lL6zHRYXldArQ%3D%3D
+            - generic [ref=e466]: Machine Learning Engineer
+          - generic [ref=e468]:
+            - heading "Machine Learning Engineer" [level=3] [ref=e469]
+            - heading "Adobe" [level=4] [ref=e470]:
+              - link "Adobe" [ref=e471] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/adobe?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e472]:
+              - generic [ref=e473]: San Jose, CA
+              - time [ref=e474]: 3 days ago
+      - listitem [ref=e475]:
+        - generic [ref=e476]:
+          - link "Machine Learning Engineer, Reinforcement Learning" [ref=e477] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-reinforcement-learning-at-skild-ai-4043212053?position=34&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=38a9BBSg9G%2FLW269xJfGPw%3D%3D
+            - generic [ref=e478]: Machine Learning Engineer, Reinforcement Learning
+          - generic [ref=e480]:
+            - heading "Machine Learning Engineer, Reinforcement Learning" [level=3] [ref=e481]
+            - heading "Skild AI" [level=4] [ref=e482]:
+              - link "Skild AI" [ref=e483] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/skildai?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e484]:
+              - generic [ref=e485]: San Francisco Bay Area
+              - time [ref=e486]: 1 day ago
+      - listitem [ref=e487]:
+        - generic [ref=e488]:
+          - link "Machine Learning Engineer, Sign-Up Flow Optimization" [ref=e489] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-sign-up-flow-optimization-at-paramount-4411409163?position=35&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=0Da9rE1k2dXfAEKUOTO%2FJA%3D%3D
+            - generic [ref=e490]: Machine Learning Engineer, Sign-Up Flow Optimization
+          - generic [ref=e492]:
+            - heading "Machine Learning Engineer, Sign-Up Flow Optimization" [level=3] [ref=e493]
+            - heading "Paramount" [level=4] [ref=e494]:
+              - link "Paramount" [ref=e495] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/paramountco?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e496]:
+              - generic [ref=e497]: West Hollywood, CA
+              - time [ref=e498]: 6 days ago
+      - listitem [ref=e499]:
+        - generic [ref=e500]:
+          - link "Machine Learning Engineer II, Burger King, US&C" [ref=e501] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-ii-burger-king-us-c-at-burger-king-4411286936?position=36&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=ce5zZXNFTMotGfTPYqovpw%3D%3D
+            - generic [ref=e502]: Machine Learning Engineer II, Burger King, US&C
+          - generic [ref=e504]:
+            - heading "Machine Learning Engineer II, Burger King, US&C" [level=3] [ref=e505]
+            - heading "Burger King" [level=4] [ref=e506]:
+              - link "Burger King" [ref=e507] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/burger-king?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e508]:
+              - generic [ref=e509]: Miami, FL
+              - time [ref=e510]: 6 days ago
+      - listitem [ref=e511]:
+        - generic [ref=e512]:
+          - link "Data Scientist" [ref=e513] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/data-scientist-at-walt-disney-world-4413916787?position=37&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=kmXWYg1Fc%2FTZ8Qnjb2lD5w%3D%3D
+            - generic [ref=e514]: Data Scientist
+          - generic [ref=e516]:
+            - heading "Data Scientist" [level=3] [ref=e517]
+            - heading "Walt Disney World" [level=4] [ref=e518]:
+              - link "Walt Disney World" [ref=e519] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/walt-disney-world?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e520]:
+              - generic [ref=e521]: Lake Buena Vista, FL
+              - generic [ref=e524]: Be an early applicant
+              - time [ref=e525]: 1 hour ago
+      - listitem [ref=e526]:
+        - generic [ref=e527]:
+          - link "AI/ML Engineer (Hybrid)" [ref=e528] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/ai-ml-engineer-hybrid-at-cisco-4413234717?position=38&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=1MX7zF8XQL3U1EvsRE9kxQ%3D%3D
+            - generic [ref=e529]: AI/ML Engineer (Hybrid)
+          - generic [ref=e531]:
+            - heading "AI/ML Engineer (Hybrid)" [level=3] [ref=e532]
+            - heading "Cisco" [level=4] [ref=e533]:
+              - link "Cisco" [ref=e534] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/cisco?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e535]:
+              - generic [ref=e536]: San Jose, CA
+              - time [ref=e537]: 1 day ago
+      - listitem [ref=e538]:
+        - generic [ref=e539]:
+          - link "Software Engineer, Machine Learning" [ref=e540] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/software-engineer-machine-learning-at-meta-4255818024?position=39&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=AoGAkkKpOtr3Do3EOly5Ow%3D%3D
+            - generic [ref=e541]: Software Engineer, Machine Learning
+          - generic [ref=e543]:
+            - heading "Software Engineer, Machine Learning" [level=3] [ref=e544]
+            - heading "Meta" [level=4] [ref=e545]:
+              - link "Meta" [ref=e546] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/meta?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e547]:
+              - generic [ref=e548]: United States
+              - time [ref=e549]: 5 days ago
+      - listitem [ref=e550]:
+        - generic [ref=e551]:
+          - link "Applied AI/ML Software Engineer-Supply Chain AI and Decision Intelligence" [ref=e552] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/applied-ai-ml-software-engineer-supply-chain-ai-and-decision-intelligence-at-ford-motor-company-4402081909?position=40&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=8pfRejBwxHZAiox1GvcPIA%3D%3D
+            - generic [ref=e553]: Applied AI/ML Software Engineer-Supply Chain AI and Decision Intelligence
+          - generic [ref=e555]:
+            - heading "Applied AI/ML Software Engineer-Supply Chain AI and Decision Intelligence" [level=3] [ref=e556]
+            - heading "Ford Motor Company" [level=4] [ref=e557]:
+              - link "Ford Motor Company" [ref=e558] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/ford-motor-company?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e559]:
+              - generic [ref=e560]: Dearborn, MI
+              - time [ref=e561]: 5 days ago
+      - listitem [ref=e562]:
+        - generic [ref=e563]:
+          - link "Software Engineer (Multiple Levels) - Machine Learning Infrastructure, Slack" [ref=e564] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/software-engineer-multiple-levels-machine-learning-infrastructure-slack-at-slack-4371090086?position=41&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=DFVowLI1FsUAGSmEH1m0Nw%3D%3D
+            - generic [ref=e565]: Software Engineer (Multiple Levels) - Machine Learning Infrastructure, Slack
+          - generic [ref=e567]:
+            - heading "Software Engineer (Multiple Levels) - Machine Learning Infrastructure, Slack" [level=3] [ref=e568]
+            - heading "Slack" [level=4] [ref=e569]:
+              - link "Slack" [ref=e570] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/tiny-spec-inc?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e571]:
+              - generic [ref=e572]: Austin, TX
+              - time [ref=e573]: 1 day ago
+      - listitem [ref=e574]:
+        - generic [ref=e575]:
+          - link "Machine Learning Engineer" [ref=e576] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-at-strativ-group-4412124945?position=42&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=asmA3ALhNbCR%2BpU5Xxk5pQ%3D%3D
+            - generic [ref=e577]: Machine Learning Engineer
+          - generic [ref=e579]:
+            - heading "Machine Learning Engineer" [level=3] [ref=e580]
+            - heading "Strativ Group" [level=4] [ref=e581]:
+              - link "Strativ Group" [ref=e582] [cursor=pointer]:
+                - /url: https://uk.linkedin.com/company/strativgroup?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e583]:
+              - generic [ref=e584]: San Francisco Bay Area
+              - time [ref=e585]: 4 days ago
+      - listitem [ref=e586]:
+        - generic [ref=e587]:
+          - link "Machine Learning Engineer, Robot Learning - Robotics Software Firm in High Growth" [ref=e588] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-robot-learning-robotics-software-firm-in-high-growth-at-andiamo-4380632507?position=43&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=gt0YdTnjIVGPAT2D%2Bvyd2g%3D%3D
+            - generic [ref=e589]: Machine Learning Engineer, Robot Learning - Robotics Software Firm in High Growth
+          - generic [ref=e591]:
+            - heading "Machine Learning Engineer, Robot Learning - Robotics Software Firm in High Growth" [level=3] [ref=e592]
+            - heading "Andiamo" [level=4] [ref=e593]:
+              - link "Andiamo" [ref=e594] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/andiamo-partners?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e595]:
+              - generic [ref=e596]: New York, NY
+              - time [ref=e597]: 3 days ago
+      - listitem [ref=e598]:
+        - generic [ref=e599]:
+          - link "Software Engineer (Multiple Levels) - Machine Learning Infrastructure, Slack" [ref=e600] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/software-engineer-multiple-levels-machine-learning-infrastructure-slack-at-slack-4371081855?position=44&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=%2F39y8OMhhBQsPmpY134ePw%3D%3D
+            - generic [ref=e601]: Software Engineer (Multiple Levels) - Machine Learning Infrastructure, Slack
+          - generic [ref=e603]:
+            - heading "Software Engineer (Multiple Levels) - Machine Learning Infrastructure, Slack" [level=3] [ref=e604]
+            - heading "Slack" [level=4] [ref=e605]:
+              - link "Slack" [ref=e606] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/tiny-spec-inc?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e607]:
+              - generic [ref=e608]: Bellevue, WA
+              - time [ref=e609]: 1 day ago
+      - listitem [ref=e610]:
+        - generic [ref=e611]:
+          - link "Machine Learning Engineer" [ref=e612] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-at-reducto-4402997955?position=45&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=NKIGkym6%2BucopBNiJul6rA%3D%3D
+            - generic [ref=e613]: Machine Learning Engineer
+          - generic [ref=e615]:
+            - heading "Machine Learning Engineer" [level=3] [ref=e616]
+            - heading "Reducto" [level=4] [ref=e617]:
+              - link "Reducto" [ref=e618] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/reducto-ai?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e619]:
+              - generic [ref=e620]: San Francisco, CA
+              - time [ref=e621]: 4 days ago
+      - listitem [ref=e622]:
+        - generic [ref=e623]:
+          - link "Machine Learning Developer (Freelance)" [ref=e624] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-developer-freelance-at-mindrift-4408814430?position=46&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=w35rdO9bdIONPFSIUO3qZw%3D%3D
+            - generic [ref=e625]: Machine Learning Developer (Freelance)
+          - generic [ref=e627]:
+            - heading "Machine Learning Developer (Freelance)" [level=3] [ref=e628]
+            - heading "Mindrift" [level=4] [ref=e629]:
+              - link "Mindrift" [ref=e630] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/mindrift-ai?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e631]:
+              - generic [ref=e632]: Virginia, United States
+              - generic [ref=e635]: Be an early applicant
+              - time [ref=e636]: 6 days ago
+      - listitem [ref=e637]:
+        - generic [ref=e638]:
+          - link "Machine Learning Developer (Freelance)" [ref=e639] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-developer-freelance-at-mindrift-4408825304?position=47&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=UeOaUECSy3jb5RquTuAmQQ%3D%3D
+            - generic [ref=e640]: Machine Learning Developer (Freelance)
+          - generic [ref=e642]:
+            - heading "Machine Learning Developer (Freelance)" [level=3] [ref=e643]
+            - heading "Mindrift" [level=4] [ref=e644]:
+              - link "Mindrift" [ref=e645] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/mindrift-ai?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e646]:
+              - generic [ref=e647]: United States
+              - generic [ref=e650]: Be an early applicant
+              - time [ref=e651]: 6 days ago
+      - listitem [ref=e652]:
+        - generic [ref=e653]:
+          - link "AI Engineer" [ref=e654] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/ai-engineer-at-aspen-one-4410313625?position=48&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=Owe6DeSCfDVtJ2Qy0QBtcw%3D%3D
+            - generic [ref=e655]: AI Engineer
+          - generic [ref=e657]:
+            - heading "AI Engineer" [level=3] [ref=e658]
+            - heading "Aspen One" [level=4] [ref=e659]:
+              - link "Aspen One" [ref=e660] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/aspen-one?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e661]:
+              - generic [ref=e662]: Denver, CO
+              - time [ref=e663]: 9 hours ago
+      - listitem [ref=e664]:
+        - generic [ref=e665]:
+          - link "Software Engineer, Machine Learning" [ref=e666] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/software-engineer-machine-learning-at-meta-4254373531?position=49&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=gZezYEPsNECz%2BjnzWTeiwg%3D%3D
+            - generic [ref=e667]: Software Engineer, Machine Learning
+          - generic [ref=e669]:
+            - heading "Software Engineer, Machine Learning" [level=3] [ref=e670]
+            - heading "Meta" [level=4] [ref=e671]:
+              - link "Meta" [ref=e672] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/meta?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e673]:
+              - generic [ref=e674]: Sausalito, CA
+              - time [ref=e675]: 5 days ago
+      - listitem [ref=e676]:
+        - generic [ref=e677]:
+          - link "AI Engineer - Remote" [ref=e678] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/ai-engineer-remote-at-huzzle-com-4412758248?position=50&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=wCAIh6SbYvx4yQeuAvZnDg%3D%3D
+            - generic [ref=e679]: AI Engineer - Remote
+          - generic [ref=e681]:
+            - heading "AI Engineer - Remote" [level=3] [ref=e682]
+            - heading "Huzzle.com" [level=4] [ref=e683]:
+              - link "Huzzle.com" [ref=e684] [cursor=pointer]:
+                - /url: https://uk.linkedin.com/company/huzzle-com?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e685]:
+              - generic [ref=e686]: United States
+              - time [ref=e687]: 1 day ago
+      - listitem [ref=e688]:
+        - generic [ref=e689]:
+          - link "Machine Learning Engineer" [ref=e690] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-at-paypal-4401777435?position=51&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=5Toy78UPiw%2FutkvLtQQcYw%3D%3D
+            - generic [ref=e691]: Machine Learning Engineer
+          - generic [ref=e693]:
+            - heading "Machine Learning Engineer" [level=3] [ref=e694]
+            - heading "PayPal" [level=4] [ref=e695]:
+              - link "PayPal" [ref=e696] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/paypal?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e697]:
+              - generic [ref=e698]: Chicago, IL
+              - time [ref=e699]: 6 days ago
+      - listitem [ref=e700]:
+        - generic [ref=e701]:
+          - link "AI/ML Engineer" [ref=e702] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/ai-ml-engineer-at-kforce-inc-4364956253?position=52&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=GJ2HPwT9vYeEEcf58VBA2w%3D%3D
+            - generic [ref=e703]: AI/ML Engineer
+          - generic [ref=e705]:
+            - heading "AI/ML Engineer" [level=3] [ref=e706]
+            - heading "Kforce Inc" [level=4] [ref=e707]:
+              - link "Kforce Inc" [ref=e708] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/kforce?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e709]:
+              - generic [ref=e710]: North Palm Beach, FL
+              - time [ref=e711]: 5 days ago
+      - listitem [ref=e712]:
+        - generic [ref=e713]:
+          - link "Machine Learning Engineer Graduate (Data-Search-TikTok) - 2026 Start (BS/MS)" [ref=e714] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-graduate-data-search-tiktok-2026-start-bs-ms-at-tiktok-4281123069?position=53&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=iF%2Fkpi6o9%2F5axFUMD9vpqQ%3D%3D
+            - generic [ref=e715]: Machine Learning Engineer Graduate (Data-Search-TikTok) - 2026 Start (BS/MS)
+          - generic [ref=e717]:
+            - heading "Machine Learning Engineer Graduate (Data-Search-TikTok) - 2026 Start (BS/MS)" [level=3] [ref=e718]
+            - heading "TikTok" [level=4] [ref=e719]:
+              - link "TikTok" [ref=e720] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/tiktok?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e721]:
+              - generic [ref=e722]: San Jose, CA
+              - time [ref=e723]: 4 days ago
+      - listitem [ref=e724]:
+        - generic [ref=e725]:
+          - link "Machine Learning Engineer I, Personalization , Minesweeper" [ref=e726] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-i-personalization-minesweeper-at-spotify-4412595765?position=54&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=1nKQcSLYQv2tbsSeoQmRZw%3D%3D
+            - generic [ref=e727]: Machine Learning Engineer I, Personalization , Minesweeper
+          - generic [ref=e729]:
+            - heading "Machine Learning Engineer I, Personalization , Minesweeper" [level=3] [ref=e730]
+            - heading "Spotify" [level=4] [ref=e731]:
+              - link "Spotify" [ref=e732] [cursor=pointer]:
+                - /url: https://se.linkedin.com/company/spotify?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e733]:
+              - generic [ref=e734]: New York, NY
+              - time [ref=e735]: 2 days ago
+      - listitem [ref=e736]:
+        - generic [ref=e737]:
+          - link "Software Engineer (Multiple Levels) - Machine Learning Infrastructure, Slack" [ref=e738] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/software-engineer-multiple-levels-machine-learning-infrastructure-slack-at-slack-4371076964?position=55&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=bqR5vLH%2BHFw7ETl6hztYhQ%3D%3D
+            - generic [ref=e739]: Software Engineer (Multiple Levels) - Machine Learning Infrastructure, Slack
+          - generic [ref=e741]:
+            - heading "Software Engineer (Multiple Levels) - Machine Learning Infrastructure, Slack" [level=3] [ref=e742]
+            - heading "Slack" [level=4] [ref=e743]:
+              - link "Slack" [ref=e744] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/tiny-spec-inc?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e745]:
+              - generic [ref=e746]: Seattle, WA
+              - time [ref=e747]: 1 day ago
+      - listitem [ref=e748]:
+        - generic [ref=e749]:
+          - link "Machine Learning Engineer" [ref=e750] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-at-prosum-4410845128?position=56&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=5I1aIo09F5ivFaLjolLFTw%3D%3D
+            - generic [ref=e751]: Machine Learning Engineer
+          - generic [ref=e753]:
+            - heading "Machine Learning Engineer" [level=3] [ref=e754]
+            - heading "Prosum" [level=4] [ref=e755]:
+              - link "Prosum" [ref=e756] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/prosum?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e757]:
+              - generic [ref=e758]: Seattle, WA
+              - time [ref=e759]: 5 days ago
+      - listitem [ref=e760]:
+        - generic [ref=e761]:
+          - link "Software Engineer (Multiple Levels) - Machine Learning Infrastructure, Slack" [ref=e762] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/software-engineer-multiple-levels-machine-learning-infrastructure-slack-at-slack-4371084482?position=57&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=MYkzjDrDVJCYvG438KC94Q%3D%3D
+            - generic [ref=e763]: Software Engineer (Multiple Levels) - Machine Learning Infrastructure, Slack
+          - generic [ref=e765]:
+            - heading "Software Engineer (Multiple Levels) - Machine Learning Infrastructure, Slack" [level=3] [ref=e766]
+            - heading "Slack" [level=4] [ref=e767]:
+              - link "Slack" [ref=e768] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/tiny-spec-inc?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e769]:
+              - generic [ref=e770]: Atlanta, GA
+              - time [ref=e771]: 1 day ago
+      - listitem [ref=e772]:
+        - generic [ref=e773]:
+          - link "AI/ML Engineer (India)" [ref=e774] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/ai-ml-engineer-india-at-flexday-ai-4412136636?position=58&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=F%2Bt0B7opZBd1Y%2BwgjP3wGw%3D%3D
+            - generic [ref=e775]: AI/ML Engineer (India)
+          - generic [ref=e777]:
+            - heading "AI/ML Engineer (India)" [level=3] [ref=e778]
+            - heading "Flexday AI" [level=4] [ref=e779]:
+              - link "Flexday AI" [ref=e780] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/flexdaysolutions?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e781]:
+              - generic [ref=e782]: United States
+              - time [ref=e783]: 4 days ago
+      - listitem [ref=e784]:
+        - generic [ref=e785]:
+          - link "Software Engineer, Systems ML" [ref=e786] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/software-engineer-systems-ml-at-meta-4120824647?position=59&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=2aYB935kCz4NgUN2mZ3DDA%3D%3D
+            - generic [ref=e787]: Software Engineer, Systems ML
+          - generic [ref=e789]:
+            - heading "Software Engineer, Systems ML" [level=3] [ref=e790]
+            - heading "Meta" [level=4] [ref=e791]:
+              - link "Meta" [ref=e792] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/meta?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e793]:
+              - generic [ref=e794]: Sunnyvale, CA
+              - time [ref=e795]: 4 days ago
+      - listitem [ref=e796]:
+        - generic [ref=e797]:
+          - link "Software Engineer, Machine Learning" [ref=e798] [cursor=pointer]:
+            - /url: https://www.linkedin.com/jobs/view/software-engineer-machine-learning-at-meta-4255809898?position=60&pageNum=0&refId=g6a%2FiMm%2B69tUI78VkZ30JA%3D%3D&trackingId=q60H9xg%2F0GakEf2IvlZF1g%3D%3D
+            - generic [ref=e799]: Software Engineer, Machine Learning
+          - generic [ref=e801]:
+            - heading "Software Engineer, Machine Learning" [level=3] [ref=e802]
+            - heading "Meta" [level=4] [ref=e803]:
+              - link "Meta" [ref=e804] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/meta?trk=public_jobs_jserp-result_job-search-card-subtitle
+            - generic [ref=e805]:
+              - generic [ref=e806]: Austin, TX
+              - time [ref=e807]: 5 days ago
+  - contentinfo [ref=e808]:
+    - list [ref=e809]:
+      - listitem [ref=e810]:
+        - generic [ref=e811]: LinkedIn
+        - generic [ref=e813]: © 2026
+      - listitem [ref=e814]:
+        - link "About" [ref=e815] [cursor=pointer]:
+          - /url: https://about.linkedin.com?trk=public_jobs_footer-about
+      - listitem [ref=e816]:
+        - link "Accessibility" [ref=e817] [cursor=pointer]:
+          - /url: https://www.linkedin.com/accessibility?trk=public_jobs_footer-accessibility
+      - listitem [ref=e818]:
+        - link "User Agreement" [ref=e819] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/user-agreement?trk=public_jobs_footer-user-agreement
+      - listitem [ref=e820]:
+        - link "Privacy Policy" [ref=e821] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/privacy-policy?trk=public_jobs_footer-privacy-policy
+      - listitem [ref=e822]:
+        - link "Your California Privacy Choices" [ref=e823] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/california-privacy-disclosure?trk=public_jobs_footer-california-privacy-rights-act
+      - listitem [ref=e824]:
+        - link "Cookie Policy" [ref=e825] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/cookie-policy?trk=public_jobs_footer-cookie-policy
+      - listitem [ref=e826]:
+        - link "Copyright Policy" [ref=e827] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/copyright-policy?trk=public_jobs_footer-copyright-policy
+      - listitem [ref=e828]:
+        - link "Brand Policy" [ref=e829] [cursor=pointer]:
+          - /url: https://brand.linkedin.com/policies?trk=public_jobs_footer-brand-policy
+      - listitem [ref=e830]:
+        - link "Guest Controls" [ref=e831] [cursor=pointer]:
+          - /url: https://www.linkedin.com/psettings/guest-controls?trk=public_jobs_footer-guest-controls
+      - listitem [ref=e832]:
+        - link "Community Guidelines" [ref=e833] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/professional-community-policies?trk=public_jobs_footer-community-guide
+      - listitem [ref=e834]:
+        - button "Language" [ref=e836]: Language

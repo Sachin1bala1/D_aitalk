@@ -1,0 +1,11 @@
+# Use lld (LLVM linker) for MinGW — far less link-time memory than GNU ld.
+# jobs=1 prevents parallel rustc processes from competing for RAM.
+[build]
+jobs = 1
+
+[target.x86_64-pc-windows-gnu]
+linker = "C:/msys64/mingw64/bin/x86_64-w64-mingw32-gcc.exe"
+rustflags = ["-C", "link-arg=-fuse-ld=lld", "-C", "debuginfo=0", "--cfg", "windows_slim_errors"]
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "debuginfo=0"]

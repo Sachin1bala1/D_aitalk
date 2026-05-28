@@ -8,7 +8,6 @@ rust-version = "1.77.2"
 
 [lib]
 name = "daitalk_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -42,7 +41,8 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 sqlparser = "0.43"
 
-# duckdb = { version = "1", features = ["bundled"] }  # TODO: re-enable; bundled g++ OOM on Windows MinGW
+# duckdb = { version = "1", features = ["bundled"] }  # Requires MSVC toolchain; MinGW linker fails on vtable symbols
+lru = "0.12"
 keyring = "3"
 hmac = "0.12"
 sha2 = "0.10"
@@ -61,8 +61,22 @@ clickhouse = "0.13"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 urlencoding = "2.1"
 
+# Track 4 — Data Connectors
+calamine = "0.24"
+
 ssh2 = { version = "0.9" }
 
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+
+[profile.dev]
+# Minimize LLVM peak memory — needed on 8GB machines with sqlx + tokio + windows crate
+debug = 0
+opt-level = 0
+split-debuginfo = "off"
+incremental = false
+
+[profile.dev.package."*"]
+# All dependencies: no debug info either
+debug = false

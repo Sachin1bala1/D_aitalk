@@ -3,6 +3,7 @@ import { Toaster, toast } from "sonner";
 import { Database, Play, Save, FolderOpen, Plus, Settings, GitCommitVertical, RotateCcw, Square, Zap, Upload, AlignLeft, Rows3 } from "lucide-react";
 
 import { format as formatSql } from "sql-formatter";
+import { listen } from "@tauri-apps/api/event";
 import { useWorkspaceStore } from "./lib/stores/WorkspaceStore";
 import type { WorkspacePanel } from "./lib/stores/WorkspaceStore";
 import { DbClient } from "./lib/db/DbClient";
@@ -37,6 +38,7 @@ import { QuickOpenDialog } from "./components/dialogs/QuickOpenDialog";
 import { WelcomeScreen } from "./components/onboarding/WelcomeScreen";
 import { OnboardingTour } from "./components/onboarding/OnboardingTour";
 import { MemoryPanel } from "./components/ai/MemoryPanel";
+import HarnessDashboard from './components/admin/HarnessDashboard';
 import { ArtifactsPanel } from "./components/artifacts/ArtifactsPanel";
 import { ArtifactChartViewer } from "./components/artifacts/ArtifactChartViewer";
 import { ArtifactQueryViewer } from "./components/artifacts/ArtifactQueryViewer";
@@ -149,6 +151,19 @@ export default function App() {
     }
 
     registerHandlers();
+
+    // Listen for health monitor events from the Rust backend
+    let unsubDrop: (() => void) | undefined;
+    let unsubRestore: (() => void) | undefined;
+    void (async () => {
+      unsubDrop = await listen<{ connection_id: string }>("connection_dropped", (event) => {
+        useWorkspaceStore.getState().setConnectionHealth(event.payload.connection_id, "error");
+      });
+      unsubRestore = await listen<{ connection_id: string }>("connection_restored", (event) => {
+        useWorkspaceStore.getState().setConnectionHealth(event.payload.connection_id, "healthy");
+      });
+    })();
+
     void ensureAppPreferencesLoaded()
       .then((preferences) => {
         setShowWelcome(!preferences.onboardingDismissed);
@@ -178,6 +193,11 @@ export default function App() {
       .finally(() => {
         setWorkspaceSessionReady(true);
       });
+
+    return () => {
+      unsubDrop?.();
+      unsubRestore?.();
+    };
   }, [addConnection, hydrateWorkspaceSession, setActiveConnection, setSchema, smokeMode]);
 
   useEffect(() => {
@@ -1275,7 +1295,7 @@ export default function App() {
       {/* Right: AI Panel */}
       <div data-tour="ai-panel" data-testid="right-panel" className="w-96 border-l border-[#262626] flex flex-col bg-[#0d0d0d] shrink-0">
         <div className="h-12 border-b border-[#262626] flex items-center px-4 gap-4 shrink-0">
-          {(["agent", "background_agents", "artifacts", "pipelines", "history", "memory", "founder", "snippets", "erd", "search", "sessions", "overview"] as const).map((p) => (
+          {(["agent", "background_agents", "artifacts", "pipelines", "history", "memory", "founder", "snippets", "erd", "search", "sessions", "overview", "harness"] as const).map((p) => (
             <button
               key={p}
               onClick={() => setActivePanel(p)}
@@ -1284,7 +1304,7 @@ export default function App() {
                 activePanel === p ? "text-[#00d2ff]" : "text-white/30 hover:text-white/50"
               }`}
             >
-              {p === "erd" ? "ERD" : p === "agent" ? "AI" : p === "background_agents" ? "Agents" : p === "artifacts" ? "Artifacts" : p === "pipelines" ? "Pipes" : p === "snippets" ? "Snippets" : p === "search" ? "Search" : p === "sessions" ? "Sessions" : p === "overview" ? "DB" : p === "founder" ? "Founder" : p === "memory" ? "Memory" : "History"}
+              {p === "erd" ? "ERD" : p === "agent" ? "AI" : p === "background_agents" ? "Agents" : p === "artifacts" ? "Artifacts" : p === "pipelines" ? "Pipes" : p === "snippets" ? "Snippets" : p === "search" ? "Search" : p === "sessions" ? "Sessions" : p === "overview" ? "DB" : p === "founder" ? "Founder" : p === "memory" ? "Memory" : p === "harness" ? "Harness" : "History"}
             </button>
           ))}
           {planQueue.length > 0 && (
@@ -1333,6 +1353,8 @@ export default function App() {
             <MemoryPanel />
           ) : activePanel === "overview" ? (
             <DatabaseOverview />
+          ) : activePanel === "harness" ? (
+            <HarnessDashboard />
           ) : (
             <AIPanel
               activePanel={activePanel}

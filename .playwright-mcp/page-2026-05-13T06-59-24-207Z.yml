@@ -1,0 +1,160 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - link "Skip to main content" [ref=e230] [cursor=pointer]:
+      - /url: "#main-content"
+    - banner [ref=e4]:
+      - navigation "Primary" [ref=e231]:
+        - link "LinkedIn" [ref=e232] [cursor=pointer]:
+          - /url: /?trk=public_jobs_nav-header-logo
+          - generic [ref=e7]: LinkedIn
+          - img [ref=e168]
+        - generic [ref=e9]:
+          - button "Process Development Engineer AI Data in United States Expand search" [ref=e233]:
+            - img [ref=e179]
+            - generic [ref=e12]: Process Development Engineer AI Data in United States
+            - generic [ref=e13]: Expand search
+          - status [ref=e14]
+        - generic [ref=e15]:
+          - link "Sign in" [ref=e234] [cursor=pointer]:
+            - /url: https://www.linkedin.com/login?emailAddress=&fromSignIn=&fromSignIn=true&session_redirect=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fsearch%2F%3Fkeywords%3Dprocess%2520development%2520engineer%2520AI%2520data%26location%3DUnited%2520States%26f_WT%3D2%26f_EA%3Dtrue&trk=public_jobs_nav-header-signin
+          - link "Join now" [ref=e235] [cursor=pointer]:
+            - /url: https://www.linkedin.com/signup/cold-join?source=jobs_registration&session_redirect=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fsearch%2F%3Fkeywords%3Dprocess%2520development%2520engineer%2520AI%2520data%26location%3DUnited%2520States%26f_WT%3D2%26f_EA%3Dtrue&trk=public_jobs_nav-header-join
+    - generic [ref=e21]:
+      - list [ref=e23]:
+        - listitem [ref=e24]:
+          - button "Date posted filter. Any time filter is currently applied. Clicking this button displays all Date posted filter options." [ref=e236] [cursor=pointer]:
+            - text: Any time
+            - img [ref=e181]
+        - listitem [ref=e29]:
+          - button "Company filter. Clicking this button displays all Company filter options." [ref=e237] [cursor=pointer]:
+            - text: Company
+            - img [ref=e183]
+        - listitem [ref=e34]:
+          - button "Remote filter. Remote filter is currently applied. Clicking this button displays all Remote filter options." [ref=e238] [cursor=pointer]:
+            - text: Remote
+            - img [ref=e185]
+        - listitem [ref=e39]:
+          - button "Job type filter. Clicking this button displays all Job type filter options." [ref=e239] [cursor=pointer]:
+            - text: Job type
+            - img [ref=e187]
+        - listitem [ref=e44]:
+          - button "Experience level filter. Clicking this button displays all Experience level filter options." [ref=e240] [cursor=pointer]:
+            - text: Experience level
+            - img [ref=e189]
+        - listitem [ref=e49]:
+          - button "Location filter. Clicking this button displays all Location filter options." [ref=e241] [cursor=pointer]:
+            - text: Location
+            - img [ref=e191]
+      - button "Reset filters" [ref=e242] [cursor=pointer]: Reset
+    - main [ref=e57]:
+      - generic [ref=e59]:
+        - img [ref=e193]
+        - generic [ref=e61]:
+          - paragraph [ref=e62]:
+            - text: Get notified about new Process Development Engineer AI Data jobs in
+            - strong [ref=e63]: United States
+            - text: .
+          - link "Sign in to create job alert" [ref=e243] [cursor=pointer]:
+            - /url: https://www.linkedin.com/login?emailAddress=&fromSignIn=&session_redirect=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fsearch%2F%3Fkeywords%3Dprocess%2520development%2520engineer%2520AI%2520data%26location%3DUnited%2520States%26f_WT%3D2%26f_EA%3Dtrue&trk=public_jobs_job-alert-guest-redirect-cta
+      - heading "2 Process Development Engineer AI Data Jobs in United States" [level=1] [ref=e244]
+      - generic [ref=e67]:
+        - list [ref=e68]:
+          - listitem [ref=e69]:
+            - generic [ref=e70]:
+              - link "Senior Manufacturing Engineer" [ref=e245] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/senior-manufacturing-engineer-at-the-fountain-group-4413731799?position=1&pageNum=0&refId=WozfWecLrunz93JIMTsQdA%3D%3D&trackingId=PrA7cQOAovK3ppXpMrxSrw%3D%3D
+                - generic [ref=e72]: Senior Manufacturing Engineer
+              - img [ref=e74]
+              - generic [ref=e75]:
+                - heading "Senior Manufacturing Engineer" [level=3] [ref=e246]
+                - heading "The Fountain Group" [level=4] [ref=e247]:
+                  - link "The Fountain Group" [ref=e248] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/the-fountain-group?trk=public_jobs_jserp-result_job-search-card-subtitle
+                - generic [ref=e79]:
+                  - generic [ref=e80]: Indianapolis, IN
+                  - generic [ref=e81]:
+                    - img [ref=e196]
+                    - generic [ref=e83]: Be an early applicant
+                  - time [ref=e84]: 9 hours ago
+          - listitem [ref=e85]:
+            - generic [ref=e86]:
+              - link "Controls / BAS Project Engineer" [ref=e249] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/controls-bas-project-engineer-at-jobot-4409787257?position=2&pageNum=0&refId=WozfWecLrunz93JIMTsQdA%3D%3D&trackingId=SNco8rsHy8FjKh2LB8TYOg%3D%3D
+                - generic [ref=e88]: Controls / BAS Project Engineer
+              - img [ref=e90]
+              - generic [ref=e91]:
+                - heading "Controls / BAS Project Engineer" [level=3] [ref=e250]
+                - heading "Jobot" [level=4] [ref=e251]:
+                  - link "Jobot" [ref=e252] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/jobot?trk=public_jobs_jserp-result_job-search-card-subtitle
+                - generic [ref=e95]:
+                  - generic [ref=e96]: Pittsburgh, PA
+                  - generic [ref=e97]:
+                    - img [ref=e198]
+                    - generic [ref=e99]: Be an early applicant
+                  - time [ref=e100]: 6 days ago
+        - alert [ref=e101]:
+          - img [ref=e200]
+          - paragraph [ref=e103]: You've viewed all jobs for this search
+        - generic [ref=e104]:
+          - heading "Search similar titles" [level=3] [ref=e253]
+          - list [ref=e106]:
+            - listitem [ref=e107]:
+              - link "Senior Process Development Engineer jobs" [ref=e254] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/senior-process-development-engineer-jobs?trk=public_jobs_similar-title
+            - listitem [ref=e109]:
+              - link "Process Integration Engineer jobs" [ref=e255] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/process-integration-engineer-jobs?trk=public_jobs_similar-title
+            - listitem [ref=e111]:
+              - link "Process Equipment Engineer jobs" [ref=e256] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/process-equipment-engineer-jobs?trk=public_jobs_similar-title
+    - generic [ref=e115]:
+      - button "More searches" [ref=e257] [cursor=pointer]: More searches
+      - list
+    - contentinfo [ref=e118]:
+      - list [ref=e119]:
+        - listitem [ref=e120]:
+          - generic [ref=e121]: LinkedIn
+          - generic [ref=e123]: © 2026
+        - listitem [ref=e124]:
+          - link "About" [ref=e258] [cursor=pointer]:
+            - /url: https://about.linkedin.com?trk=public_jobs_footer-about
+        - listitem [ref=e126]:
+          - link "Accessibility" [ref=e259] [cursor=pointer]:
+            - /url: https://www.linkedin.com/accessibility?trk=public_jobs_footer-accessibility
+        - listitem [ref=e128]:
+          - link "User Agreement" [ref=e260] [cursor=pointer]:
+            - /url: https://www.linkedin.com/legal/user-agreement?trk=public_jobs_footer-user-agreement
+        - listitem [ref=e130]:
+          - link "Privacy Policy" [ref=e261] [cursor=pointer]:
+            - /url: https://www.linkedin.com/legal/privacy-policy?trk=public_jobs_footer-privacy-policy
+        - listitem [ref=e132]:
+          - link "Your California Privacy Choices" [ref=e262] [cursor=pointer]:
+            - /url: https://www.linkedin.com/legal/california-privacy-disclosure?trk=public_jobs_footer-california-privacy-rights-act
+        - listitem [ref=e134]:
+          - link "Cookie Policy" [ref=e263] [cursor=pointer]:
+            - /url: https://www.linkedin.com/legal/cookie-policy?trk=public_jobs_footer-cookie-policy
+        - listitem [ref=e136]:
+          - link "Copyright Policy" [ref=e264] [cursor=pointer]:
+            - /url: https://www.linkedin.com/legal/copyright-policy?trk=public_jobs_footer-copyright-policy
+        - listitem [ref=e138]:
+          - link "Brand Policy" [ref=e265] [cursor=pointer]:
+            - /url: https://brand.linkedin.com/policies?trk=public_jobs_footer-brand-policy
+        - listitem [ref=e140]:
+          - link "Guest Controls" [ref=e266] [cursor=pointer]:
+            - /url: https://www.linkedin.com/psettings/guest-controls?trk=public_jobs_footer-guest-controls
+        - listitem [ref=e142]:
+          - link "Community Guidelines" [ref=e267] [cursor=pointer]:
+            - /url: https://www.linkedin.com/legal/professional-community-policies?trk=public_jobs_footer-community-guide
+        - listitem [ref=e144]:
+          - button "Language" [ref=e268]: Language
+  - dialog [ref=e202]:
+    - generic [ref=e203]:
+      - img [ref=e205]
+      - paragraph [ref=e208]: LinkedIn
+    - paragraph [ref=e209]: LinkedIn is better on the app
+    - paragraph [ref=e210]: Don’t have the app? Get it in the Microsoft Store.
+    - link "Open the app" [ref=e269] [cursor=pointer]:
+      - /url: linkedin://
+    - button "Dismiss" [ref=e270]:
+      - img [ref=e214]

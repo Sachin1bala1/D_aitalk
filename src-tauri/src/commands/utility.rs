@@ -1,3 +1,15 @@
+use tauri::State;
+use super::AppState;
+
+#[tauri::command]
+pub async fn clear_query_cache(
+    connection_id: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    state.query_cache.clear(connection_id.as_deref());
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn health_check() -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({

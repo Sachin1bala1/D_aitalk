@@ -16,6 +16,7 @@ import type { PersistedAiSessionState } from "../ai/AiSessionState";
 import type { WorkingMemoryState } from "../memory/WorkingMemory";
 import { DEFAULT_WORKING_MEMORY } from "../memory/WorkingMemory";
 import type { QueryRuntimeHandle, QuerySessionState } from "../query/runtime";
+import type { ImpactMap } from '../agent/harness/ImpactMapEngine';
 
 export type AgentMode = "plan" | "auto";
 export type QueryTabType = "sql_editor" | "table_viewer";
@@ -262,6 +263,7 @@ export interface TabStateBase {
   isExecuting: boolean;
   queryView: QueryViewState;
   restoredSnapshotAt?: number | null;
+  isSheet?: boolean;
 }
 
 export interface QueryTabState extends TabStateBase {
@@ -358,7 +360,8 @@ export type WorkspacePanel =
   | "sessions"
   | "overview"
   | "founder"
-  | "memory";
+  | "memory"
+  | "harness";
 
 export interface PersistedQueryViewState {
   baseSql: string;
@@ -658,6 +661,7 @@ export interface WorkspaceState {
   updatePlanStep: (id: string, updates: Partial<PlanStep>) => void;
   removePlanStep: (id: string) => void;
   clearPlanQueue: () => void;
+  setPlanStepStatus: (id: string, status: "approved" | "rejected") => void;
 
   pushUndo: (entry: UndoEntry) => void;
   popUndo: () => UndoEntry | undefined;
@@ -703,6 +707,7 @@ export interface WorkspaceState {
 
   setEditorSql: (sql: string, tabId?: string) => void;
   setQueryResults: (results: QueryResults, tabId?: string) => void;
+  updateSheetColumns: (tabId: string, fields: { name: string }[], rows: Record<string, unknown>[]) => void;
   setTabExecuting: (executing: boolean, tabId?: string) => void;
 
   workingMemory: WorkingMemoryState;
@@ -740,6 +745,9 @@ export interface WorkspaceState {
 
   currentTask: Task | null;
   setCurrentTask: (task: Task | null) => void;
+
+  impactMapResolution: ImpactMap | null;
+  setImpactMapResolution: (map: ImpactMap | null) => void;
 }
 
 export const useWorkspaceStore = create<WorkspaceState>()(
@@ -776,6 +784,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     pendingTaskResume: null,
     selectedTableNode: null,
     currentTask: null,
+    impactMapResolution: null,
 
     setAgentMode: (mode) =>
       set((state) => {
@@ -801,6 +810,12 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     clearPlanQueue: () =>
       set((state) => {
         state.planQueue = [];
+      }),
+
+    setPlanStepStatus: (id, status) =>
+      set((state) => {
+        const step = state.planQueue.find((s) => s.id === id);
+        if (step) step.status = status;
       }),
 
     pushUndo: (entry) =>
@@ -1263,6 +1278,18 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         }
       }),
 
+    updateSheetColumns: (tabId, fields, rows) =>
+      set((state) => {
+        const tab = state.tabs.find((t) => t.id === tabId);
+        if (!tab || !tab.queryResults) return;
+        tab.queryResults = {
+          ...tab.queryResults,
+          fields,
+          rows,
+          rowCount: rows.length,
+        };
+      }),
+
     setTabExecuting: (executing, tabId) =>
       set((state) => {
         const id = tabId ?? state.activeTabId;
@@ -1380,6 +1407,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     setCurrentTask: (task) =>
       set((state) => {
         state.currentTask = task;
+      }),
+
+    setImpactMapResolution: (map) =>
+      set((state) => {
+        state.impactMapResolution = map as ImpactMap | null;
       }),
   }))
 );

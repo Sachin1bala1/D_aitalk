@@ -59,6 +59,7 @@ import type {
   PISearchTagsCmd,
   PIGetHistoryCmd,
   PIGetCurrentCmd,
+  CreateDerivedTableCmd,
 } from "./commands";
 import { useUserToolStore } from "../stores/UserToolStore";
 import { fillTemplate } from "../tools/user.tools";
@@ -847,6 +848,58 @@ export function registerHandlers() {
       };
     }
 
+    // Auto-create a bar chart from detailed_factors so the LLM doesn't need
+    // to copy large row arrays into a separate create_analysis_chart call.
+    const resultRecord = result as Record<string, unknown>;
+    const factors: Array<Record<string, unknown>> = Array.isArray(resultRecord.detailed_factors)
+      ? (resultRecord.detailed_factors as Array<Record<string, unknown>>)
+      : [];
+    if (factors.length > 0) {
+      console.log('[featureImportance] auto-charting', factors.length, 'factors:', factors.map(f => f['feature']));
+      toast.success(`Feature importance chart ready — ${factors.length} factors computed`, { duration: 4000 });
+      const now = Date.now();
+      const chartFields = Array.from(new Set(factors.flatMap(Object.keys))).map((name) => ({ name }));
+      const snapshotResults = {
+        rows: factors,
+        fields: chartFields,
+        rowCount: factors.length,
+        elapsedMs: 0,
+        queryId: `feature-importance-${now}`,
+        source_tables: ["analysis.output"],
+      };
+      const chartTitle = `Feature Importance for ${cmd.targetColumn}`;
+      const artifact = createChartArtifact({
+        name: chartTitle,
+        chartType: "bar",
+        assignments: {
+          x: "feature",
+          y: "importance",
+          color: null,
+          size: null,
+          facet: null,
+        },
+        options: createDefaultChartArtifactOptions({
+          xLabel: "Feature",
+          yLabel: "Importance",
+        }),
+        results: snapshotResults,
+        sql: "",
+        connectionId: null,
+        sourceTabId: null,
+      });
+      useWorkspaceStore.getState().commitArtifactRevision(artifact);
+      useWorkspaceStore.getState().setGraphBuilderRequest({
+        requestId: `gb-importance-${now}-${Math.random().toString(36).slice(2, 8)}`,
+        artifactId: artifact.id,
+        chartType: "bar",
+        xColumn: "feature",
+        yColumn: "importance",
+        title: chartTitle,
+        xLabel: "Feature",
+        yLabel: "Importance",
+      });
+    }
+
     return { success: true, result };
   });
 
@@ -1541,5 +1594,77 @@ export function registerHandlers() {
     } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
+  });
+
+  commandBus.register<CreateDerivedTableCmd>("create_derived_table", async (cmd) => {
+    if (!Array.isArray(cmd.rows) || cmd.rows.length === 0) {
+      return { success: false, error: "No rows provided to create_derived_table." };
+    }
+
+    const columns =
+      cmd.columns && cmd.columns.length > 0
+        ? cmd.columns
+        : Object.keys(cmd.rows[0] ?? {});
+
+    if (columns.length === 0) {
+      return { success: false, error: "Cannot determine columns from rows." };
+    }
+
+    const rowsJson = JSON.stringify(cmd.rows);
+    let savedName = cmd.name;
+
+    try {
+      const result = await invoke<{ name: string; row_count: number; permanent: boolean }>(
+        "save_derived_table",
+        {
+          input: {
+            name: cmd.name,
+            display_title: cmd.title ?? null,
+            columns,
+            rows_json: rowsJson,
+            permanent: cmd.permanent ?? false,
+          },
+        }
+      );
+      savedName = result.name;
+    } catch (err) {
+      console.error("[create_derived_table] Tauri invoke failed:", err);
+    }
+
+    const openInTab = cmd.openInTab !== false;
+    if (openInTab) {
+      const title = cmd.title ?? savedName.replace(/_/g, " ");
+      const fields = columns.map((name) => ({ name }));
+      const queryResults = {
+        rows: cmd.rows,
+        fields,
+        rowCount: cmd.rows.length,
+        elapsedMs: 0,
+        queryId: `derived-${savedName}-${Date.now()}`,
+        source_tables: [`derived__${savedName}`],
+      };
+      const store = useWorkspaceStore.getState();
+      const tabId = `tab-derived-${Date.now()}`;
+      store.addTab({
+        id: tabId,
+        type: "table_viewer",   // data is pre-loaded; no SQL editor needed
+        isSheet: true,
+        title,
+        sql: "",
+        connectionId: null,     // null prevents re-executing SQL against wrong DB
+        queryResults,
+        isExecuting: false,
+      });
+      toast.success(`Derived table "${title}" ready — ${cmd.rows.length} rows`, {
+        duration: 4000,
+      });
+    }
+
+    return {
+      success: true,
+      tableName: savedName,
+      rowCount: cmd.rows.length,
+      columns,
+    };
   });
 }

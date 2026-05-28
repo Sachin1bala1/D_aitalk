@@ -1,0 +1,227 @@
+- generic [ref=e3]:
+  - navigation "Main" [ref=e6]:
+    - generic [ref=e10]:
+      - generic [ref=e12]:
+        - button "Open mobile navigation menu" [ref=e14] [cursor=pointer]:
+          - img [ref=e16]
+        - link "Meta home" [ref=e18] [cursor=pointer]:
+          - /url: /
+          - img "Meta" [ref=e19]
+      - button "Open login page" [ref=e23] [cursor=pointer]:
+        - img [ref=e26]
+  - generic [ref=e29]:
+    - generic [ref=e32]:
+      - heading "Thanks for applying, Sachin Bala." [level=2] [ref=e33]
+      - generic [ref=e34]: Your application for the Data Scientist, Product Analytics role has been received. You will get a confirmation email. Track the status of your application on Career Profile by completing the step below.
+    - generic [ref=e37]:
+      - generic [ref=e40]: Inside Life at Meta
+      - generic [ref=e42]:
+        - 'link "META CAREERS Bet big: How Ming Hua became VP of wearables devices Ming Hua shares career lessons on leading innovation, building confidence through hands-on work and driving the future of wearable technology. Read more" [ref=e46] [cursor=pointer]':
+          - /url: https://www.metacareers.com/blog/bet-big-how-ming-hua-became-vp-of-wearables-devices/
+          - generic [ref=e49]:
+            - generic [ref=e50]:
+              - generic [ref=e51]: META CAREERS
+              - generic [ref=e52]: "Bet big: How Ming Hua became VP of wearables devices"
+              - generic [ref=e53]: Ming Hua shares career lessons on leading innovation, building confidence through hands-on work and driving the future of wearable technology.
+            - generic [ref=e55]:
+              - img [ref=e56]
+              - generic [ref=e60]: Read more
+        - link "META TECH PODCAST Configurations Discover how Meta ensures safe configuration rollouts at scale. Explore canarying, progressive rollouts, health checks, and AI-driven alert monitoring. Read more" [ref=e66] [cursor=pointer]:
+          - /url: https://www.metacareers.com/podcast/configurations/
+          - generic [ref=e69]:
+            - generic [ref=e70]:
+              - generic [ref=e71]: META TECH PODCAST
+              - generic [ref=e72]: Configurations
+              - generic [ref=e73]: Discover how Meta ensures safe configuration rollouts at scale. Explore canarying, progressive rollouts, health checks, and AI-driven alert monitoring.
+            - generic [ref=e75]:
+              - img [ref=e76]
+              - generic [ref=e80]: Read more
+        - 'link "META CAREERS Then vs. Now: How Data Engineering Has Evolved at Meta Shridhar Iyer shares how data engineers at Meta grow from builders to innovators by working on AI, scale and real-world product challenges. Read more" [ref=e86] [cursor=pointer]':
+          - /url: https://www.metacareers.com/blog/then-vs-now-how-data-engineering-has-evolved-at-meta/
+          - generic [ref=e89]:
+            - generic [ref=e90]:
+              - generic [ref=e91]: META CAREERS
+              - generic [ref=e92]: "Then vs. Now: How Data Engineering Has Evolved at Meta"
+              - generic [ref=e93]: Shridhar Iyer shares how data engineers at Meta grow from builders to innovators by working on AI, scale and real-world product challenges.
+            - generic [ref=e95]:
+              - img [ref=e96]
+              - generic [ref=e100]: Read more
+      - link "Explore the Blog" [ref=e105] [cursor=pointer]:
+        - /url: /life/
+        - generic [ref=e106]:
+          - img [ref=e108]
+          - generic [ref=e115]: Explore the Blog
+  - contentinfo [ref=e116]:
+    - generic [ref=e117]:
+      - separator [ref=e118]
+      - generic [ref=e120]:
+        - generic [ref=e122]:
+          - generic [ref=e124]:
+            - img "Meta" [ref=e126]
+            - list [ref=e128]:
+              - listitem:
+                - link "Follow Meta for Business (ex Facebook for Business) Facebook Page Social Media Channel":
+                  - /url: https://www.facebook.com/LifeAtMeta
+                  - img "Follow Meta for Business (ex Facebook for Business) Facebook Page Social Media Channel"
+              - listitem:
+                - link "Follow Meta's Instagram Social Media Channel":
+                  - /url: https://www.instagram.com/lifeatmeta
+                  - img "Follow Meta's Instagram Social Media Channel"
+              - listitem:
+                - link "Follow Meta's X Social Media Channel":
+                  - /url: https://www.twitter.com/MetaforBusiness
+                  - img "Follow Meta's X Social Media Channel"
+              - listitem:
+                - link "Follow Meta's LinkedIn Social Media Channel":
+                  - /url: https://www.linkedin.com/company/meta
+                  - img "Follow Meta's LinkedIn Social Media Channel"
+          - generic [ref=e130]:
+            - generic [ref=e131]:
+              - heading "Job Search" [level=2] [ref=e134]:
+                - link "Job Search" [ref=e136] [cursor=pointer]:
+                  - /url: /jobsearch
+              - generic [ref=e138]:
+                - heading "Technology Teams" [level=2] [ref=e139]:
+                  - generic [ref=e140]: Technology Teams
+                - list [ref=e141]:
+                  - listitem [ref=e142]:
+                    - link "Artificial Intelligence" [ref=e144] [cursor=pointer]:
+                      - /url: /teams/technology/ai
+                  - listitem [ref=e145]:
+                    - link "Creative" [ref=e147] [cursor=pointer]:
+                      - /url: /teams/technology/creative
+                  - listitem [ref=e148]:
+                    - link "Infrastructure" [ref=e150] [cursor=pointer]:
+                      - /url: /teams/technology/infrastructure
+                  - listitem [ref=e151]:
+                    - link "Metaverse and Wearables" [ref=e153] [cursor=pointer]:
+                      - /url: /teams/technology/metaverse-and-wearables
+                  - listitem [ref=e154]:
+                    - link "Product and Program Management" [ref=e156] [cursor=pointer]:
+                      - /url: /teams/technology/product-and-program-management
+                  - listitem [ref=e157]:
+                    - link "Research and Data" [ref=e159] [cursor=pointer]:
+                      - /url: /teams/technology/research-and-data
+                  - listitem [ref=e160]:
+                    - link "Security" [ref=e162] [cursor=pointer]:
+                      - /url: /teams/technology/security
+                  - listitem [ref=e163]:
+                    - link "Software Engineering" [ref=e165] [cursor=pointer]:
+                      - /url: /teams/technology/software-engineering
+            - generic [ref=e166]:
+              - generic [ref=e168]:
+                - heading "Business Teams" [level=2] [ref=e169]:
+                  - generic [ref=e170]: Business Teams
+                - list [ref=e171]:
+                  - listitem [ref=e172]:
+                    - link "Business Operations" [ref=e174] [cursor=pointer]:
+                      - /url: /teams/business/business-operations
+                  - listitem [ref=e175]:
+                    - link "Partnerships" [ref=e177] [cursor=pointer]:
+                      - /url: /teams/business/partnerships
+                  - listitem [ref=e178]:
+                    - link "Sales and Marketing" [ref=e180] [cursor=pointer]:
+                      - /url: /teams/business/sales-and-marketing
+              - generic [ref=e182]:
+                - heading "Career Programs" [level=2] [ref=e183]:
+                  - generic [ref=e184]: Career Programs
+                - list [ref=e185]:
+                  - listitem [ref=e186]:
+                    - link "Research" [ref=e188] [cursor=pointer]:
+                      - /url: /careerprograms/research
+                  - listitem [ref=e189]:
+                    - link "Accelerate Eng Talent" [ref=e191] [cursor=pointer]:
+                      - /url: /careerprograms/accelerate-eng-talent
+                  - listitem [ref=e192]:
+                    - link "Students and Grads" [ref=e194] [cursor=pointer]:
+                      - /url: /careerprograms/students
+                  - listitem [ref=e195]:
+                    - link "Rotational Programs" [ref=e197] [cursor=pointer]:
+                      - /url: /rotational-programs
+              - generic [ref=e199]:
+                - heading "Working at Meta" [level=2] [ref=e200]:
+                  - generic [ref=e201]: Working at Meta
+                - list [ref=e202]:
+                  - listitem [ref=e203]:
+                    - link "Accessiblity and Engagement" [ref=e205] [cursor=pointer]:
+                      - /url: /accessibility-and-engagement
+                  - listitem [ref=e206]:
+                    - link "Benefits" [ref=e208] [cursor=pointer]:
+                      - /url: /benefits
+                  - listitem [ref=e209]:
+                    - link "Culture" [ref=e211] [cursor=pointer]:
+                      - /url: /culture
+                  - listitem [ref=e212]:
+                    - link "Hiring Process" [ref=e214] [cursor=pointer]:
+                      - /url: /hiring-process
+            - generic [ref=e215]:
+              - generic [ref=e217]:
+                - heading "My account" [level=2] [ref=e218]:
+                  - generic [ref=e219]: My account
+                - list [ref=e220]:
+                  - listitem [ref=e221]:
+                    - link "Career profile" [ref=e223] [cursor=pointer]:
+                      - /url: /profile/info
+                  - listitem [ref=e224]:
+                    - link "Account settings" [ref=e226] [cursor=pointer]:
+                      - /url: /profile/settings
+                  - listitem [ref=e227]:
+                    - link "Messages" [ref=e229] [cursor=pointer]:
+                      - /url: /profile/messages
+              - heading "Meta Careers Blog" [level=2] [ref=e232]:
+                - link "Meta Careers Blog" [ref=e234] [cursor=pointer]:
+                  - /url: /blog
+              - heading "Meta Tech Podcasts" [level=2] [ref=e237]:
+                - link "Meta Tech Podcasts" [ref=e239] [cursor=pointer]:
+                  - /url: /podcasts
+              - generic [ref=e241]:
+                - heading "About us" [level=2] [ref=e242]:
+                  - generic [ref=e243]: About us
+                - list [ref=e244]:
+                  - listitem [ref=e245]:
+                    - link "About Meta" [ref=e247] [cursor=pointer]:
+                      - /url: https://www.meta.com/about/company-info/
+                  - listitem [ref=e248]:
+                    - link "Media gallery" [ref=e250] [cursor=pointer]:
+                      - /url: https://www.meta.com/media-gallery/
+                  - listitem [ref=e251]:
+                    - link "Brand resources" [ref=e253] [cursor=pointer]:
+                      - /url: https://www.meta.com/brand/resources/
+                  - listitem [ref=e254]:
+                    - link "For investors" [ref=e256] [cursor=pointer]:
+                      - /url: https://investor.atmeta.com/home/default.aspx
+                  - listitem [ref=e257]:
+                    - link "Looking for contractor roles?" [ref=e259] [cursor=pointer]:
+                      - /url: https://us.meta.talentnet.community/
+        - generic [ref=e261]:
+          - generic [ref=e264]:
+            - link "Community Standards" [ref=e266] [cursor=pointer]:
+              - /url: https://transparency.meta.com/policies/community-standards
+            - link "Data Policy" [ref=e268] [cursor=pointer]:
+              - /url: /privacy
+            - link "Terms" [ref=e270] [cursor=pointer]:
+              - /url: https://www.facebook.com/terms.php
+            - link "Cookie Policy" [ref=e272] [cursor=pointer]:
+              - /url: /policy/cookies
+          - generic [ref=e275]:
+            - paragraph [ref=e276]: Equal Employment Opportunity
+            - paragraph [ref=e277]:
+              - text: Meta is proud to be an Equal Employment Opportunity employer. We do not discriminate based upon race, religion, color, national origin, sex (including pregnancy, childbirth, reproductive health decisions, or related medical conditions), sexual orientation, gender identity, gender expression, age, status as a protected veteran, status as an individual with a disability, genetic information, political views or activity, or other applicable legally protected characteristics. You may view our Equal Employment Opportunity notice
+              - link "here" [ref=e278] [cursor=pointer]:
+                - /url: https://www.metacareers.com/profile/footer_link/redirect?page=equal_opportunity_policy
+            - paragraph [ref=e279]:
+              - text: Meta is committed to providing reasonable support (called accommodations) in our recruiting processes for candidates with disabilities, long term conditions, mental health conditions or sincerely held religious beliefs, or who are neurodivergent or require pregnancy-related support. If you need assistance or an accommodation due to a disability, fill out the
+              - link "Accommodations request form" [ref=e280] [cursor=pointer]:
+                - /url: https://www.metacareers.com/accommodations_request
+            - paragraph [ref=e281]: Notice regarding automated employment decision tools in New York City
+            - generic [ref=e282]:
+              - text: Learn more about this
+              - link "here" [ref=e283] [cursor=pointer]:
+                - /url: https://www.metacareers.com/nyc-disclosure-notice
+            - paragraph [ref=e284]: "@2026 Meta"
+          - generic [ref=e285]:
+            - text: If you have any trouble, you can report an issue
+            - button "Chevron left icon Report a bug" [ref=e287] [cursor=pointer]:
+              - generic [ref=e288]:
+                - img "Chevron left icon" [ref=e289]
+                - text: Report a bug

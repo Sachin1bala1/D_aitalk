@@ -163,6 +163,71 @@ pub struct CustomerBriefRecord {
     pub notes: Option<String>,
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Clone, sqlx::FromRow)]
+pub struct HarnessFailureTrace {
+    pub id: String,
+    pub session_id: String,
+    pub question: String,
+    pub tools_used: String,
+    pub errors: String,
+    pub struggle_events: String,
+    pub final_success: i64,
+    pub token_estimate: Option<i64>,
+    pub duration_ms: Option<i64>,
+    pub harness_version: String,
+    pub created_at: i64,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, sqlx::FromRow)]
+pub struct HarnessVersion {
+    pub id: String,
+    pub version_tag: String,
+    pub system_prompt_additions: String,
+    pub success_rate: Option<f64>,
+    pub avg_token_estimate: Option<f64>,
+    pub failure_count: i64,
+    pub is_active: i64,
+    pub created_at: i64,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, sqlx::FromRow)]
+pub struct TelemetryEdge {
+    pub id: String,
+    pub from_node: String,
+    pub to_node: String,
+    pub edge_type: String,
+    pub session_id: Option<String>,
+    pub weight: f64,
+    pub created_at: i64,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+pub struct DerivedTableMeta {
+    pub name: String,
+    pub display_title: String,
+    pub columns: Vec<String>,
+    pub row_count: i64,
+    pub permanent: bool,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+pub struct SaveDerivedTableInput {
+    pub name: String,
+    pub display_title: Option<String>,
+    pub columns: Vec<String>,
+    pub rows_json: String,
+    pub permanent: Option<bool>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+pub struct SaveDerivedTableResult {
+    pub name: String,
+    pub row_count: i64,
+    pub permanent: bool,
+}
+
 async fn get_pool(state: &State<'_, AppState>) -> Result<SqlitePool, String> {
     state
         .memory_db
@@ -1005,4 +1070,339 @@ pub async fn memory_get_customer_brief(
     .fetch_all(&pool)
     .await
     .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn harness_record_failure(
+    session_id: String,
+    question: String,
+    tools_used: String,
+    errors: String,
+    struggle_events: String,
+    final_success: bool,
+    token_estimate: Option<i64>,
+    duration_ms: Option<i64>,
+    harness_version: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let pool = get_pool(&state).await?;
+    let id = uuid::Uuid::new_v4().to_string();
+    let now = Utc::now().timestamp_millis();
+    sqlx::query(
+        "INSERT INTO harness_failure_traces
+         (id, session_id, question, tools_used, errors, struggle_events,
+          final_success, token_estimate, duration_ms, harness_version, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    )
+    .bind(&id)
+    .bind(&session_id)
+    .bind(&question)
+    .bind(&tools_used)
+    .bind(&errors)
+    .bind(&struggle_events)
+    .bind(if final_success { 1i64 } else { 0i64 })
+    .bind(token_estimate)
+    .bind(duration_ms)
+    .bind(&harness_version)
+    .bind(now)
+    .execute(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn harness_get_failures(
+    limit: Option<u32>,
+    state: State<'_, AppState>,
+) -> Result<Vec<HarnessFailureTrace>, String> {
+    let pool = get_pool(&state).await?;
+    let n = limit.unwrap_or(50) as i64;
+    let rows = sqlx::query_as::<_, HarnessFailureTrace>(
+        "SELECT id, session_id, question, tools_used, errors, struggle_events, final_success, token_estimate, duration_ms, harness_version, created_at FROM harness_failure_traces ORDER BY created_at DESC LIMIT ?",
+    )
+    .bind(n)
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
+#[tauri::command]
+pub async fn harness_get_active_version(
+    state: State<'_, AppState>,
+) -> Result<Option<HarnessVersion>, String> {
+    let pool = get_pool(&state).await?;
+    let row = sqlx::query_as::<_, HarnessVersion>(
+        "SELECT * FROM harness_versions WHERE is_active = 1 ORDER BY created_at DESC LIMIT 1",
+    )
+    .fetch_optional(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(row)
+}
+
+#[tauri::command]
+pub async fn harness_save_version(
+    version_tag: String,
+    system_prompt_additions: String,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let pool = get_pool(&state).await?;
+    let id = uuid::Uuid::new_v4().to_string();
+    let now = Utc::now().timestamp_millis();
+    sqlx::query(
+        "INSERT INTO harness_versions
+         (id, version_tag, system_prompt_additions, is_active, failure_count, created_at)
+         VALUES (?, ?, ?, 0, 0, ?)",
+    )
+    .bind(&id)
+    .bind(&version_tag)
+    .bind(&system_prompt_additions)
+    .bind(now)
+    .execute(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(id)
+}
+
+#[tauri::command]
+pub async fn harness_activate_version(
+    id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let pool = get_pool(&state).await?;
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+    sqlx::query("UPDATE harness_versions SET is_active = 0")
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
+    sqlx::query("UPDATE harness_versions SET is_active = 1 WHERE id = ?")
+        .bind(&id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
+    tx.commit().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn harness_record_telemetry_edge(
+    from_node: String,
+    to_node: String,
+    edge_type: String,
+    session_id: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let pool = get_pool(&state).await?;
+    let id = uuid::Uuid::new_v4().to_string();
+    let now = Utc::now().timestamp_millis();
+    let existing = sqlx::query_scalar::<_, String>(
+        "SELECT id FROM analysis_telemetry_graph WHERE from_node=? AND to_node=? AND edge_type=?",
+    )
+    .bind(&from_node)
+    .bind(&to_node)
+    .bind(&edge_type)
+    .fetch_optional(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    if let Some(existing_id) = existing {
+        sqlx::query(
+            "UPDATE analysis_telemetry_graph SET weight = weight + 1.0 WHERE id = ?",
+        )
+        .bind(&existing_id)
+        .execute(&pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    } else {
+        sqlx::query(
+            "INSERT INTO analysis_telemetry_graph
+             (id, from_node, to_node, edge_type, session_id, weight, created_at)
+             VALUES (?, ?, ?, ?, ?, 1.0, ?)",
+        )
+        .bind(&id)
+        .bind(&from_node)
+        .bind(&to_node)
+        .bind(&edge_type)
+        .bind(&session_id)
+        .bind(now)
+        .execute(&pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn harness_get_telemetry_graph(
+    state: State<'_, AppState>,
+) -> Result<Vec<TelemetryEdge>, String> {
+    let pool = get_pool(&state).await?;
+    let edges = sqlx::query_as::<_, TelemetryEdge>(
+        "SELECT id, from_node, to_node, edge_type, session_id, weight, created_at FROM analysis_telemetry_graph ORDER BY weight DESC LIMIT 200",
+    )
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(edges)
+}
+
+#[tauri::command]
+pub async fn save_derived_table(
+    input: SaveDerivedTableInput,
+    state: State<'_, AppState>,
+) -> Result<SaveDerivedTableResult, String> {
+    let pool = get_pool(&state).await?;
+    let now = Utc::now().timestamp_millis();
+    let permanent = input.permanent.unwrap_or(false);
+    let display_title = input
+        .display_title
+        .unwrap_or_else(|| input.name.replace('_', " "));
+
+    let rows: Vec<Value> = serde_json::from_str(&input.rows_json)
+        .map_err(|e| format!("Invalid rows_json: {e}"))?;
+    let row_count = rows.len() as i64;
+
+    let safe_name: String = input
+        .name
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' })
+        .collect();
+
+    sqlx::query(&format!("DROP TABLE IF EXISTS derived__{safe_name}"))
+        .execute(&pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !input.columns.is_empty() {
+        let col_defs: Vec<String> = input
+            .columns
+            .iter()
+            .map(|c| {
+                let safe_col: String = c
+                    .chars()
+                    .map(|ch| if ch.is_alphanumeric() || ch == '_' { ch } else { '_' })
+                    .collect();
+                format!("\"{safe_col}\" TEXT")
+            })
+            .collect();
+        let create_sql = format!(
+            "CREATE TABLE IF NOT EXISTS derived__{safe_name} ({})",
+            col_defs.join(", ")
+        );
+        sqlx::query(&create_sql)
+            .execute(&pool)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        for row in &rows {
+            let obj = row.as_object().ok_or("Each row must be a JSON object")?;
+            let placeholders: Vec<String> = (0..input.columns.len()).map(|_| "?".to_string()).collect();
+            let col_names: Vec<String> = input
+                .columns
+                .iter()
+                .map(|c| {
+                    let safe_col: String = c
+                        .chars()
+                        .map(|ch| if ch.is_alphanumeric() || ch == '_' { ch } else { '_' })
+                        .collect();
+                    format!("\"{safe_col}\"")
+                })
+                .collect();
+            let insert_sql = format!(
+                "INSERT INTO derived__{safe_name} ({}) VALUES ({})",
+                col_names.join(", "),
+                placeholders.join(", ")
+            );
+            let mut query = sqlx::query(&insert_sql);
+            for col in &input.columns {
+                let val = obj.get(col).cloned().unwrap_or(Value::Null);
+                let s = match &val {
+                    Value::Null => None,
+                    Value::String(s) => Some(s.clone()),
+                    other => Some(other.to_string()),
+                };
+                query = query.bind(s);
+            }
+            query.execute(&pool).await.map_err(|e| e.to_string())?;
+        }
+    }
+
+    let columns_json = serde_json::to_string(&input.columns).map_err(|e| e.to_string())?;
+    sqlx::query(
+        "INSERT OR REPLACE INTO derived_tables
+         (name, display_title, columns_json, row_count, permanent, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)",
+    )
+    .bind(&safe_name)
+    .bind(&display_title)
+    .bind(&columns_json)
+    .bind(row_count)
+    .bind(permanent as i64)
+    .bind(now)
+    .bind(now)
+    .execute(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(SaveDerivedTableResult {
+        name: safe_name,
+        row_count,
+        permanent,
+    })
+}
+
+#[tauri::command]
+pub async fn list_derived_tables(
+    state: State<'_, AppState>,
+) -> Result<Vec<DerivedTableMeta>, String> {
+    let pool = get_pool(&state).await?;
+    let rows = sqlx::query(
+        "SELECT name, display_title, columns_json, row_count, permanent, created_at, updated_at
+         FROM derived_tables ORDER BY updated_at DESC",
+    )
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    rows.into_iter()
+        .map(|row| {
+            let columns_json: String = row.try_get("columns_json").unwrap_or_default();
+            let columns: Vec<String> = serde_json::from_str(&columns_json).unwrap_or_default();
+            Ok(DerivedTableMeta {
+                name: row.try_get("name").unwrap_or_default(),
+                display_title: row.try_get("display_title").unwrap_or_default(),
+                columns,
+                row_count: row.try_get("row_count").unwrap_or(0),
+                permanent: {
+                    let v: i64 = row.try_get("permanent").unwrap_or(0);
+                    v != 0
+                },
+                created_at: row.try_get("created_at").unwrap_or(0),
+                updated_at: row.try_get("updated_at").unwrap_or(0),
+            })
+        })
+        .collect()
+}
+
+#[tauri::command]
+pub async fn drop_derived_table(
+    name: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let pool = get_pool(&state).await?;
+    let safe_name: String = name
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' })
+        .collect();
+    sqlx::query(&format!("DROP TABLE IF EXISTS derived__{safe_name}"))
+        .execute(&pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    sqlx::query("DELETE FROM derived_tables WHERE name = ?")
+        .bind(&safe_name)
+        .execute(&pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }

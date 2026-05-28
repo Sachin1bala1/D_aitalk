@@ -13,11 +13,18 @@ import { userToolToUnifiedTool } from "../tools/user.tools";
 import { statToolToKernelKey } from "../tools/stat.tools";
 import type { CommandResult } from "./CommandBus";
 import { useWorkspaceStore } from "../stores/WorkspaceStore";
+import type { TabState } from "../stores/WorkspaceStore";
 import type { WorkspaceRule } from "../memory/WorkspaceRuleStore";
 import type { FullSchema } from "../db/DbClient";
 import type { QueryResults } from "../stores/WorkspaceStore";
 import type { AIProvider, ConversationTurn, ToolCall } from "../ai/types";
-import { withRetry, withTimeout } from "../ai/resilience";
+import { withRetry } from "../ai/resilience";
+import { ContextEngine } from './harness/ContextEngine';
+import { DATAIQ_HOOKS, detectStruggle } from './harness/HarnessLifecycle';
+import type { SessionContext } from './harness/HarnessLifecycle';
+import type { PolicyContext } from './harness/PolicyEngine';
+import { FailureTraceStore } from './harness/FailureTraceStore';
+import { ImpactMapEngine } from './harness/ImpactMapEngine';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -48,10 +55,14 @@ export interface AgentLoopOptions {
   currentSQL: string | null;
   currentResults: QueryResults | null;
   onToken: (token: string) => void;
+  /** Called with a status string while thinking/running tools, null to clear. */
+  onThinking?: (status: string | null) => void;
   onToolStart: (toolName: string, input: unknown) => void;
   onToolEnd: (toolName: string, result: CommandResult) => void;
   onPlanQueued: (stepId: string, description: string) => void;
   memoryContext?: MemoryContext;
+  /** Abort signal — checked at the start of each agent round. Fires immediately on abort. */
+  signal?: AbortSignal;
 }
 
 // ── Query Depth Classifier ────────────────────────────────────────────────────
@@ -87,8 +98,6 @@ export function isVisualizationRequest(question: string): boolean {
 }
 
 const RESULT_FETCHING_TOOL_NAMES = new Set(["execute_sql", "open_table", "run_duckdb_analysis"]);
-const FAST_MODE_ROUND_TIMEOUT_MS = 22_000;
-const DEEP_MODE_ROUND_TIMEOUT_MS = 45_000;
 
 export function isUnderspecifiedVisualizationRequest(question: string): boolean {
   if (!isVisualizationRequest(question)) return false;
@@ -167,6 +176,172 @@ export function buildVisualizationClarifier(
   return "Which columns or relationship do you want plotted? Please tell me the X and Y fields, or name the table plus the columns to use.";
 }
 
+/**
+ * buildReflectionGuidance — appends structured self-diagnosis guidance to
+ * tool result content when the result is empty or errored.
+ *
+ * The model reads tool results verbatim. By embedding the reflection prompt
+ * inside the result string, the model is forced to diagnose before retrying.
+ */
+export function buildReflectionGuidance(
+  toolName: string,
+  content: string,
+  isError: boolean,
+): string {
+  if (isError) {
+    return (
+      content +
+      `\n\n⚠️ ERROR REFLECTION — diagnose before the next action:\n` +
+      `1. Read the error message above carefully. What exactly failed?\n` +
+      `2. Is this a column name mismatch? A schema qualification issue? A type error?\n` +
+      `3. Choose a DIFFERENT approach — do NOT repeat the identical call.\n` +
+      `State your diagnosis in your next response, then take a corrective action.`
+    );
+  }
+
+  if (toolName === "execute_sql") {
+    try {
+      const parsed = JSON.parse(content) as { rowCount?: number };
+      if (typeof parsed?.rowCount === "number" && parsed.rowCount === 0) {
+        return (
+          content +
+          `\n\n⚠️ ZERO RESULTS REFLECTION — diagnose before the next action:\n` +
+          `1. Is this a derived table? If the table name comes from create_derived_table, it lives in SQLite only — execute_sql queries PostgreSQL/MySQL and will always return empty. Use the pre-loaded tab data directly.\n` +
+          `2. WHERE clause? Try removing the filter to check if the base table has rows.\n` +
+          `3. Schema/table name? PostgreSQL requires "schema"."table" with double-quotes.\n` +
+          `State your diagnosis, then choose a DIFFERENT approach — do NOT repeat the same query.`
+        );
+      }
+    } catch {
+      // not JSON — leave content unchanged
+    }
+  }
+
+  return content;
+}
+
+/**
+ * buildDataEvidence — compact numeric summary appended to execute_sql results.
+ *
+ * Provides grounded min/max/mean for up to 6 numeric columns so the model
+ * never needs to guess or hallucinate statistics from sample rows alone.
+ * Returns null for empty result sets (nothing to summarise).
+ */
+export function buildDataEvidence(results: QueryResults): string | null {
+  if (!results || results.rowCount === 0) return null;
+
+  const numericCols = results.fields
+    .map((f) => f.name)
+    .filter((name) => {
+      for (const row of results.rows.slice(0, 20)) {
+        const v = row[name];
+        if (v === null || v === undefined) continue;
+        if (typeof v === "number" && Number.isFinite(v)) return true;
+        if (typeof v === "string" && v.trim() !== "" && !Number.isNaN(Number(v))) return true;
+        return false;
+      }
+      return false;
+    })
+    .slice(0, 6);
+
+  const lines: string[] = [
+    `DATA_EVIDENCE (use these values verbatim — do not round, extrapolate, or invent):`,
+    `• ${results.rowCount} rows returned`,
+  ];
+
+  for (const col of numericCols) {
+    const numVals = results.rows
+      .map((r) => {
+        const v = r[col];
+        if (typeof v === "number" && Number.isFinite(v)) return v;
+        if (typeof v === "string" && v.trim() !== "" && !Number.isNaN(Number(v))) return Number(v);
+        return null;
+      })
+      .filter((v): v is number => v !== null);
+
+    if (numVals.length === 0) continue;
+    const min = Math.min(...numVals);
+    const max = Math.max(...numVals);
+    const mean = numVals.reduce((a, b) => a + b, 0) / numVals.length;
+    lines.push(
+      `• ${col}: n=${numVals.length}, min=${Number(min.toFixed(4))}, max=${Number(max.toFixed(4))}, mean=${Number(mean.toFixed(4))}`
+    );
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * buildOpenTabsSummary — lists all open tabs with loaded data, excluding
+ * the active tab (already in LAST QUERY RESULTS).
+ *
+ * Gives the agent cross-tab situational awareness: it can reference sheet
+ * tabs with pre-loaded derived data without running additional SQL queries.
+ * Capped at 5 tabs to limit token spend.
+ */
+export function buildOpenTabsSummary(
+  tabs: TabState[],
+  activeTabId?: string,
+): string | null {
+  const candidates = tabs
+    .filter(
+      (t) =>
+        t.id !== activeTabId &&
+        t.queryResults != null &&
+        t.queryResults.rowCount > 0,
+    )
+    .slice(0, 5);
+
+  if (candidates.length === 0) return null;
+
+  const lines = candidates.map((t) => {
+    const fields = t.queryResults?.fields ?? [];
+    const cols = fields.map((f) => f.name).slice(0, 6).join(", ");
+    const moreCols = fields.length > 6 ? ` +${fields.length - 6} more` : "";
+    const kind = t.isSheet ? "sheet" : "sql";
+    return `- "${t.title}" (${kind}, ${t.queryResults!.rowCount} rows, cols: ${cols}${moreCols})`;
+  });
+
+  return (
+    `OTHER OPEN TABS WITH DATA (reference these directly — no SQL needed to access them):\n` +
+    lines.join("\n") +
+    `\nTo chart or analyse data from a sheet tab, use create_analysis_chart with the tab's rows ` +
+    `or ask the user to make that tab active first.`
+  );
+}
+
+/**
+ * buildConfidenceGateMessage — produces a gate message when the agent has
+ * declared low confidence (<50%) and is about to take a non-safe action.
+ *
+ * Returns null when:
+ * - confidence was never declared (null)
+ * - confidence >= 0.5
+ * - the command is safe (read-only)
+ *
+ * When the gate fires, the content is returned as a tool result instead of
+ * executing the command. The agent must surface its uncertainty to the user.
+ */
+export function buildConfidenceGateMessage(
+  sessionConfidenceScore: number | null,
+  commandType: string,
+  riskLevel: "safe" | "caution" | "destructive",
+): string | null {
+  if (sessionConfidenceScore === null) return null;
+  if (sessionConfidenceScore >= 0.5) return null;
+  if (riskLevel === "safe") return null;
+
+  const pct = Math.round(sessionConfidenceScore * 100);
+  return (
+    `CONFIDENCE GATE: You declared ${pct}% confidence earlier in this session. ` +
+    `The action "${commandType}" (${riskLevel}) has NOT been executed.\n` +
+    `Before proceeding:\n` +
+    `1. Tell the user what specific data or information is missing that causes uncertainty.\n` +
+    `2. Ask whether to gather more evidence first or proceed despite the uncertainty.\n` +
+    `Do not attempt this action again until the user explicitly confirms.`
+  );
+}
+
 function buildCompactSchemaSummary(schema: FullSchema | null): string | null {
   if (!schema) return null;
   const tableLines = schema.tables
@@ -212,11 +387,23 @@ function buildFastSystemPrompt(
   }
 
   if (currentResults) {
-    const cols = currentResults.fields.map((f) => f.name).join(", ");
+    const cols = currentResults.fields.map((f) => f.name);
+    const colList = cols.map((c) => `"${c}"`).join(", ");
     const sample = JSON.stringify(currentResults.rows.slice(0, 2), null, 2);
-    parts.push(`LAST RESULTS: ${currentResults.rowCount} rows. Columns: ${cols}\nSample:\n${sample}`);
+    parts.push(
+      `LAST RESULTS: ${currentResults.rowCount} rows.\n` +
+      `EXACT COLUMN NAMES (use verbatim in create_chart — do NOT invent names): ${colList}\n` +
+      `Sample:\n${sample}`
+    );
     const profile = buildLoadedResultsProfile(currentResults);
     if (profile) parts.push(profile);
+    parts.push(
+      `CHART RULE: create_chart requires column names from the list above.\n` +
+      `After analyze_loaded_feature_importance, the chart is created AUTOMATICALLY in Graph Builder — do NOT call create_analysis_chart, it is handled automatically.\n` +
+      `After create_derived_table opens a new tab with rows, if the user wants to chart it, call create_chart (NOT create_analysis_chart) using the column names visible in that tab's results.\n` +
+      `For derived columns (e.g. ratios), write SQL with alias, execute_sql, then create_chart with the alias.\n` +
+      `CORRELATION: If user asks what factors affect a column — try analyze_loaded_correlation first. If it fails, use execute_sql with CORR() e.g. SELECT CORR("col_a","target") AS c1, CORR("col_b","target") AS c2 FROM "schema"."table". Never attempt more than 2 approaches.`
+    );
   }
 
   if (memoryContext?.workspaceRules?.length) {
@@ -226,6 +413,11 @@ function buildFastSystemPrompt(
       .join("\n");
     parts.push(`APPROVED RULES:\n${lines}`);
   }
+
+  // Cross-tab awareness (fast path)
+  const fastStoreState = useWorkspaceStore.getState();
+  const fastOpenTabsSummary = buildOpenTabsSummary(fastStoreState.tabs, fastStoreState.activeTabId);
+  if (fastOpenTabsSummary) parts.push(fastOpenTabsSummary);
 
   return parts.join("\n\n");
 }
@@ -265,7 +457,8 @@ function buildSystemPrompt(
   currentResults: QueryResults | null,
   agentMode: "plan" | "auto",
   memoryContext?: MemoryContext,
-  queryDepth?: 'fast' | 'deep'
+  queryDepth?: 'fast' | 'deep',
+  harnessAdditions?: string | null
 ): string {
   if (queryDepth === "fast") {
     return buildFastSystemPrompt(schema, currentSQL, currentResults, agentMode, memoryContext);
@@ -363,10 +556,13 @@ WHERE clause extraction rules:
   }
 
   if (currentResults) {
-    const cols = currentResults.fields.map((f) => f.name).join(", ");
+    const cols = currentResults.fields.map((f) => f.name);
+    const colList = cols.map((c) => `"${c}"`).join(", ");
     const sample = JSON.stringify(currentResults.rows.slice(0, 3), null, 2);
     parts.push(
-      `LAST QUERY RESULTS: ${currentResults.rowCount} rows in ${currentResults.elapsedMs}ms\nColumns: ${cols}\nSample:\n${sample}`
+      `LAST QUERY RESULTS: ${currentResults.rowCount} rows in ${currentResults.elapsedMs}ms\n` +
+      `EXACT COLUMN NAMES (use these verbatim — do NOT invent column names): ${colList}\n` +
+      `Sample:\n${sample}`
     );
     const profile = buildLoadedResultsProfile(currentResults);
     if (profile) parts.push(profile);
@@ -460,32 +656,101 @@ For any question about anomalies, quality issues, process upsets, or unexplained
 - Quote all SQL identifiers: "schema"."table"."column"
 - Never call delete_rows or drop_column without explicit user confirmation
 - When the user states a durable preference, governance rule, or reporting convention that should persist across sessions, call propose_workspace_rule so it can be explicitly reviewed and approved
+- When you discover a statistically significant relationship (R > 0.6 or importance > 10%), call propose_workspace_rule with kind="analysis" to save it. Example: title="UDI drives Tool wear", instruction="UDI has 57.97% feature importance for Tool wear [min] with R=0.999 — always check UDI when analyzing tool wear". Do this at the END of the turn after your main answer.
+
+## Correlation Analysis — Preferred Workflow
+When the user asks "what factors affect X" or "correlation" or "what impacts Y":
+1. FIRST try: analyze_loaded_correlation with targetColumn="<target>" if results are already loaded (>0 rows in LAST QUERY RESULTS).
+2. If that returns an error OR no results are loaded: use execute_sql with PostgreSQL CORR():
+   Example — finding what affects "Tool wear [min]":
+   SELECT
+     CORR("Air temperature [K]", "Tool wear [min]") AS corr_air_temp,
+     CORR("Process temperature [K]", "Tool wear [min]") AS corr_proc_temp,
+     CORR("Rotational speed [rpm]", "Tool wear [min]") AS corr_rpm,
+     CORR("Torque [Nm]", "Tool wear [min]") AS corr_torque
+   FROM "schema"."table"
+   Then create_chart with the result columns.
+3. Do NOT attempt more than 2 different approaches. If both fail, explain what happened.
+4. Never loop through 4+ tool attempts on the same request.
+
+## CRITICAL: Two Chart Tools — Do Not Confuse Them
+- **create_chart**: plots columns from the CURRENTLY LOADED SQL RESULTS. Only use column names that appear verbatim in "EXACT COLUMN NAMES" above. NEVER invent column names.
+- **create_analysis_chart**: plots rows you supply directly (e.g. correlation summaries or custom computed rows). Do NOT use after analyze_loaded_feature_importance.
+
+## After Analysis Tools — Results and Derived Tables
+
+⚠️ CRITICAL — READ BEFORE CALLING create_derived_table:
+Derived tables are stored in an internal SQLite memory database, NOT in the live PostgreSQL/MySQL connection.
+After create_derived_table runs, the data is ALREADY PRE-LOADED in the sheet tab.
+NEVER call execute_sql to query a derived table by name — it will query the wrong database (PostgreSQL) and return empty, causing a loop.
+
+After analyze_loaded_feature_importance: the chart is AUTOMATICALLY created in Graph Builder. Do NOT call create_analysis_chart — handled automatically. Just confirm the analysis is done.
+
+CORRECT workflow for feature importance → table → chart:
+1. analyze_loaded_feature_importance runs → chart auto-appears in Graph Builder ✓
+2. If user asks to save/keep results: call create_derived_table with rows=result.detailed_factors, name="feature_importance_<target>" → sheet tab opens with data PRE-LOADED ✓
+3. If user then wants a chart from the sheet: call create_analysis_chart with rows=result.detailed_factors (use the SAME rows from step 2, not a SQL query) ✓
+STOP after step 2 — do NOT run execute_sql on the derived table name.
+
+CORRECT workflow for correlation → table → chart:
+1. analyze_loaded_correlation runs → result has correlations: [{column, correlation, p_value, sample_size}]
+2. Chart: call create_analysis_chart with rows=result.correlations, xKey="column", yKey="correlation", chartType="bar"
+3. If user asks to save: call create_derived_table with name="correlation_<target>", rows=result.correlations — sheet tab opens with data PRE-LOADED ✓
+STOP after step 3 — do NOT run execute_sql on the derived table name.
+
+CORRECT workflow for data slice → table:
+1. execute_sql with WHERE clause to filter live data → get rows from the live database ✓
+2. create_derived_table with those rows → sheet tab opens with data PRE-LOADED ✓
+STOP — do NOT run execute_sql on the derived table name.
+
+After any create_derived_table call: tell the user the sheet tab is ready with N rows. If they want a chart, call create_analysis_chart with the same rows you just saved (NOT a SQL query).
+
+## Data Slices and Sheet Creation
+When the user asks to "show me", "filter", "see", or "slice" data (e.g. "show me rows from Sunday to Monday", "filter to Type=L", "give me the top 50 rows"):
+1. Execute the SQL filter: SELECT ... FROM <table> WHERE <condition>
+2. Call create_derived_table with: name=<descriptive_snake_case>, rows=<query_results.rows>, title=<human_readable>
+3. Tell the user the sheet name and how many rows it contains.
+Do NOT just describe the filter or show the SQL — actually execute it and create the sheet.
+
+## Creating Derived Columns for Analysis
+When the user wants to analyze a relationship that requires a computed column (ratio, difference, log transform, etc.):
+1. Write SQL that computes it with an alias: SELECT col_a, col_b, (col_a / NULLIF(col_b, 0)) AS ratio_a_b FROM "schema"."table"
+2. Call execute_sql to run it — the derived column will appear in LAST QUERY RESULTS
+3. Then use create_chart with the derived column name (e.g. xColumn: "ratio_a_b")
+NEVER call create_chart with a column name that isn't in the loaded results.
 
 ## Visualization Execution Rules
 - If the user asks for a plot/chart and the request is underspecified, ask a clarifying question instead of guessing.
-- If the needed rows are already loaded in LAST QUERY RESULTS, prefer create_chart so the plot opens in editable Graph Builder.
-- If the needed rows are already loaded and the user asks which factors drive an outcome, what correlates with it, or what is most important, use analyze_loaded_correlation or analyze_loaded_feature_importance before fetching more data.
-- If the user wants coefficient-style detail, how much each factor matters, or a more rigorous explanation of the effect sizes, use analyze_loaded_regression on the loaded rows.
 - If no suitable rows are loaded yet, execute_sql first, then create_chart using the returned columns.
-- If the user says "by type", "by group", "colored by", or wants separate categories in the same plot, pass that grouping column as colorColumn when calling create_chart.
-- If you are plotting computed analysis outputs such as feature rankings, percent importance, or correlation summaries, use create_analysis_chart instead of create_chart.
-- Use create_gog_chart only when aggregation/binning is genuinely required.
+- If the user says "by type", "by group", "colored by", wants separate categories, pass that grouping column as colorColumn.
+- Use create_gog_chart only when the table is too large for interactive Graph Builder (100k+ rows).
 - Never say a chart was created unless the chart tool returned success.
-- If a chart tool fails, choose the next valid fallback and continue in the same turn before concluding.
+- If a chart tool fails, read the error carefully — it usually says which column was missing. Fix the column name and retry.
 - For plotting requests, do not stop after only writing SQL into the editor unless the user explicitly asked for SQL only.`);
 
   if (memoryContext) {
     if (memoryContext.recentEpisodes.length > 0) {
       const episodeLines = memoryContext.recentEpisodes
-        .slice(0, 5)
+        .slice(0, 3)
         .map((ep) => {
           const date = new Date(ep.createdAt).toLocaleDateString();
-          const rawSummary = ep.findings?.["summary"];
-          const summary = ep.outcome ?? (typeof rawSummary === "string" ? rawSummary : "");
-          return `- [${date}] User asked: "${ep.problem.slice(0, 80)}". Finding: ${summary}`;
+          const summary = ep.outcome ?? (typeof ep.findings?.["summary"] === "string" ? ep.findings["summary"] as string : "");
+          const toolResults = typeof ep.findings?.["toolResults"] === "string" ? ep.findings["toolResults"] as string : "";
+          const tables = Array.isArray(ep.findings?.["tablesAccessed"]) ? (ep.findings["tablesAccessed"] as string[]).join(", ") : "";
+          const lines = [
+            `- [${date}] "${ep.problem.slice(0, 100)}"`,
+            `  Finding: ${summary.slice(0, 200)}`,
+            tables ? `  Tables accessed: ${tables}` : null,
+            toolResults ? `  Data seen: ${toolResults.slice(0, 120)}` : null,
+          ].filter(Boolean);
+          return lines.join("\n");
         })
         .join("\n");
-      parts.push(`## Your Memory of Past Analyses\n${episodeLines}`);
+      parts.push(
+        `## PRIOR SESSION CONTEXT (from memory — these are snapshots from past sessions, not the current conversation)\n` +
+        `Use these to recall prior findings and avoid repeating work. Re-verify if the user's question depends on them.\n` +
+        episodeLines
+      );
     }
     if (memoryContext.priorityParams.length > 0) {
       parts.push(
@@ -525,27 +790,18 @@ For any question about anomalies, quality issues, process upsets, or unexplained
     }
   }
 
+  // Cross-tab awareness
+  const storeState = useWorkspaceStore.getState();
+  const openTabsSummary = buildOpenTabsSummary(storeState.tabs, storeState.activeTabId);
+  if (openTabsSummary) parts.push(openTabsSummary);
+
+  if (harnessAdditions) {
+    parts.push(`## Harness Guidance (Auto-Updated)\n${harnessAdditions}`);
+  }
+
   return parts.join("\n\n");
 }
 
-function getRoundTimeoutMs(
-  providerId: string,
-  model: string,
-  queryDepth: "fast" | "deep",
-  userMessage: string,
-): number {
-  let timeoutMs = queryDepth === "fast" ? FAST_MODE_ROUND_TIMEOUT_MS : DEEP_MODE_ROUND_TIMEOUT_MS;
-  const lowerProvider = providerId.toLowerCase();
-  const lowerModel = model.toLowerCase();
-  const wordCount = userMessage.trim().split(/\s+/).filter(Boolean).length;
-
-  if (wordCount > 20) timeoutMs += 4_000;
-  if (queryDepth === "deep") timeoutMs += Math.min(wordCount, 40) * 250;
-  if (lowerProvider.includes("ollama") || lowerProvider.includes("nim")) timeoutMs += 8_000;
-  if (lowerModel.includes("opus") || lowerModel.includes("gpt-5") || lowerModel.includes("claude")) timeoutMs += 6_000;
-
-  return Math.min(timeoutMs, 75_000);
-}
 
 // ── Tool input → AgentCommand ─────────────────────────────────────────────────
 
@@ -846,9 +1102,11 @@ export async function runAgentLoop(
     currentSQL,
     currentResults,
     onToken,
+    onThinking,
     onToolStart,
     onToolEnd,
     onPlanQueued,
+    signal,
   } = options;
 
   const { agentMode, addPlanStep, currentTask } = useWorkspaceStore.getState();
@@ -863,7 +1121,18 @@ export async function runAgentLoop(
     ];
     return { finalText: clarifier, updatedHistory: updatedHistory.slice(-40), queryDepth, pendingApprovalSteps: [] };
   }
-  const system = buildSystemPrompt(schema, currentSQL, currentResults, agentMode, options.memoryContext, queryDepth);
+
+  let harnessAdditions: string | null = null;
+  try {
+    const activeVersion = await FailureTraceStore.getActiveVersion();
+    harnessAdditions = activeVersion?.system_prompt_additions ?? null;
+  } catch {
+    // non-critical — proceed without harness additions
+  }
+
+  const system = buildSystemPrompt(schema, currentSQL, currentResults, agentMode, options.memoryContext, queryDepth, harnessAdditions);
+
+  const sessionId = `session-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
   // Append the user message to working history
   const working: ConversationTurn[] = [
@@ -871,38 +1140,87 @@ export async function runAgentLoop(
     { role: "user", text: userMessage },
   ];
 
+  ContextEngine.trackContextBuild(sessionId, system, working);
+
+  const connections = useWorkspaceStore.getState().connections;
+  const activeConn = connections.find(c => c.id === connectionId);
+  const policyCtx: PolicyContext = {
+    sessionId,
+    connectionId,
+    question: userMessage,
+    isReadOnly: activeConn?.read_only ?? false,
+    connectionType: activeConn?.driver ?? '',
+    piiColumns: [],
+  };
+  const sessionCtx: SessionContext = {
+    sessionId,
+    connectionId,
+    question: userMessage,
+    toolsCalledSoFar: [],
+    errorsSoFar: [],
+    startTime: Date.now(),
+    iterationCount: 0,
+    policyContext: policyCtx,
+  };
+  await DATAIQ_HOOKS.onSessionStart?.(sessionCtx);
+
   const userToolDefs = useUserToolStore.getState().tools.map(userToolToUnifiedTool);
   const allTools = [...AGENT_TOOLS, ...userToolDefs];
-  const roundTimeoutMs = getRoundTimeoutMs(provider.id, model, queryDepth, userMessage);
-
   let finalText = "";
   const pendingApprovalSteps: string[] = [];
-  const MAX_ROUNDS = queryDepth === "fast" ? 4 : 8;
+  const MAX_ROUNDS = queryDepth === "fast" ? 6 : 12;
   const toolSignatureCounts = new Map<string, number>();
   let resultFetchingAttempts = 0;
+  let sessionConfidenceScore: number | null = null;
+  let confidenceGateFired = false;
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
+    if (signal?.aborted) {
+      throw new DOMException("Aborted", "AbortError");
+    }
+    // Show a single updating "Thinking…" status while waiting for the first token.
+    const roundStart = Date.now();
+    let firstTokenReceived = false;
+    onThinking?.("Thinking…");
+    const thinkingTimer = setInterval(() => {
+      if (!firstTokenReceived) {
+        const elapsed = Math.round((Date.now() - roundStart) / 1000);
+        onThinking?.(`Thinking… ${elapsed}s`);
+      }
+    }, 1_000);
+    const wrappedOnToken = (tok: string) => {
+      if (!firstTokenReceived) {
+        firstTokenReceived = true;
+        clearInterval(thinkingTimer);
+        onThinking?.(null);
+      }
+      onToken(tok);
+    };
+
     const { text, toolCalls, stopReason } = await withRetry(
       () =>
-        withTimeout(
-          provider.stream({
-            system,
-            history: working,
-            model,
-            tools: allTools,
-            onToken,
-          }),
-          roundTimeoutMs,
-          "Agent model round",
-        ),
+        provider.stream({
+          system,
+          history: working,
+          model,
+          tools: allTools,
+          onToken: wrappedOnToken,
+          signal,
+        }),
       {
-        maxAttempts: 3,
-        baseDelayMs: 1_000,
-        onRetry: (attempt, delayMs, _err) => {
-          onToken(`\n\n⚠ Rate limited — retrying in ${(delayMs / 1000).toFixed(0)}s (attempt ${attempt}/3)…\n\n`);
+        maxAttempts: 4,
+        baseDelayMs: 2_000,
+        signal,
+        onRetry: (attempt, delayMs, err) => {
+          const isTimeout = err instanceof Error && (err.message.toLowerCase().includes("timed out") || err.message.toLowerCase().includes("timeout"));
+          if (isTimeout) {
+            onToken(`\n\n⏳ Model is taking longer than expected — retrying (attempt ${attempt}/4)…\n\n`);
+          } else {
+            onToken(`\n\n⚠ Rate limited — retrying in ${(delayMs / 1000).toFixed(0)}s (attempt ${attempt}/4)…\n\n`);
+          }
         },
       }
-    );
+    ).finally(() => clearInterval(thinkingTimer));
 
     finalText += text;
 
@@ -913,117 +1231,234 @@ export async function runAgentLoop(
 
     if (stopReason === "end_turn" || toolCalls.length === 0) break;
 
-    // Execute tools and collect results
+    // Execute tools in parallel — each gets an 8s individual timeout
     const toolResults: ConversationTurn["toolResults"] = [];
 
-    for (const tc of toolCalls) {
-      const toolSignature = `${tc.name}:${JSON.stringify(tc.input ?? {})}`;
-      const priorSignatureCount = toolSignatureCounts.get(toolSignature) ?? 0;
-      toolSignatureCounts.set(toolSignature, priorSignatureCount + 1);
+    const toolResultEntries = await Promise.all(
+      toolCalls.map(async (tc) => {
+        const toolSignature = `${tc.name}:${JSON.stringify(tc.input ?? {})}`;
+        const priorSignatureCount = toolSignatureCounts.get(toolSignature) ?? 0;
+        toolSignatureCounts.set(toolSignature, priorSignatureCount + 1);
 
-      if (RESULT_FETCHING_TOOL_NAMES.has(tc.name)) {
-        if (queryDepth === "fast" && resultFetchingAttempts >= 2) {
-          toolResults!.push({
-            toolCallId: tc.id,
-            name: tc.name,
-            content: "Skipped additional data-fetch attempt because this fast analysis already exhausted its live-query budget. Use the currently loaded results or answer with the best available evidence.",
-            isError: true,
-          });
-          continue;
-        }
-
-        if (priorSignatureCount >= 1) {
-          toolResults!.push({
-            toolCallId: tc.id,
-            name: tc.name,
-            content: "Skipped duplicate data-fetch attempt. Do not repeat the same live query path; summarize the current evidence or choose a narrower alternative.",
-            isError: true,
-          });
-          continue;
-        }
-      }
-
-      const cmd = toolCallToCommand(tc, connectionId);
-
-      if (!cmd) {
-        toolResults!.push({
-          toolCallId: tc.id,
-          name: tc.name,
-          content: `Unknown tool or missing connectionId: ${tc.name}`,
-          isError: true,
-        });
-        continue;
-      }
-
-      onToolStart(tc.name, tc.input);
-
-      let result: CommandResult;
-
-      if (isDestructive(cmd)) {
-        const stepId = `plan-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-        const description = describeCommand(cmd);
-
-        addPlanStep({
-          id: stepId,
-          commandType: cmd.type,
-          humanReadable: description,
-          sqlPreview:
-            "sql" in cmd && typeof cmd.sql === "string"
-              ? cmd.sql
-              : cmd.type === "delete_rows"
-                ? `DELETE FROM "${cmd.schema}"."${cmd.table}" WHERE ${cmd.where};`
-                : cmd.type === "drop_column"
-                  ? `ALTER TABLE "${cmd.schema}"."${cmd.table}" DROP COLUMN "${cmd.columnName}";`
-                  : cmd.type === "rename_table"
-                    ? `ALTER TABLE "${cmd.schema}"."${cmd.oldName}" RENAME TO "${cmd.newName}";`
-                    : undefined,
-          taskId: currentTask?.id,
-          subtaskId: currentSubtask?.id,
-          riskLevel: cmd.risk,
-          status: "pending",
-          command: cmd, // stored so PlanQueue can dispatch on approval
-        });
-
-        onPlanQueued(stepId, description);
-        pendingApprovalSteps.push(stepId);
-
-        result = {
-          success: true,
-          result: `Queued for approval: "${description}". Waiting for user to approve in the Plan Queue.`,
-        };
-      } else {
-        result = await commandBus.dispatch(cmd);
         if (RESULT_FETCHING_TOOL_NAMES.has(tc.name)) {
-          resultFetchingAttempts += 1;
+          if (queryDepth === "fast" && resultFetchingAttempts >= 2) {
+            return {
+              toolCallId: tc.id,
+              name: tc.name,
+              content:
+                "Skipped additional data-fetch attempt because this fast analysis already exhausted its live-query budget. Use the currently loaded results or answer with the best available evidence.",
+              isError: true,
+            };
+          }
+          if (priorSignatureCount >= 1) {
+            return {
+              toolCallId: tc.id,
+              name: tc.name,
+              content:
+                "Skipped duplicate data-fetch attempt. Do not repeat the same live query path; summarize the current evidence or choose a narrower alternative.",
+              isError: true,
+            };
+          }
         }
 
-        // Push to undo stack on successful non-safe mutations
-        if (result.success && cmd.risk !== "safe") {
-          useWorkspaceStore.getState().pushUndo({
-            id: tc.id,
-            humanReadable: describeCommand(cmd),
+        const cmd = toolCallToCommand(tc, connectionId);
+        if (!cmd) {
+          return {
+            toolCallId: tc.id,
+            name: tc.name,
+            content: `Unknown tool or missing connectionId: ${tc.name}`,
+            isError: true,
+          };
+        }
+
+        sessionCtx.toolsCalledSoFar.push(tc.name);
+        try {
+          await DATAIQ_HOOKS.onBeforeToolCall?.(tc.name, tc.input, sessionCtx);
+        } catch (policyErr) {
+          const errMsg = policyErr instanceof Error ? policyErr.message : String(policyErr);
+          onToolEnd(tc.name, { success: false, error: errMsg });
+          return { toolCallId: tc.id, name: tc.name, content: errMsg, isError: true };
+        }
+
+        // ── Track declared confidence ─────────────────────────────────────
+        if (tc.name === "declare_confidence" && typeof tc.input.confidence === "number") {
+          sessionConfidenceScore = tc.input.confidence as number;
+          if (sessionConfidenceScore >= 0.5) confidenceGateFired = false; // reset if confidence recovers
+        }
+
+        // ── Confidence gate — block non-safe actions after low confidence ─
+        if (!confidenceGateFired) {
+          const gateMsg = buildConfidenceGateMessage(sessionConfidenceScore, cmd.type, cmd.risk);
+          if (gateMsg) {
+            confidenceGateFired = true;
+            onToolEnd(tc.name, { success: false, error: "Confidence gate" });
+            return {
+              toolCallId: tc.id,
+              name: tc.name,
+              content: gateMsg,
+              isError: false,
+            };
+          }
+        }
+
+        onToolStart(tc.name, tc.input);
+
+        if (agentMode === "plan") {
+          const impactMap = ImpactMapEngine.fromCommands([cmd], connectionId);
+          useWorkspaceStore.getState().setImpactMapResolution(impactMap);
+        }
+
+        if (isDestructive(cmd)) {
+          const stepId = `plan-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+          const description = describeCommand(cmd);
+          addPlanStep({
+            id: stepId,
+            commandType: cmd.type,
+            humanReadable: description,
+            sqlPreview:
+              "sql" in cmd && typeof cmd.sql === "string"
+                ? cmd.sql
+                : cmd.type === "delete_rows"
+                  ? `DELETE FROM "${cmd.schema}"."${cmd.table}" WHERE ${cmd.where};`
+                  : cmd.type === "drop_column"
+                    ? `ALTER TABLE "${cmd.schema}"."${cmd.table}" DROP COLUMN "${cmd.columnName}";`
+                    : cmd.type === "rename_table"
+                      ? `ALTER TABLE "${cmd.schema}"."${cmd.oldName}" RENAME TO "${cmd.newName}";`
+                      : undefined,
+            taskId: currentTask?.id,
+            subtaskId: currentSubtask?.id,
+            riskLevel: cmd.risk,
+            status: "pending",
             command: cmd,
-            timestamp: Date.now(),
           });
+          // Auto-reject after 30s so the agent never hangs indefinitely
+          setTimeout(() => {
+            const { planQueue, setPlanStepStatus } = useWorkspaceStore.getState();
+            const still = planQueue.find((s) => s.id === stepId && s.status === "pending");
+            if (still) {
+              setPlanStepStatus(stepId, "rejected");
+              onToken("\n\n⏱ Plan step auto-rejected after 30s inactivity.\n\n");
+            }
+          }, 30_000);
+          onPlanQueued(stepId, description);
+          pendingApprovalSteps.push(stepId);
+          return {
+            toolCallId: tc.id,
+            name: tc.name,
+            content: `Queued for approval: "${description}". Waiting for user to approve in the Plan Queue.`,
+            isError: false,
+          };
         }
-      }
 
-      onToolEnd(tc.name, result);
+        try {
+          const toolStartTime = Date.now();
+          // No hard timeout — tools run to completion.
+          // Show elapsed-time ETA every 5s for slow tools so the user sees progress.
+          const INSTANT_TOOLS = new Set(["create_chart", "create_analysis_chart", "create_gog_chart",
+            "set_editor_content", "focus_schema_node", "close_tab", "notify_user",
+            "declare_hypotheses", "declare_confidence", "propose_workspace_rule"]);
 
-      toolResults!.push({
-        toolCallId: tc.id,
-        name: tc.name,
-        content: result.success
-          ? JSON.stringify(result.result ?? "done")
-          : `Error: ${result.error}`,
-        isError: !result.success,
-      });
-    }
+          let progressTimer: ReturnType<typeof setInterval> | null = null;
+          if (!INSTANT_TOOLS.has(tc.name)) {
+            onThinking?.(`Running ${tc.name}…`);
+            progressTimer = setInterval(() => {
+              const elapsed = Math.round((Date.now() - toolStartTime) / 1000);
+              onThinking?.(`Running ${tc.name}… ${elapsed}s`);
+            }, 1_000);
+          }
+
+          const result = await commandBus.dispatch(cmd).finally(() => {
+            if (progressTimer) clearInterval(progressTimer);
+            if (!INSTANT_TOOLS.has(tc.name)) onThinking?.(null);
+          });
+          if (RESULT_FETCHING_TOOL_NAMES.has(tc.name)) resultFetchingAttempts++;
+
+          // Push to undo stack on successful non-safe mutations
+          if (result.success && cmd.risk !== "safe") {
+            useWorkspaceStore.getState().pushUndo({
+              id: tc.id,
+              humanReadable: describeCommand(cmd),
+              command: cmd,
+              timestamp: Date.now(),
+            });
+          }
+
+          const afterDurationMs = Date.now() - toolStartTime;
+          try {
+            await DATAIQ_HOOKS.onAfterToolCall?.(tc.name, tc.input, result, afterDurationMs, sessionCtx);
+          } catch {
+            // non-fatal hook error
+          }
+          if (!result.success) {
+            sessionCtx.errorsSoFar.push({ tool: tc.name, error: result.error ?? 'unknown' });
+          }
+          onToolEnd(tc.name, result);
+          const rawContent = result.success
+            ? JSON.stringify(result.result ?? "done")
+            : `Error: ${result.error}`;
+
+          // Append data evidence summary for execute_sql results with rows
+          let enrichedContent = rawContent;
+          if (result.success && tc.name === "execute_sql") {
+            try {
+              const qr = result.result as QueryResults | undefined;
+              if (qr) {
+                const evidence = buildDataEvidence(qr);
+                if (evidence) enrichedContent = rawContent + "\n\n" + evidence;
+              }
+            } catch {
+              // non-fatal — proceed without evidence
+            }
+          }
+
+          return {
+            toolCallId: tc.id,
+            name: tc.name,
+            content: buildReflectionGuidance(tc.name, enrichedContent, !result.success),
+            isError: !result.success,
+          };
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          onToolEnd(tc.name, { success: false, error: errMsg });
+          const catchContent = `Tool error: ${errMsg}`;
+          return {
+            toolCallId: tc.id,
+            name: tc.name,
+            content: buildReflectionGuidance(tc.name, catchContent, true),
+            isError: true,
+          };
+        }
+      })
+    );
+
+    toolResults.push(...toolResultEntries);
 
     // Add tool results as a user turn
     working.push({ role: "user", toolResults });
+
+    // Struggle detection at end of each round
+    sessionCtx.iterationCount = round + 1;
+    const struggle = detectStruggle(sessionCtx);
+    if (struggle) {
+      const hint = await DATAIQ_HOOKS.onStruggleDetected?.(sessionCtx, struggle);
+      if (hint) {
+        // Inject struggle hint as a user message into working history
+        working.push({ role: 'user', text: hint });
+      }
+    }
   }
 
+  const sessionSuccess = finalText.length > 0;
+  await DATAIQ_HOOKS.onSessionComplete?.(sessionCtx, {
+    success: sessionSuccess,
+    toolsUsed: sessionCtx.toolsCalledSoFar,
+    totalDurationMs: Date.now() - sessionCtx.startTime,
+    tokenEstimate: ContextEngine.estimateTokenUsage(system, working).total,
+    errorCount: sessionCtx.errorsSoFar.length,
+  });
+
+  onThinking?.(null);
   // Trim to last 40 turns to keep context manageable
-  return { finalText, updatedHistory: working.slice(-40), queryDepth, pendingApprovalSteps };
+  const compacted = ContextEngine.compactHistory(working);
+  return { finalText, updatedHistory: compacted, queryDepth, pendingApprovalSteps };
 }

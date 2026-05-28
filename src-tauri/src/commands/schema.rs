@@ -208,5 +208,7 @@ pub async fn db_get_table_ddl(
             "get_table_ddl is not supported for ClickHouse (use SHOW CREATE TABLE instead)."
                 .to_string(),
         ),
+        ActiveConnection::DuckDb(_) => Err("get_table_ddl is not supported for DuckDB.".to_string()),
+        ActiveConnection::RestApi(_) => Err("get_table_ddl is not supported for REST API connections.".to_string()),
     }
 }

@@ -285,13 +285,20 @@ export const AGENT_TOOLS: UnifiedTool[] = [
     parameters: {
       type: "object",
       properties: {
-        chartType: { type: "string", enum: ["bar", "line", "scatter", "pie", "area"], description: "Chart type" },
+        chartType: {
+          type: "string",
+          enum: ["bar", "line", "scatter", "pie", "area", "histogram", "box_plot", "heatmap", "waterfall", "control_chart"],
+          description: "Chart type. Use control_chart for time-series SPC analysis, histogram for distributions, box_plot for group comparisons, heatmap for 2D density, waterfall for cumulative deltas.",
+        },
         xColumn: { type: "string", description: "Column to use as the X axis / category" },
         yColumn: { type: "string", description: "Column to use as the Y axis / value" },
         colorColumn: { type: "string", description: "Optional column to use for color grouping / legend splits" },
         title: { type: "string", description: "Optional chart title" },
         xLabel: { type: "string", description: "Optional X axis label override. Defaults to xColumn." },
         yLabel: { type: "string", description: "Optional Y axis label override. Defaults to yColumn." },
+        ucl: { type: "number", description: "Upper control limit for control_chart. If omitted, computed as mean+3σ." },
+        lcl: { type: "number", description: "Lower control limit for control_chart. If omitted, computed as mean-3σ." },
+        centerLine: { type: "number", description: "Center line for control_chart. If omitted, computed as mean." },
       },
       required: ["chartType", "xColumn", "yColumn"],
     },
@@ -301,11 +308,15 @@ export const AGENT_TOOLS: UnifiedTool[] = [
   {
     name: "create_analysis_chart",
     description:
-      "Open an editable chart in Graph Builder from analysis result rows produced in the current turn, such as feature importance rankings or correlation summaries. Use this when you want to plot computed results rather than the raw query table.",
+      "Open an editable chart in Graph Builder from analysis result rows you supply directly. Use ONLY for correlation summaries or custom computed rows. Do NOT use after analyze_loaded_feature_importance — that tool auto-creates the chart in Graph Builder automatically.",
     parameters: {
       type: "object",
       properties: {
-        chartType: { type: "string", enum: ["bar", "line", "scatter", "pie", "area"], description: "Chart type" },
+        chartType: {
+          type: "string",
+          enum: ["bar", "line", "scatter", "pie", "area", "histogram", "box_plot", "heatmap", "waterfall", "control_chart"],
+          description: "Chart type. Use control_chart for time-series SPC analysis, histogram for distributions, box_plot for group comparisons, heatmap for 2D density, waterfall for cumulative deltas.",
+        },
         rows: { type: "array", items: { type: "object" } as any, description: "Analysis result rows to plot" } as any,
         xKey: { type: "string", description: "Field name in rows to use on the X axis" },
         yKey: { type: "string", description: "Field name in rows to use on the Y axis" },
@@ -315,6 +326,56 @@ export const AGENT_TOOLS: UnifiedTool[] = [
         yLabel: { type: "string", description: "Optional Y axis label override" },
       },
       required: ["chartType", "rows", "xKey", "yKey"],
+    },
+  },
+  {
+    name: "create_derived_table",
+    description:
+      "Create a named data sheet (like a JMP or Excel sheet tab) from any set of rows — filtered data, analysis results, time-range slices, or aggregations. The sheet opens in a new teal-tinted tab and persists in the local database. Use this when: (1) the user wants to 'see', 'show', 'filter', 'slice', or 'subset' data — execute the SQL filter first, then call this with the result rows; (2) the user says 'save as table' or 'keep these results'; (3) after correlation/analysis and the user wants to inspect the data. Use snake_case for the name (e.g. 'type_l_rows', 'monday_data', 'feature_importance_lean_rate'). Do NOT call this after analyze_loaded_feature_importance unless the user explicitly asks.",
+    parameters: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Snake_case table name, e.g. 'feature_importance_lean_rate'.",
+        },
+        rows: {
+          type: "array",
+          items: { type: "object" } as any,
+          description: "Array of result row objects to store.",
+        } as any,
+        columns: {
+          type: "array",
+          items: { type: "string" } as any,
+          description: "Optional explicit column order. If omitted, derived from first row keys.",
+        } as any,
+        title: {
+          type: "string",
+          description: "Human-readable table title shown in the tab header.",
+        },
+        permanent: {
+          type: "boolean",
+          description: "If true, table persists across app restarts. Default false.",
+        },
+        openInTab: {
+          type: "boolean",
+          description: "If true (default), open the derived table in a new tab immediately.",
+        },
+      },
+      required: ["name", "rows"],
+    },
+  },
+  {
+    name: "explain_chart",
+    description:
+      "Ask the AI to explain the visible patterns in an existing chart artifact. Provide the artifactId. The AI will describe trends, anomalies, outliers, and statistical patterns in plain English.",
+    parameters: {
+      type: "object",
+      properties: {
+        artifactId: { type: "string", description: "ID of the chart artifact to explain" },
+        question: { type: "string", description: "Optional specific question about the chart, e.g. 'why is there a spike on Tuesday?'" },
+      },
+      required: ["artifactId"],
     },
   },
   {
@@ -439,7 +500,7 @@ export const AGENT_TOOLS: UnifiedTool[] = [
   {
     name: "analyze_loaded_feature_importance",
     description:
-      "Rank which loaded numeric columns most influence a target column using the currently loaded query results. Prefer this over refetching or DuckDB when the relevant rows are already in memory.",
+      "Rank which loaded numeric columns most influence a target column using the currently loaded query results. Prefer this over refetching or DuckDB when the relevant rows are already in memory. After this tool runs, a bar chart is automatically opened in Graph Builder — do NOT call create_analysis_chart or create_derived_table afterwards unless the user explicitly asks.",
     parameters: {
       type: "object",
       properties: {

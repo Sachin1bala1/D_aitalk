@@ -18,8 +18,9 @@ export class GeminiProvider implements AIProvider {
     model: string;
     tools: UnifiedTool[];
     onToken: (text: string) => void;
+    signal?: AbortSignal;
   }): Promise<StreamResult> {
-    const { system, history, model, tools, onToken } = params;
+    const { system, history, model, tools, onToken, signal } = params;
     try {
       const contents = historyToGemini(history);
       const functionDeclarations: FunctionDeclaration[] = tools.map((t) => ({
@@ -36,6 +37,7 @@ export class GeminiProvider implements AIProvider {
           tools: functionDeclarations.length > 0
             ? [{ functionDeclarations }]
             : undefined,
+          abortSignal: signal,
         },
       });
 

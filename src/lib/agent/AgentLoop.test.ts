@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  buildConfidenceGateMessage,
+  buildDataEvidence,
+  buildOpenTabsSummary,
+  buildReflectionGuidance,
   buildVisualizationClarifier,
   inferNumericColumns,
   isUnderspecifiedVisualizationRequest,
@@ -8,7 +12,7 @@ import {
 import { commandBus } from "./CommandBus";
 import type { AIProvider } from "../ai/types";
 import { useWorkspaceStore } from "../stores/WorkspaceStore";
-import type { QueryResults } from "../stores/WorkspaceStore";
+import type { QueryResults, TabState } from "../stores/WorkspaceStore";
 
 const SAMPLE_RESULTS: QueryResults = {
   rows: [
@@ -179,5 +183,299 @@ describe("destructive command approval enforcement", () => {
 
     expect(dispatchSpy).toHaveBeenCalledTimes(1);
     expect(useWorkspaceStore.getState().planQueue).toHaveLength(0);
+  });
+});
+
+describe("buildReflectionGuidance", () => {
+  it("returns content unchanged for successful non-empty execute_sql", () => {
+    const content = JSON.stringify({ rows: [{ a: 1 }], rowCount: 1 });
+    expect(buildReflectionGuidance("execute_sql", content, false)).toBe(content);
+  });
+
+  it("appends ZERO RESULTS block when execute_sql returns empty rows", () => {
+    const content = JSON.stringify({ rows: [], rowCount: 0, fields: [], elapsedMs: 5 });
+    const out = buildReflectionGuidance("execute_sql", content, false);
+    expect(out).toContain("ZERO RESULTS");
+    expect(out).toContain("derived table");
+    expect(out).toContain(content);
+  });
+
+  it("appends ERROR REFLECTION block on tool error", () => {
+    const content = "Error: column not found";
+    const out = buildReflectionGuidance("execute_sql", content, true);
+    expect(out).toContain("ERROR REFLECTION");
+    expect(out).toContain(content);
+  });
+
+  it("appends ERROR REFLECTION for non-execute_sql tool errors", () => {
+    const content = "Error: connection refused";
+    const out = buildReflectionGuidance("analyze_loaded_correlation", content, true);
+    expect(out).toContain("ERROR REFLECTION");
+  });
+
+  it("returns content unchanged for successful non-execute_sql tool", () => {
+    const content = JSON.stringify({ correlations: [{ column: "A", correlation: 0.9 }] });
+    expect(buildReflectionGuidance("analyze_loaded_correlation", content, false)).toBe(content);
+  });
+
+  it("returns content unchanged for execute_sql with non-JSON content and no error", () => {
+    // Tests the catch path for non-JSON content
+    expect(buildReflectionGuidance("execute_sql", "plain text result", false)).toBe("plain text result");
+  });
+
+  it("appends ERROR REFLECTION for empty-string content on error", () => {
+    const out = buildReflectionGuidance("execute_sql", "", true);
+    expect(out).toContain("ERROR REFLECTION");
+  });
+
+  it("does NOT append ZERO RESULTS when rowCount is null (not zero)", () => {
+    // rowCount: null must NOT trigger the zero-rows branch
+    const content = JSON.stringify({ rows: [], rowCount: null, fields: [] });
+    const out = buildReflectionGuidance("execute_sql", content, false);
+    expect(out).toBe(content); // unchanged — null is not 0
+  });
+});
+
+describe("buildDataEvidence", () => {
+  it("returns null for empty results", () => {
+    const results: QueryResults = {
+      rows: [],
+      fields: [{ name: "Torque" }],
+      rowCount: 0,
+      elapsedMs: 5,
+      queryId: "q1",
+      source_tables: [],
+    };
+    expect(buildDataEvidence(results)).toBeNull();
+  });
+
+  it("includes row count and numeric column stats", () => {
+    const results: QueryResults = {
+      rows: [
+        { "Torque [Nm]": 40, Type: "L" },
+        { "Torque [Nm]": 60, Type: "M" },
+      ],
+      fields: [{ name: "Torque [Nm]" }, { name: "Type" }],
+      rowCount: 2,
+      elapsedMs: 10,
+      queryId: "q2",
+      source_tables: ["public.data"],
+    };
+    const evidence = buildDataEvidence(results);
+    expect(evidence).not.toBeNull();
+    expect(evidence).toContain("2 rows");
+    expect(evidence).toContain("Torque [Nm]");
+    expect(evidence).toContain("min=40");
+    expect(evidence).toContain("max=60");
+    expect(evidence).toContain("mean=50");
+  });
+
+  it("skips non-numeric columns but still returns row count", () => {
+    const results: QueryResults = {
+      rows: [{ Type: "L" }, { Type: "M" }],
+      fields: [{ name: "Type" }],
+      rowCount: 2,
+      elapsedMs: 5,
+      queryId: "q3",
+      source_tables: [],
+    };
+    const evidence = buildDataEvidence(results);
+    expect(evidence).toContain("2 rows");
+    expect(evidence).not.toContain("min=");
+  });
+
+  it("caps numeric summary at 6 columns", () => {
+    const fields = Array.from({ length: 10 }, (_, i) => ({ name: `col${i}` }));
+    const row: Record<string, unknown> = {};
+    fields.forEach((f, i) => { row[f.name] = i + 1; });
+    const results: QueryResults = {
+      rows: [row, row],
+      fields,
+      rowCount: 2,
+      elapsedMs: 5,
+      queryId: "q4",
+      source_tables: [],
+    };
+    const evidence = buildDataEvidence(results);
+    const matches = (evidence ?? "").match(/min=/g) ?? [];
+    expect(matches.length).toBeLessThanOrEqual(6);
+  });
+});
+
+describe("buildOpenTabsSummary", () => {
+  const makeTab = (overrides: Partial<TabState>): TabState =>
+    ({
+      id: "t1",
+      type: "sql_editor" as const,
+      title: "Query",
+      connectionId: "conn1",
+      sql: "",
+      queryResults: null,
+      isExecuting: false,
+      queryView: "results" as const,
+      isSheet: false,
+      ...overrides,
+    } as TabState);
+
+  const makeResults = (rowCount: number, fields: string[]) => ({
+    rows: Array.from({ length: Math.min(rowCount, 1) }, () =>
+      Object.fromEntries(fields.map((f) => [f, 1]))
+    ),
+    fields: fields.map((name) => ({ name })),
+    rowCount,
+    elapsedMs: 5,
+    queryId: "q1",
+    source_tables: [],
+  });
+
+  it("returns null when no tabs have results", () => {
+    expect(buildOpenTabsSummary([])).toBeNull();
+    expect(buildOpenTabsSummary([makeTab({ queryResults: null })])).toBeNull();
+  });
+
+  it("returns null when only the active tab has results", () => {
+    const tab = makeTab({ id: "active", queryResults: makeResults(10, ["x"]) });
+    expect(buildOpenTabsSummary([tab], "active")).toBeNull();
+  });
+
+  it("includes non-active tabs with results", () => {
+    const tabs: TabState[] = [
+      makeTab({ id: "active", title: "Live Query", queryResults: makeResults(10, ["x"]) }),
+      makeTab({ id: "sheet1", title: "Type-L rows", isSheet: true, queryResults: makeResults(150, ["Torque", "Type"]) }),
+    ];
+    const summary = buildOpenTabsSummary(tabs, "active");
+    expect(summary).not.toBeNull();
+    expect(summary).toContain("Type-L rows");
+    expect(summary).toContain("150 rows");
+    expect(summary).toContain("Torque");
+    expect(summary).toContain("sheet");
+  });
+
+  it("caps at 5 tabs to limit tokens", () => {
+    const tabs = Array.from({ length: 8 }, (_, i) =>
+      makeTab({ id: `t${i}`, title: `Tab ${i}`, queryResults: makeResults(i + 1, ["v"]) })
+    );
+    const summary = buildOpenTabsSummary(tabs) ?? "";
+    const matches = summary.match(/Tab \d/g) ?? [];
+    expect(matches.length).toBeLessThanOrEqual(5);
+  });
+});
+
+describe("confidence gate integration", () => {
+  it("blocks a caution command after declare_confidence < 0.5", async () => {
+    // Mock provider: round 1 calls declare_confidence(0.3), round 2 calls add_column
+    let callCount = 0;
+    const mockProvider: AIProvider = {
+      id: "openai",
+      name: "Test Provider",
+      stream: vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          // First call: declare low confidence
+          return Promise.resolve({
+            text: "I have low confidence about this.",
+            toolCalls: [
+              {
+                id: "tc1",
+                name: "declare_confidence",
+                input: {
+                  confidence: 0.3,
+                  confidence_label: "low",
+                  what_would_change_conclusion: "More data needed",
+                },
+              },
+            ],
+            stopReason: "tool_use",
+          });
+        }
+        if (callCount === 2) {
+          // Second call: try a caution command
+          return Promise.resolve({
+            text: "Adding column now.",
+            toolCalls: [
+              {
+                id: "tc2",
+                name: "add_column",
+                input: {
+                  schema: "public",
+                  table: "test_table",
+                  columnName: "new_col",
+                  dataType: "text",
+                  nullable: true,
+                },
+              },
+            ],
+            stopReason: "tool_use",
+          });
+        }
+        // Final call: agent wraps up after gate
+        return Promise.resolve({
+          text: "I'll inform the user about my uncertainty before proceeding.",
+          toolCalls: [],
+          stopReason: "end_turn",
+        });
+      }),
+    };
+
+    // Track dispatched commands
+    const dispatchedCommands: string[] = [];
+    const dispatchSpy = vi.spyOn(commandBus, "dispatch").mockImplementation(async (cmd) => {
+      dispatchedCommands.push(cmd.type);
+      return { success: true };
+    });
+
+    const result = await runAgentLoop("add a new column", [], {
+      provider: mockProvider,
+      model: "test-model",
+      connectionId: "conn1",
+      schema: null,
+      currentSQL: null,
+      currentResults: null,
+      onToken: vi.fn(),
+      onToolStart: vi.fn(),
+      onToolEnd: vi.fn(),
+      onPlanQueued: vi.fn(),
+    });
+
+    // The add_column command should NOT have been dispatched
+    expect(dispatchedCommands).not.toContain("add_column");
+    // The final text should include something about uncertainty (the gate message was returned as tool result, agent responded to it)
+    expect(result.finalText).toBeTruthy();
+
+    dispatchSpy.mockRestore();
+  });
+});
+
+describe("buildConfidenceGateMessage", () => {
+  it("returns null when confidence was never declared (null)", () => {
+    expect(buildConfidenceGateMessage(null, "add_column", "caution")).toBeNull();
+  });
+
+  it("returns null when confidence is high enough (>= 0.5)", () => {
+    expect(buildConfidenceGateMessage(0.8, "add_column", "caution")).toBeNull();
+    expect(buildConfidenceGateMessage(0.5, "delete_rows", "destructive")).toBeNull();
+  });
+
+  it("returns null for safe commands regardless of confidence", () => {
+    expect(buildConfidenceGateMessage(0.1, "execute_sql", "safe")).toBeNull();
+  });
+
+  it("returns gate message for low confidence + caution command", () => {
+    const msg = buildConfidenceGateMessage(0.3, "add_column", "caution");
+    expect(msg).not.toBeNull();
+    expect(msg).toContain("30%");
+    expect(msg).toContain("CONFIDENCE GATE");
+    expect(msg).toContain("NOT been executed");
+  });
+
+  it("returns gate message for low confidence + destructive command", () => {
+    const msg = buildConfidenceGateMessage(0.2, "delete_rows", "destructive");
+    expect(msg).not.toBeNull();
+    expect(msg).toContain("CONFIDENCE GATE");
+  });
+
+  it("rounds confidence percentage correctly", () => {
+    const msg = buildConfidenceGateMessage(0.449, "add_column", "caution");
+    expect(msg).toContain("45%");
   });
 });

@@ -17,7 +17,7 @@ export default defineConfig(async () => ({
     strictPort: true,
     watch: {
       // tell vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      ignored: ["**/src-tauri/**", "**/.code-review-graph/**", "**/.claude/**", "**/.playwright-mcp/**"],
     },
   },
   optimizeDeps: {

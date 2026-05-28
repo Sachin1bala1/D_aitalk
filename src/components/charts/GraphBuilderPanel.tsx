@@ -293,6 +293,39 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
   const artifactHead = useWorkspaceStore((s) =>
     initialRequest?.artifactId ? s.artifactHeads[initialRequest.artifactId] ?? null : null
   );
+
+  // localSnapshot persists the artifact's data/fields after the request is cleared from the
+  // store, so effectiveColumns/effectiveData don't collapse back to the live SQL query.
+  const [localSnapshot, setLocalSnapshot] = useState<{
+    rows: Record<string, unknown>[];
+    fields: Array<{ name: string }>;
+  } | null>(null);
+
+  // Clear local snapshot whenever the active tab changes (different dataset).
+  useEffect(() => {
+    setLocalSnapshot(null);
+  }, [activeTabId]);
+
+  // When the artifact carries its own analysis snapshot (e.g. feature importance computed
+  // in-memory), prefer its rows/fields over the parent's live query-result props.
+  // Fall back to localSnapshot so the chart survives after setGraphBuilderRequest(null).
+  const artifactSnapshotRows = artifact?.kind === 'chart' ? artifact.snapshot?.rows : undefined;
+  const artifactSnapshotFields = artifact?.kind === 'chart' ? artifact.snapshot?.fields : undefined;
+  const snapshotRows = artifactSnapshotRows ?? localSnapshot?.rows;
+  const snapshotFields = artifactSnapshotFields ?? localSnapshot?.fields;
+  const effectiveData: Record<string, unknown>[] =
+    snapshotRows && snapshotRows.length > 0 ? snapshotRows : data;
+  const effectiveColumns: ColumnMeta[] =
+    snapshotFields && snapshotRows && snapshotRows.length > 0
+      ? snapshotFields.map((f) => ({
+          name: f.name,
+          type_name: 'numeric',
+          display_type: { kind: 'float' as const },
+          nullable: true,
+          is_primary_key: false,
+        }))
+      : columns;
+
   const lastConsumedRequestKeyRef = useRef<string | null>(null);
   const [assignments, setAssignments] = useState<AxisAssignments>({
     x: null, y: null, color: null, size: null, facet: null,
@@ -327,15 +360,15 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
 
   // Find ColumnMeta by name
   const colMeta = useCallback(
-    (name: string | null) => columns.find((c) => c.name === name) ?? null,
-    [columns]
+    (name: string | null) => effectiveColumns.find((c) => c.name === name) ?? null,
+    [effectiveColumns]
   );
-  const supportedColumnNames = useMemo(() => new Set(columns.map((c) => c.name)), [columns]);
+  const supportedColumnNames = useMemo(() => new Set(effectiveColumns.map((c) => c.name)), [effectiveColumns]);
 
   // Auto chart type
   const resolvedChartType: ChartType =
     chartTypeOverride === 'auto'
-      ? autoSelectChart(colMeta(assignments.x), colMeta(assignments.y), colMeta(assignments.color), colMeta(assignments.size), data)
+      ? autoSelectChart(colMeta(assignments.x), colMeta(assignments.y), colMeta(assignments.color), colMeta(assignments.size), effectiveData)
       : chartTypeOverride;
 
   useEffect(() => {
@@ -343,7 +376,7 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
       lastConsumedRequestKeyRef.current = null;
       return;
     }
-    if (columns.length === 0) return;
+    if (effectiveColumns.length === 0) return;
 
     const requestKey = JSON.stringify({
       chartType: initialRequest.chartType,
@@ -378,8 +411,18 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
       xAxisLabel: initialRequest.xLabel ?? initialRequest.xColumn,
       yAxisLabel: initialRequest.yLabel ?? initialRequest.yColumn,
     }));
+    // Persist snapshot to local state BEFORE clearing the request so effectiveColumns/Data
+    // don't collapse back to the live SQL query after initialRequest becomes null.
+    if (initialRequest.artifactId) {
+      if (snapshotRows && snapshotRows.length > 0 && snapshotFields) {
+        setLocalSnapshot({ rows: snapshotRows as Record<string, unknown>[], fields: snapshotFields });
+      }
+    } else {
+      // Regular SQL chart — clear any previous analysis snapshot.
+      setLocalSnapshot(null);
+    }
     setGraphBuilderRequest(null);
-  }, [columns.length, initialRequest, setGraphBuilderRequest, supportedColumnNames]);
+  }, [effectiveColumns.length, initialRequest, setGraphBuilderRequest, snapshotFields, snapshotRows, supportedColumnNames]);
 
   const zoneSupport = useMemo(() => ({
     x: true,
@@ -552,7 +595,7 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
       .filter((c): c is string => c !== null);
     if (activeCols.length === 0) return;
     const header = activeCols.join('\t');
-    const rows = data.map((row) => activeCols.map((c) => {
+    const rows = effectiveData.map((row) => activeCols.map((c) => {
       const v = row[c];
       return v === null || v === undefined ? '' : String(v);
     }).join('\t')).join('\n');
@@ -618,6 +661,12 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
 
   useEffect(() => {
     if (!initialRequest?.artifactId || !activeTab?.queryResults) return;
+    // When an artifact already exists and a new initialRequest is being processed,
+    // skip syncing the draft — the artifact's assignments haven't been loaded into
+    // local state yet (they arrive in the next render via the artifact loading effect).
+    // Without this guard, the draft gets overwritten with stale null assignments,
+    // then the artifact-loading effect reads those null values back.
+    if (artifact) return;
 
     const nextArtifact = {
       ...(artifact ?? {
@@ -646,7 +695,7 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
         },
       }),
       updatedAt: Date.now(),
-      name: title || artifact?.name || `${assignments.y ?? 'Chart'} by ${assignments.x ?? 'X'}`,
+      name: title || `${assignments.y ?? 'Chart'} by ${assignments.x ?? 'X'}`,
       chart: {
         chartType: chartTypeOverride,
         assignments,
@@ -675,17 +724,17 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
         <div className="px-3 py-2 border-b border-[#1a1a1a] flex items-center gap-2 shrink-0">
           <List className="w-3 h-3 text-white/25" />
           <span className="text-[9px] text-white/25 uppercase tracking-widest font-bold">Columns</span>
-          <span className="ml-auto text-[9px] text-white/15 font-mono">{columns.length}</span>
+          <span className="ml-auto text-[9px] text-white/15 font-mono">{effectiveColumns.length}</span>
         </div>
         <div className="flex-1 overflow-y-auto py-1">
-          {columns.length === 0 ? (
+          {effectiveColumns.length === 0 ? (
             <p className="text-[10px] text-white/20 text-center mt-4 px-2">Run a query to see columns</p>
           ) : (
-            columns.map((col) => (
+            effectiveColumns.map((col) => (
               <ColumnItem
                 key={col.name}
                 col={col}
-                data={data}
+                data={effectiveData}
                 onPointerStart={beginPointerDrag}
                 onClick={selectColumnPayload}
                 selected={selectedPayload?.colName === col.name && selectedPayload?.sourceZone === null}
@@ -718,8 +767,8 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
           <span className="text-[9px] text-white/20 uppercase tracking-widest font-bold font-mono">
             {title || resolvedChartType.replace('_', ' ')}
           </span>
-          {data.length > 0 && (
-            <span className="text-[9px] text-white/15 font-mono">{data.length.toLocaleString()} rows</span>
+          {effectiveData.length > 0 && (
+            <span className="text-[9px] text-white/15 font-mono">{effectiveData.length.toLocaleString()} rows</span>
           )}
           <div className="ml-auto flex items-center gap-1.5">
             {initialRequest?.artifactId && (
@@ -772,7 +821,7 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
           className="flex-1 min-h-0 overflow-hidden"
           data-graph-builder-chart
         >
-          {data.length === 0 ? (
+          {effectiveData.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-white/15 gap-3">
               <BarChart2 className="w-8 h-8" />
               <p className="text-xs uppercase tracking-widest">No query results</p>
@@ -780,7 +829,7 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
             </div>
           ) : (
             <GraphBuilder
-              data={data}
+              data={effectiveData}
               xCol={assignments.x}
               yCol={assignments.y}
               colorCol={assignments.color}

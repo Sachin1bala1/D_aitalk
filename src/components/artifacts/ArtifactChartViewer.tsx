@@ -2,6 +2,12 @@ import React, { useEffect, useMemo, useState } from "react";
 import { BarChart3, Database, FolderOpen, GitBranch, Link2, RotateCcw, Save } from "lucide-react";
 import { toast } from "sonner";
 import { GraphBuilder } from "../charts/GraphBuilder";
+import { ChartEditor, type ChartConfig } from "../charts/ChartEditor";
+import { ControlChart } from "../charts/ControlChart";
+import { Histogram } from "../charts/Histogram";
+import { BoxPlot } from "../charts/BoxPlot";
+import { Heatmap } from "../charts/Heatmap";
+import { Waterfall } from "../charts/Waterfall";
 import { useWorkspaceStore, type ArtifactRevision, type ChartArtifact } from "../../lib/stores/WorkspaceStore";
 import { getDownstreamArtifacts } from "../../lib/artifacts/artifactGraph";
 import { refreshDownstreamReportDrafts } from "../../lib/artifacts/reportRefresh";
@@ -81,6 +87,37 @@ export function ArtifactChartViewer({ artifactId }: { artifactId: string }) {
   const yAxisMin = displayedArtifact.chart.options.yAxisMin ? Number(displayedArtifact.chart.options.yAxisMin) : null;
   const yAxisMax = displayedArtifact.chart.options.yAxisMax ? Number(displayedArtifact.chart.options.yAxisMax) : null;
 
+  // ChartEditor state — local override of chartType/columns driven by inline toolbar
+  const chartData = displayedArtifact.snapshot.rows;
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const [chartConfig, setChartConfig] = useState<ChartConfig>(() => ({
+    chartType: (displayedArtifact.chart.chartType as ChartConfig["chartType"]) ?? "line",
+    xColumn: displayedArtifact.chart.assignments.x ?? "",
+    yColumn: displayedArtifact.chart.assignments.y ?? "",
+    colorColumn: displayedArtifact.chart.assignments.color ?? undefined,
+  }));
+
+  // Sync config when displayed artifact changes (revision navigation)
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if (displayedArtifact.chart) {
+      setChartConfig({
+        chartType: (displayedArtifact.chart.chartType as ChartConfig["chartType"]) ?? "line",
+        xColumn: displayedArtifact.chart.assignments.x ?? "",
+        yColumn: displayedArtifact.chart.assignments.y ?? "",
+        colorColumn: displayedArtifact.chart.assignments.color ?? undefined,
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayedArtifact.id]);
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const columns = useMemo(
+    () => (chartData && chartData.length > 0 ? Object.keys(chartData[0]) : []),
+    [chartData],
+  );
+
   const handleSaveRevision = () => {
     if (selectedRevision) return;
     saveCurrentArtifactDraftAsRevision(artifact.id);
@@ -154,6 +191,19 @@ export function ArtifactChartViewer({ artifactId }: { artifactId: string }) {
             : undefined,
       },
     );
+  };
+
+  const handleExportPng = () => {
+    const el = document.querySelector("[data-chart-container]") as HTMLElement;
+    if (!el) return;
+    import("html-to-image").then(({ toPng }) =>
+      toPng(el).then((url) => {
+        const a = document.createElement("a");
+        a.download = `${chartConfig.title ?? "chart"}.png`;
+        a.href = url;
+        a.click();
+      })
+    ).catch(() => window.print());
   };
 
   return (
@@ -283,28 +333,56 @@ export function ArtifactChartViewer({ artifactId }: { artifactId: string }) {
       </div>
 
       <div className="flex-1 min-h-0 overflow-hidden p-3">
-        <div className="h-full rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] overflow-hidden">
-          <GraphBuilder
-            data={displayedArtifact.snapshot.rows}
-            xCol={displayedArtifact.chart.assignments.x}
-            yCol={displayedArtifact.chart.assignments.y}
-            colorCol={displayedArtifact.chart.assignments.color}
-            sizeCol={displayedArtifact.chart.assignments.size}
-            chartType={chartType as any}
-            showDataPoints={displayedArtifact.chart.options.showDataPoints}
-            showTrendLine={displayedArtifact.chart.options.showTrendLine}
-            logScaleX={displayedArtifact.chart.options.logScaleX}
-            logScaleY={displayedArtifact.chart.options.logScaleY}
-            referenceLineY={referenceLineY}
-            confidenceInterval={displayedArtifact.chart.options.confidenceInterval}
-            xAxisMode={displayedArtifact.chart.options.xAxisMode}
-            yAxisMode={displayedArtifact.chart.options.yAxisMode}
-            xAxisMin={Number.isFinite(xAxisMin) ? xAxisMin : null}
-            xAxisMax={Number.isFinite(xAxisMax) ? xAxisMax : null}
-            yAxisMin={Number.isFinite(yAxisMin) ? yAxisMin : null}
-            yAxisMax={Number.isFinite(yAxisMax) ? yAxisMax : null}
-            xAxisLabel={displayedArtifact.chart.options.xAxisLabel || displayedArtifact.chart.assignments.x}
-            yAxisLabel={displayedArtifact.chart.options.yAxisLabel || displayedArtifact.chart.assignments.y}
+        <div className="h-full rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] overflow-hidden flex flex-col" data-chart-container="">
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {chartConfig.chartType === "control_chart" ? (
+              <ControlChart
+                data={chartData}
+                xColumn={chartConfig.xColumn}
+                yColumn={chartConfig.yColumn}
+                ucl={chartConfig.ucl}
+                lcl={chartConfig.lcl}
+                centerLine={chartConfig.centerLine}
+                title={chartConfig.title}
+              />
+            ) : chartConfig.chartType === "histogram" ? (
+              <Histogram data={chartData} column={chartConfig.yColumn} title={chartConfig.title} />
+            ) : chartConfig.chartType === "box_plot" ? (
+              <BoxPlot data={chartData} xColumn={chartConfig.xColumn} yColumn={chartConfig.yColumn} title={chartConfig.title} />
+            ) : chartConfig.chartType === "heatmap" ? (
+              <Heatmap data={chartData} xColumn={chartConfig.xColumn} yColumn={chartConfig.yColumn} valueColumn={chartConfig.yColumn} title={chartConfig.title} />
+            ) : chartConfig.chartType === "waterfall" ? (
+              <Waterfall data={chartData} xColumn={chartConfig.xColumn} yColumn={chartConfig.yColumn} title={chartConfig.title} />
+            ) : (
+              <GraphBuilder
+                data={chartData}
+                xCol={chartConfig.xColumn || displayedArtifact.chart.assignments.x}
+                yCol={chartConfig.yColumn || displayedArtifact.chart.assignments.y}
+                colorCol={chartConfig.colorColumn ?? displayedArtifact.chart.assignments.color}
+                sizeCol={displayedArtifact.chart.assignments.size}
+                chartType={(chartConfig.chartType as string) as any || (chartType as any)}
+                showDataPoints={displayedArtifact.chart.options.showDataPoints}
+                showTrendLine={displayedArtifact.chart.options.showTrendLine}
+                logScaleX={displayedArtifact.chart.options.logScaleX}
+                logScaleY={displayedArtifact.chart.options.logScaleY}
+                referenceLineY={referenceLineY}
+                confidenceInterval={displayedArtifact.chart.options.confidenceInterval}
+                xAxisMode={displayedArtifact.chart.options.xAxisMode}
+                yAxisMode={displayedArtifact.chart.options.yAxisMode}
+                xAxisMin={Number.isFinite(xAxisMin) ? xAxisMin : null}
+                xAxisMax={Number.isFinite(xAxisMax) ? xAxisMax : null}
+                yAxisMin={Number.isFinite(yAxisMin) ? yAxisMin : null}
+                yAxisMax={Number.isFinite(yAxisMax) ? yAxisMax : null}
+                xAxisLabel={displayedArtifact.chart.options.xAxisLabel || chartConfig.xColumn || displayedArtifact.chart.assignments.x}
+                yAxisLabel={displayedArtifact.chart.options.yAxisLabel || chartConfig.yColumn || displayedArtifact.chart.assignments.y}
+              />
+            )}
+          </div>
+          <ChartEditor
+            config={chartConfig}
+            columns={columns}
+            onChange={setChartConfig}
+            onExportPng={handleExportPng}
           />
         </div>
       </div>

@@ -1,0 +1,431 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - button "Main menu" [ref=e5] [cursor=pointer]:
+          - img [ref=e6]
+        - link "Careers" [ref=e10] [cursor=pointer]:
+          - /url: /about/careers/applications/
+          - generic [ref=e12]: Careers
+      - generic [ref=e13]:
+        - link "Skip navigation links" [ref=e14]:
+          - generic: Skip navigation links
+        - generic [ref=e23]:
+          - generic [ref=e24]:
+            - generic [ref=e25] [cursor=pointer]:
+              - generic [ref=e26]: help_outline
+              - link "Help link" [ref=e27]:
+                - /url: https://support.google.com/googlecareers
+            - tooltip [ref=e28]: Help link
+          - generic [ref=e29]:
+            - button "Send feedback" [ref=e30] [cursor=pointer]:
+              - generic [ref=e31]: feedback
+            - tooltip [ref=e32]: Send feedback
+      - generic [ref=e34]:
+        - button "Google apps" [ref=e38] [cursor=pointer]:
+          - img [ref=e39]
+        - 'button "Google Account: Sachin Bala (sachin1bala1@gmail.com)" [ref=e44] [cursor=pointer]':
+          - img [ref=e46]
+          - img [ref=e52]
+  - generic [ref=e64]:
+    - main [ref=e360]:
+      - generic [ref=e361]:
+        - img "Info" [ref=e362]:
+          - generic [ref=e363]: info_outline
+        - generic [ref=e364]: X
+        - generic [ref=e365]: You’ve submitted one application over the last 30 days. You can submit up to 2 more.
+      - generic [ref=e368]:
+        - generic [ref=e370]: Learn more
+        - generic [ref=e371]: open_in_new
+        - link "Learn more about submitting applications (opens new window)" [ref=e372] [cursor=pointer]:
+          - /url: https://support.google.com/googlecareers/answer/6095391
+      - generic [ref=e373]:
+        - generic [ref=e374]:
+          - generic:
+            - generic: keyboard_arrow_left
+          - tablist "Application stepper" [ref=e375]:
+            - tab "Step 1 - Careers profile" [selected] [ref=e376]:
+              - generic [ref=e380]:
+                - generic [ref=e381]: "1"
+                - generic [ref=e382]:
+                  - generic [ref=e383]: Careers profile
+                  - generic [ref=e384]: 5-10 minutes
+            - tab "Step 2 - Role Information" [ref=e385]:
+              - generic [ref=e389]:
+                - generic [ref=e391]: done
+                - generic [ref=e392]:
+                  - generic [ref=e393]: Role Information
+                  - generic [ref=e394]: less than 1 minute
+                  - generic: Completed
+            - tab "Step 3 - Voluntary self-identification" [ref=e395]:
+              - generic [ref=e399]:
+                - generic [ref=e401]: done
+                - generic [ref=e402]:
+                  - generic [ref=e403]: Voluntary self-identification
+                  - generic [ref=e404]: less than 1 minute
+                  - generic: Completed
+            - tab "Step 4 - Review & apply" [ref=e405]:
+              - generic [ref=e409]:
+                - generic [ref=e410]: "4"
+                - generic [ref=e412]: Review & apply
+          - generic:
+            - generic: keyboard_arrow_right
+        - tabpanel "Step 1 - Careers profile"
+      - generic [ref=e413]:
+        - heading "Welcome, Sachin" [level=1] [ref=e414]
+        - generic [ref=e415]: Product Data Scientist, Operations - Austin, Addison, Atlanta or Thornton
+      - generic [ref=e417]:
+        - generic [ref=e419]:
+          - generic [ref=e420]:
+            - paragraph [ref=e421]: Your Careers profile
+            - paragraph [ref=e422]: Your Google Careers profile saves your info so you can apply to jobs quickly, receive personalized job recommendations, and get relevant content to help you in your search.
+          - button "Dismiss profile banner" [ref=e426] [cursor=pointer]:
+            - generic [ref=e427]: close
+        - generic [ref=e428]:
+          - button "Edit profile" [ref=e431]:
+            - generic [ref=e434]: Edit
+          - generic [ref=e435]: Last updated today at 13:16
+        - group "Résumé" [ref=e436]:
+          - generic [ref=e437]:
+            - generic [ref=e439]: text_snippet
+            - heading "Résumé" [level=2] [ref=e440]
+          - paragraph [ref=e446]:
+            - text: cv-sachin-bala-google-mfg-engineer-2026-05-13.pdf
+            - text: "Uploaded: 1 hour ago"
+            - text: "Size: 117 KB"
+        - group "Contact details" [ref=e447]:
+          - generic [ref=e448]:
+            - generic [ref=e450]: account_circle
+            - heading "Contact details" [level=2] [ref=e451]
+          - generic [ref=e452]:
+            - generic [ref=e453]:
+              - generic [ref=e454]: Legal Name
+              - generic [ref=e455]: Sachin Bala
+            - generic [ref=e456]:
+              - generic [ref=e457]: Preferred Name
+              - generic [ref=e458]: —
+            - generic [ref=e459]:
+              - generic [ref=e460]: Address
+              - generic [ref=e461]: 10346 Blue Bluff Road, 1303
+            - generic [ref=e462]:
+              - generic [ref=e463]: Country
+              - generic [ref=e464]: US
+            - generic [ref=e465]:
+              - generic [ref=e466]: City
+              - generic [ref=e467]: Austin
+            - generic [ref=e468]:
+              - generic [ref=e469]: State/Province
+              - generic [ref=e470]: TX
+            - generic [ref=e471]:
+              - generic [ref=e472]: Zip Code
+              - generic [ref=e473]: "78724"
+            - generic [ref=e474]:
+              - generic [ref=e475]: Phone Numbers
+              - list [ref=e476]:
+                - listitem [ref=e477]: +1 2697799757
+            - generic [ref=e478]:
+              - generic [ref=e479]: Emails
+              - list [ref=e480]:
+                - listitem [ref=e481]: sachin1bala1@gmail.com
+                - listitem [ref=e482]: sachin.bala@wmich.edu
+            - generic [ref=e483]:
+              - generic [ref=e484]: Website
+              - generic [ref=e485]: https://github.com/sachin1bala1
+        - group "Higher education" [ref=e486]:
+          - generic [ref=e487]:
+            - generic [ref=e489]: school
+            - heading "Higher education" [level=2] [ref=e490]
+          - list [ref=e492]:
+            - listitem [ref=e493]:
+              - generic [ref=e494]:
+                - generic [ref=e495]: School
+                - generic [ref=e496]: Western Michigan University
+              - generic [ref=e497]:
+                - generic [ref=e498]: Degree
+                - generic [ref=e499]: Bachelor in Science
+              - generic [ref=e500]:
+                - generic [ref=e501]: Degree Status
+                - generic [ref=e502]: Graduated
+              - generic [ref=e503]:
+                - generic [ref=e504]: Major / area of study
+                - generic [ref=e505]: Mechanical Engineering, CS & Mathematics
+              - generic [ref=e506]:
+                - generic [ref=e507]: Country / Region
+                - generic [ref=e508]: US
+        - group "Alphabet experience" [ref=e509]:
+          - generic [ref=e510]:
+            - generic [ref=e512]: google
+            - heading "Alphabet experience" [level=2] [ref=e513]
+          - generic [ref=e516]:
+            - generic [ref=e517]: Have you worked at Alphabet before in any capacity?
+            - generic [ref=e518]: "No"
+        - group "Work experience" [ref=e519]:
+          - generic [ref=e520]:
+            - generic [ref=e522]: work_outline
+            - heading "Work experience" [level=2] [ref=e523]
+          - list [ref=e525]:
+            - listitem [ref=e526]:
+              - generic [ref=e527]:
+                - generic [ref=e528]: Employer name
+                - generic [ref=e529]: Tesla
+              - generic [ref=e530]:
+                - generic [ref=e531]: Job title
+                - generic [ref=e532]: Associate Process Development Engineer
+              - generic [ref=e533]:
+                - generic [ref=e534]: Start date
+                - generic [ref=e535]: February 2025
+              - generic [ref=e536]:
+                - generic [ref=e537]: End date
+                - generic [ref=e538]: —
+              - generic [ref=e539]:
+                - generic [ref=e540]: Country / region
+                - generic [ref=e541]: US
+              - generic [ref=e542]:
+                - generic [ref=e543]: City
+                - generic [ref=e544]: Austin
+              - generic [ref=e545]:
+                - generic [ref=e546]: State
+                - generic [ref=e547]: TX
+            - listitem [ref=e548]:
+              - generic [ref=e549]:
+                - generic [ref=e550]: Employer name
+                - generic [ref=e551]: Tesla
+              - generic [ref=e552]:
+                - generic [ref=e553]: Job title
+                - generic [ref=e554]: Engineering Tech
+              - generic [ref=e555]:
+                - generic [ref=e556]: Start date
+                - generic [ref=e557]: August 2023
+              - generic [ref=e558]:
+                - generic [ref=e559]: End date
+                - generic [ref=e560]: February 2025
+              - generic [ref=e561]:
+                - generic [ref=e562]: Country / region
+                - generic [ref=e563]: US
+              - generic [ref=e564]:
+                - generic [ref=e565]: City
+                - generic [ref=e566]: Austin
+              - generic [ref=e567]:
+                - generic [ref=e568]: State
+                - generic [ref=e569]: TX
+            - listitem [ref=e570]:
+              - generic [ref=e571]:
+                - generic [ref=e572]: Employer name
+                - generic [ref=e573]: Scherdel SST
+              - generic [ref=e574]:
+                - generic [ref=e575]: Job title
+                - generic [ref=e576]: Engineering Intern
+              - generic [ref=e577]:
+                - generic [ref=e578]: Start date
+                - generic [ref=e579]: June 2022
+              - generic [ref=e580]:
+                - generic [ref=e581]: End date
+                - generic [ref=e582]: June 2022
+              - generic [ref=e583]:
+                - generic [ref=e584]: Country / region
+                - generic [ref=e585]: US
+              - generic [ref=e586]:
+                - generic [ref=e587]: City
+                - generic [ref=e588]: Muskegon
+              - generic [ref=e589]:
+                - generic [ref=e590]: State
+                - generic [ref=e591]: MI
+        - group "Skills" [ref=e592]:
+          - generic [ref=e593]:
+            - generic [ref=e595]: architecture
+            - heading "Skills" [level=2] [ref=e596]
+          - list [ref=e598]:
+            - listitem [ref=e599]:
+              - generic [ref=e600]: coding language
+              - list [ref=e601]:
+                - listitem [ref=e602]: LabVIEW
+                - listitem [ref=e603]: Python
+                - listitem [ref=e604]: TypeScript
+            - listitem [ref=e605]:
+              - generic [ref=e606]: general
+              - list [ref=e607]:
+                - listitem [ref=e608]: Assessments
+                - listitem [ref=e609]: Collaboration
+                - listitem [ref=e610]: Design
+                - listitem [ref=e611]: Design for Excellence
+                - listitem [ref=e612]: Drive
+                - listitem [ref=e613]: Driving
+                - listitem [ref=e614]: Execution
+                - listitem [ref=e615]: Factory Readiness
+                - listitem [ref=e616]: Inspection
+                - listitem [ref=e617]: Lean
+                - listitem [ref=e618]: Lean Manufacturing
+                - listitem [ref=e619]: Manufacturing
+                - listitem [ref=e620]: Mechanical Engineering
+                - listitem [ref=e621]: Predictive Maintenance
+                - listitem [ref=e622]: Supply Chain
+            - listitem [ref=e623]:
+              - generic [ref=e624]: technical
+              - list [ref=e625]:
+                - listitem [ref=e626]: 5S
+                - listitem [ref=e627]: Analysis
+                - listitem [ref=e628]: Analytics
+                - listitem [ref=e629]: Anomaly Detection
+                - listitem [ref=e630]: AutoCAD
+                - listitem [ref=e631]: Closure
+                - listitem [ref=e632]: Computer Vision
+                - listitem [ref=e633]: Consistency
+                - listitem [ref=e634]: Dashboards
+                - listitem [ref=e635]: Data Analysis
+                - listitem [ref=e636]: Data Analytics
+                - listitem [ref=e637]: F1
+                - listitem [ref=e638]: InfluxDB
+                - listitem [ref=e639]: JMP
+                - listitem [ref=e640]: MATLAB
+                - listitem [ref=e641]: Manufacturing AI
+                - listitem [ref=e642]: Mathematics
+                - listitem [ref=e643]: Monitoring
+                - listitem [ref=e644]: Pandas
+                - listitem [ref=e645]: Process Capability
+                - listitem [ref=e646]: Process Control
+                - listitem [ref=e647]: Protocols
+                - listitem [ref=e648]: SQL
+                - listitem [ref=e649]: Sites
+                - listitem [ref=e650]: Six Sigma
+                - listitem [ref=e651]: Solidworks
+                - listitem [ref=e652]: Statistical Process Control
+                - listitem [ref=e653]: Web Browsers
+                - listitem [ref=e654]: cs
+                - listitem [ref=e655]: report
+        - group "Locations" [ref=e656]:
+          - generic [ref=e657]:
+            - generic [ref=e659]: location_on
+            - heading "Locations" [level=2] [ref=e660]
+          - generic [ref=e662]:
+            - generic [ref=e663]: Preferred Locations
+            - list [ref=e664]:
+              - listitem [ref=e665]: Austin, TX, USA
+              - listitem [ref=e666]: Seattle, WA, USA
+              - listitem [ref=e667]: San Jose, CA, USA
+              - listitem [ref=e668]: San Francisco, CA, USA
+              - listitem [ref=e669]: Boulder, CO, USA
+        - group "Cover letter (optional)" [ref=e670]:
+          - generic [ref=e671]:
+            - generic [ref=e673]: article
+            - heading "Cover letter (optional)" [level=2] [ref=e674]
+          - generic [ref=e676]:
+            - generic [ref=e677]: Cover letter
+            - generic [ref=e679]: "I'm a manufacturing process development engineer based in Austin with 3+ years at Tesla, and the responsibilities listed in this posting match what I do day-to-day: DFM feasibility reviews, PFMEA with RPN reduction targets, vendor capability assessments, run-at-rate validation, and 8D root cause investigations closed with documented Cpk improvement. The Austin location is a strong pull for me — I've built my career here and want to continue at that level. At Tesla, I've led process development from early experimentation through production transfer on multiple programs. That includes generating DFM feasibility reports to flag design issues before freeze, executing process capability audits (targeting Cpk >1.33) during pilot phases, and running structured 8D investigations that trace failure modes across supplier data, equipment logs, and process history. When I find a root cause, I close the loop with a corrective action, updated control plan, and a follow-up capability check — not just a report. On the supply chain side, I've conducted vendor assessments and factory readiness gap analyses, developed process flow diagrams and material presentation plans to streamline parts flow to the line, and standardized these workflows across multiple Tesla sites. I use JMP heavily for Pareto analysis, SPC, and Gage R&R; Python for data pipelines and automated reporting. I also built open-source tooling for DOE workflow automation that engineers actually use (github.com/sachin1bala1/engineering-data-agent). I hold a Six Sigma Yellow Belt and am actively working toward Black Belt. My degree is Mechanical Engineering (BS, Western Michigan, GPA 3.69). The five-year requirement is a stretch given my 3+ years of industry experience, but the depth of work I've done in that time — owning full process development cycles, not just supporting them — is closer to what the role actually needs than time-in-seat would suggest. I currently require visa sponsorship (OPT, will need H-1B). I'd prefer the Austin location. Happy to discuss specific examples from any of the responsibilities listed — I have concrete stories for each of them. Best, Sachin Bala"
+        - group "Profile preferences" [ref=e681]:
+          - generic [ref=e682]:
+            - generic [ref=e684]: settings
+            - heading "Profile preferences" [level=2] [ref=e685]
+          - generic [ref=e686]:
+            - generic [ref=e687]:
+              - generic [ref=e688]: Personalization
+              - generic [ref=e689]: You’ve agreed to personalize your Google Careers profile with job recommendations and related content.
+            - generic [ref=e690]:
+              - generic [ref=e691]: Privacy
+              - generic [ref=e692]: You’ve agreed to the processing of your information.
+        - generic [ref=e693]:
+          - button "Edit profile" [ref=e696]:
+            - generic [ref=e699]: Edit
+          - button "Next" [ref=e702]:
+            - generic [ref=e705]: Next
+      - generic [ref=e706]:
+        - generic [ref=e707]:
+          - text: No longer want to store your information on Google Careers?
+          - link "Request to delete your profile (Opens in a new tab)" [ref=e708] [cursor=pointer]:
+            - /url: https://support.google.com/googlecareers/answer/12174691
+            - text: Request to delete your profile
+          - generic [ref=e710]: open_in_new
+        - generic [ref=e711]:
+          - text: Please refer to our
+          - link "Privacy policy (Opens in a new tab)" [ref=e712] [cursor=pointer]:
+            - /url: ./privacy-policy
+            - text: privacy policy
+          - generic [ref=e714]: open_in_new
+          - text: ", to learn more about how your information is used including profile updates."
+    - contentinfo [ref=e65]:
+      - generic [ref=e67]:
+        - generic [ref=e68]:
+          - heading "Follow Life at Google on" [level=2] [ref=e69]
+          - list [ref=e70]:
+            - listitem [ref=e71]:
+              - link "View our Instagram feed (opens in a new tab)" [ref=e72] [cursor=pointer]:
+                - /url: https://www.instagram.com/lifeatgoogle/
+            - listitem [ref=e77]:
+              - link "View our Twitter feed (opens in a new tab)" [ref=e78] [cursor=pointer]:
+                - /url: https://twitter.com/lifeatgoogle
+            - listitem [ref=e81]:
+              - link "View our YouTube channel (opens in a new tab)" [ref=e82] [cursor=pointer]:
+                - /url: https://www.youtube.com/lifeatgoogle
+            - listitem [ref=e85]:
+              - link "View LinkedIn (opens in a new tab)" [ref=e86] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/google/jobs/
+            - listitem [ref=e89]:
+              - link "View our Facebook (opens in a new tab)" [ref=e90] [cursor=pointer]:
+                - /url: https://www.facebook.com/lifeatgoogle/
+        - generic [ref=e95]:
+          - generic [ref=e96]:
+            - heading "More about us" [level=2] [ref=e97]
+            - generic [ref=e98]:
+              - link "About us (opens in a new tab)" [ref=e99] [cursor=pointer]:
+                - /url: https://about.google/
+                - text: About us
+                - generic [ref=e101]: open_in_new
+              - link "Contact us (opens in a new tab)" [ref=e102] [cursor=pointer]:
+                - /url: https://about.google/contact-google/
+                - text: Contact us
+                - generic [ref=e104]: open_in_new
+              - link "Press (opens in a new tab)" [ref=e105] [cursor=pointer]:
+                - /url: https://blog.google/press/
+                - text: Press
+                - generic [ref=e107]: open_in_new
+          - generic [ref=e108]:
+            - heading "Related information" [level=2] [ref=e109]
+            - generic [ref=e110]:
+              - link "Investor relations (opens in a new tab)" [ref=e111] [cursor=pointer]:
+                - /url: https://abc.xyz/investor/
+                - text: Investor relations
+                - generic [ref=e113]: open_in_new
+              - link "Blog (opens in a new tab)" [ref=e114] [cursor=pointer]:
+                - /url: https://blog.google/
+                - text: Blog
+                - generic [ref=e116]: open_in_new
+          - generic [ref=e117]:
+            - heading "Equal opportunity" [level=2] [ref=e118]
+            - paragraph [ref=e119]:
+              - text: Google is proud to be an equal opportunity and affirmative action employer. We are committed to building a workforce that is representative of the users we serve, creating a culture of belonging and providing an equal employment opportunity regardless of race, creed, colour, religion, gender, sexual orientation, gender identity/expression, national origin, disability, age, genetic information, veteran status, marital status, pregnancy or related condition (including breastfeeding), expecting or parents-to-be, criminal histories consistent with legal requirements or any other basis protected by law. See also
+              - link "Google's EEO Policy" [ref=e120] [cursor=pointer]:
+                - /url: https://www.google.com/about/careers/applications/eeo/
+              - text: ","
+              - 'link "Know your rights: workplace discrimination is illegal" [ref=e121] [cursor=pointer]':
+                - /url: https://careers.google.com/jobs/dist/legal/EEOC_KnowYourRights_10_20.pdf
+              - text: ","
+              - link "Belonging at Google" [ref=e122] [cursor=pointer]:
+                - /url: https://about.google/belonging/
+              - text: and
+              - link "How we hire" [ref=e123] [cursor=pointer]:
+                - /url: https://careers.google.com/how-we-hire/
+              - text: .
+        - generic [ref=e124]:
+          - link "google.com (opens in a new tab)" [ref=e126] [cursor=pointer]:
+            - /url: https://www.google.com/
+            - img "Google" [ref=e127]
+          - generic [ref=e128]:
+            - generic [ref=e129]:
+              - link "Privacy (opens in a new tab)" [ref=e131] [cursor=pointer]:
+                - /url: https://policies.google.com/privacy
+                - text: Privacy
+                - generic [ref=e133]: open_in_new
+              - link "Applicant and candidate privacy (opens in a new tab)" [ref=e135] [cursor=pointer]:
+                - /url: ./privacy-policy
+                - text: Applicant and candidate privacy
+                - generic [ref=e137]: open_in_new
+              - link "Terms (opens in a new tab)" [ref=e139] [cursor=pointer]:
+                - /url: https://policies.google.com/terms
+                - text: Terms
+                - generic [ref=e141]: open_in_new
+            - link "Help (opens in a new tab)" [ref=e143] [cursor=pointer]:
+              - /url: https://support.google.com/googlecareers/#topic=6095159
+              - generic [ref=e145]: help
+              - text: Help
+              - generic [ref=e147]: open_in_new
+  - generic [ref=e715]: Your information — Google Careers
+  - generic [ref=e716]: Info You’ve submitted one application over the last 30 days. You can submit up to 2 more.

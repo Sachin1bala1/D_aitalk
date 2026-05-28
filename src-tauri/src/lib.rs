@@ -22,7 +22,7 @@ pub fn run() {
         )
         .init();
 
-    let duckdb = DuckDbEngine::new().expect("DuckDB init failed");
+    let duckdb = DuckDbEngine::new_in_memory();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -33,11 +33,17 @@ pub fn run() {
             cancelled_queries: Arc::new(Mutex::new(HashSet::new())),
             query_guards: Arc::new(Mutex::new(security::QueryGuardState::default())),
             memory_db: Arc::new(tokio::sync::Mutex::new(None)),
+            query_cache: db::query_cache::QueryCache::new(),
         })
         .setup(|app| {
             let store =
                 tauri::async_runtime::block_on(IntelligenceStore::initialize(&app.handle()))?;
             app.manage(store);
+            let app_handle = app.handle().clone();
+            let manager = app.state::<AppState>().connections.clone();
+            tauri::async_runtime::spawn(async move {
+                crate::db::health_monitor::run(app_handle, manager).await;
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -81,6 +87,7 @@ pub fn run() {
             commands::delete_app_document,
             commands::store_api_key,
             commands::get_api_key,
+            commands::has_api_key,
             commands::delete_api_key,
             commands::save_credential,
             commands::get_credential,
@@ -107,6 +114,13 @@ pub fn run() {
             commands::memory_generate_daily_brief,
             commands::memory_get_proactive_suggestions,
             commands::memory_get_customer_brief,
+            commands::harness_record_failure,
+            commands::harness_get_failures,
+            commands::harness_get_active_version,
+            commands::harness_save_version,
+            commands::harness_activate_version,
+            commands::harness_record_telemetry_edge,
+            commands::harness_get_telemetry_graph,
             commands::pi_search_tags,
             commands::pi_get_history,
             commands::pi_get_current,
@@ -114,6 +128,12 @@ pub fn run() {
             commands::activate_license,
             commands::check_license,
             commands::remove_license,
+            commands::test_rest_connection,
+            commands::import_excel_file,
+            commands::save_derived_table,
+            commands::list_derived_tables,
+            commands::drop_derived_table,
+            commands::clear_query_cache,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -16,6 +16,8 @@ pub async fn introspect(conn: &ActiveConnection, connection_id: &str) -> Result<
         ActiveConnection::Mongodb(client, db_name) => introspect_mongodb(client, db_name, connection_id).await,
         ActiveConnection::Redis(mgr)               => introspect_redis(mgr, connection_id).await,
         ActiveConnection::ClickHouse(client)       => introspect_clickhouse(client, connection_id).await,
+        ActiveConnection::DuckDb(_)                => Ok(FullSchema { connection_id: connection_id.to_string(), driver: "duckdb".to_string(), tables: vec![], columns: Default::default(), foreign_keys: vec![], indexes: vec![], hypertable_tables: vec![], functions: vec![] }),
+        ActiveConnection::RestApi(_)               => Ok(FullSchema { connection_id: connection_id.to_string(), driver: "rest_api".to_string(), tables: vec![], columns: Default::default(), foreign_keys: vec![], indexes: vec![], hypertable_tables: vec![], functions: vec![] }),
     }
 }
 

@@ -45,6 +45,11 @@ pub async fn execute_streaming(
         ActiveConnection::Mongodb(client, db_name) => stream_mongodb(client, db_name, &sql, query_id, app, cancelled).await,
         ActiveConnection::Redis(mgr)               => stream_redis(mgr, &sql, query_id, app, cancelled).await,
         ActiveConnection::ClickHouse(client)       => stream_clickhouse(client, &sql, query_id, app, cancelled).await,
+        ActiveConnection::RestApi(_)               => Err(DbError::Other("Use REST API query commands for REST connections.".to_string())),
+        ActiveConnection::DuckDb(engine)           => {
+            let eng = engine.lock().await;
+            eng.query_streaming(&sql, query_id, &app)
+        }
     }
 }
 
@@ -76,7 +81,12 @@ async fn stream_postgres(
             columns_sent = true;
         }
 
-        let row_json = pg_row_to_json(&row, &columns);
+        // Wrap in catch_unwind: sqlx-postgres panics when a DataRow message has
+        // fewer values than the RowDescription column count (data_row.rs:22).
+        let row_json = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            pg_row_to_json(&row, &columns)
+        }))
+        .unwrap_or_else(|_| serde_json::Value::Object(serde_json::Map::new()));
         batch_bytes += estimate_value_size(&row_json);
         batch.push(row_json);
         total_rows += 1;
@@ -1008,6 +1018,14 @@ pub async fn execute_ddl(
         ActiveConnection::ClickHouse(client) => {
             client.query(sql).execute().await
                 .map_err(|e| DbError::Other(e.to_string()))?;
+            Ok(0)
+        }
+        ActiveConnection::RestApi(_) => {
+            Err(DbError::Other("DDL/DML execute not supported for REST API connections.".to_string()))
+        }
+        ActiveConnection::DuckDb(engine) => {
+            let guard = engine.lock().await;
+            guard.execute_batch(sql)?;
             Ok(0)
         }
     }

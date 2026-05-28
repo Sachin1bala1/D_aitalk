@@ -90,6 +90,8 @@ pub async fn db_ping(
         ActiveConnection::ClickHouse(client) => {
             client.query("SELECT 1").execute().await.map_err(|e| e.to_string())?;
         }
+        // DuckDB and REST API connections don't need a separate ping — they're always "alive"
+        ActiveConnection::DuckDb(_) | ActiveConnection::RestApi(_) => {}
     }
     Ok(())
 }

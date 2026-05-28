@@ -1,5 +1,6 @@
 mod ai;
 mod connection;
+mod connectors;
 mod duckdb;
 mod intelligence;
 mod memory;
@@ -11,6 +12,7 @@ mod utility;
 
 pub use ai::*;
 pub use connection::*;
+pub use connectors::*;
 pub use duckdb::*;
 pub use intelligence::*;
 pub use memory::*;

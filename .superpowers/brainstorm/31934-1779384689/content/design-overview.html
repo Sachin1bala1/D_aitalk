@@ -1,0 +1,139 @@
+<h2>DataIQ Production Design — 4 Parallel Tracks</h2>
+<p class="subtitle">Review each track. Tell me in the terminal if anything looks wrong before I write the spec.</p>
+
+<div class="section">
+<h3 style="color:#00d2ff">⚡ Track 1 — AI Speed &amp; Intelligence</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
+  <div style="background:#0d0d0d;border:1px solid #1a3a1a;border-radius:6px;padding:12px;font-size:12px">
+    <div style="color:#34d399;font-weight:bold;margin-bottom:8px">What changes</div>
+    <ul style="color:#e5e5e5;margin:0;padding-left:16px;line-height:1.8">
+      <li><code>AgentLoop.ts</code> — smarter tool selection, parallel tool calls where safe</li>
+      <li><code>resilience.ts</code> — aggressive timeouts (8s/tool, 22s/round)</li>
+      <li>System prompt compression — inject only relevant schema sections</li>
+      <li>Fast-path: single-tool queries skip the full loop</li>
+      <li>Streaming progress bar in chat ("Running 3/8 tools...")</li>
+      <li>Context window guard — trim history to 20 turns, summarize older</li>
+    </ul>
+  </div>
+  <div style="background:#0d0d0d;border:1px solid #1a3a1a;border-radius:6px;padding:12px;font-size:12px">
+    <div style="color:#34d399;font-weight:bold;margin-bottom:8px">Success criteria</div>
+    <ul style="color:#e5e5e5;margin:0;padding-left:16px;line-height:1.8">
+      <li>First token: &lt;1.5s from send</li>
+      <li>Simple query (SELECT + chart): &lt;5s end-to-end</li>
+      <li>Complex analysis (8 tools): &lt;25s</li>
+      <li>Zero infinite hangs on approval timeout (30s max)</li>
+      <li>Streaming tokens visible in UI within 500ms</li>
+    </ul>
+    <div style="margin-top:8px;color:#9ca3af;font-size:11px">Files: AgentLoop.ts, resilience.ts, AIChat.tsx, HarnessLifecycle.ts</div>
+  </div>
+</div>
+</div>
+
+<div class="section">
+<h3 style="color:#f59e0b">📊 Track 2 — Visualization &amp; Chart Editor</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
+  <div style="background:#0d0d0d;border:1px solid #3a2a0d;border-radius:6px;padding:12px;font-size:12px">
+    <div style="color:#f59e0b;font-weight:bold;margin-bottom:8px">What changes</div>
+    <ul style="color:#e5e5e5;margin:0;padding-left:16px;line-height:1.8">
+      <li>New <code>ChartEditor.tsx</code> — inline toolbar: type, axes, color, grouping, filters</li>
+      <li>New chart types: scatter matrix, heatmap, histogram, box plot, waterfall, control chart (X̄-R)</li>
+      <li><code>ArtifactChartViewer.tsx</code> — click-to-edit, re-renders without AI round-trip</li>
+      <li>Chart → AI feedback: "explain this spike" button on every chart</li>
+      <li>Export: PNG, SVG, copy as image, copy data as CSV</li>
+      <li>Control chart overlays: 3σ limits, center line, spec limits (engineering-specific)</li>
+    </ul>
+  </div>
+  <div style="background:#0d0d0d;border:1px solid #3a2a0d;border-radius:6px;padding:12px;font-size:12px">
+    <div style="color:#f59e0b;font-weight:bold;margin-bottom:8px">Success criteria</div>
+    <ul style="color:#e5e5e5;margin:0;padding-left:16px;line-height:1.8">
+      <li>Chart type change: &lt;100ms re-render</li>
+      <li>Axis swap: instant (no API call)</li>
+      <li>8 chart types available</li>
+      <li>Control chart with SPC limits works on time-series</li>
+      <li>"Explain spike" → AI responds in &lt;5s</li>
+      <li>Export to PNG works</li>
+    </ul>
+    <div style="margin-top:8px;color:#9ca3af;font-size:11px">Files: ChartEditor.tsx (new), ArtifactChartViewer.tsx, ChartPanel.tsx, chart tool in AgentLoop</div>
+  </div>
+</div>
+</div>
+
+<div class="section">
+<h3 style="color:#a78bfa">🚀 Track 3 — Query Performance &amp; DuckDB</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
+  <div style="background:#0d0d0d;border:1px solid #2a1a3a;border-radius:6px;padding:12px;font-size:12px">
+    <div style="color:#a78bfa;font-weight:bold;margin-bottom:8px">What changes</div>
+    <ul style="color:#e5e5e5;margin:0;padding-left:16px;line-height:1.8">
+      <li>DuckDB fully wired as first-class connection (CSV/Parquet/JSON → instant query)</li>
+      <li>Query result cache — LRU in-memory, same SQL + params = instant replay</li>
+      <li>Explain plan panel — visual tree, highlights slow nodes</li>
+      <li>Background query execution — non-blocking, progress shown in tab</li>
+      <li>Memory guard — auto-LIMIT 100k rows on unbounded queries, user override</li>
+      <li>Column profiling on demand — null%, cardinality, min/max/mean inline in schema tree</li>
+    </ul>
+  </div>
+  <div style="background:#0d0d0d;border:1px solid #2a1a3a;border-radius:6px;padding:12px;font-size:12px">
+    <div style="color:#a78bfa;font-weight:bold;margin-bottom:8px">Success criteria</div>
+    <ul style="color:#e5e5e5;margin:0;padding-left:16px;line-height:1.8">
+      <li>1M row CSV query: &lt;2s via DuckDB</li>
+      <li>Cached query replay: &lt;50ms</li>
+      <li>No OOM on 10M row scan</li>
+      <li>Explain plan renders for any query</li>
+      <li>VirtualTable scrolls 1M rows at 60fps</li>
+    </ul>
+    <div style="margin-top:8px;color:#9ca3af;font-size:11px">Files: connection_manager.rs, query_executor.rs, DuckDB Tauri command, VirtualTable.tsx</div>
+  </div>
+</div>
+</div>
+
+<div class="section">
+<h3 style="color:#f87171">🔌 Track 4 — Data Connectors</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
+  <div style="background:#0d0d0d;border:1px solid #3a1a1a;border-radius:6px;padding:12px;font-size:12px">
+    <div style="color:#f87171;font-weight:bold;margin-bottom:8px">What changes</div>
+    <ul style="color:#e5e5e5;margin:0;padding-left:16px;line-height:1.8">
+      <li>REST API connector — URL + auth (Bearer/API key/Basic), maps JSON response to table</li>
+      <li>File watcher — drop CSV/Parquet/Excel into a folder → auto-loads into DuckDB</li>
+      <li>Excel/XLSX import — native (via <code>calamine</code> Rust crate)</li>
+      <li>SSH tunnel — for remote PostgreSQL/MySQL behind firewall</li>
+      <li>Connection health monitor — reconnect on drop, visual indicator in sidebar</li>
+      <li>Schema refresh — manual + auto every 5min, diff shown to user</li>
+    </ul>
+  </div>
+  <div style="background:#0d0d0d;border:1px solid #3a1a1a;border-radius:6px;padding:12px;font-size:12px">
+    <div style="color:#f87171;font-weight:bold;margin-bottom:8px">Success criteria</div>
+    <ul style="color:#e5e5e5;margin:0;padding-left:16px;line-height:1.8">
+      <li>REST connector: any JSON API queryable within 30s setup</li>
+      <li>Drop a CSV → queryable in &lt;3s</li>
+      <li>Excel import: 10k row sheet loads in &lt;1s</li>
+      <li>SSH tunnel: connects to remote DB with 1 config step</li>
+      <li>Connection drop → auto-reconnect, no user action</li>
+    </ul>
+    <div style="margin-top:8px;color:#9ca3af;font-size:11px">Files: connection_manager.rs, new rest_connector.rs, ConnectionDialog.tsx, commands.rs</div>
+  </div>
+</div>
+</div>
+
+<div style="background:#0d1a0d;border:1px solid #1a3a1a;border-radius:6px;padding:16px;margin-top:16px;font-size:12px">
+  <div style="color:#34d399;font-weight:bold;margin-bottom:8px">📋 Merge order &amp; timeline</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+    <div style="background:#0a0a0a;padding:8px;border-radius:4px">
+      <div style="color:#00d2ff;font-size:10px;font-weight:bold">Day 1–3</div>
+      <div style="color:#e5e5e5;margin-top:4px">Track 1 + 2 run in parallel (frontend-only risk)</div>
+    </div>
+    <div style="background:#0a0a0a;padding:8px;border-radius:4px">
+      <div style="color:#00d2ff;font-size:10px;font-weight:bold">Day 1–4</div>
+      <div style="color:#e5e5e5;margin-top:4px">Track 3 + 4 run in parallel (Rust backend)</div>
+    </div>
+    <div style="background:#0a0a0a;padding:8px;border-radius:4px">
+      <div style="color:#00d2ff;font-size:10px;font-weight:bold">Day 4–5</div>
+      <div style="color:#e5e5e5;margin-top:4px">Merge T1+T2, integration test frontend</div>
+    </div>
+    <div style="background:#0a0a0a;padding:8px;border-radius:4px">
+      <div style="color:#00d2ff;font-size:10px;font-weight:bold">Day 5–7</div>
+      <div style="color:#e5e5e5;margin-top:4px">Merge T3+T4, full integration + smoke tests</div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:20px">Does this look right? Any track you want to change, cut, or expand? Tell me in the terminal.</p>

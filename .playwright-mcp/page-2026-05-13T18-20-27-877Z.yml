@@ -1,0 +1,214 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - button "Main menu" [ref=e5] [cursor=pointer]:
+          - img [ref=e6]
+        - link "Careers" [ref=e10] [cursor=pointer]:
+          - /url: /about/careers/applications/
+          - generic [ref=e12]: Careers
+      - generic [ref=e13]:
+        - link "Skip navigation links" [ref=e14]:
+          - generic: Skip navigation links
+        - generic [ref=e23]:
+          - generic [ref=e24]:
+            - generic [ref=e25] [cursor=pointer]:
+              - generic [ref=e26]: help_outline
+              - link "Help link" [ref=e27]:
+                - /url: https://support.google.com/googlecareers
+            - tooltip [ref=e28]: Help link
+          - generic [ref=e29]:
+            - button "Send feedback" [ref=e30] [cursor=pointer]:
+              - generic [ref=e31]: feedback
+            - tooltip [ref=e32]: Send feedback
+      - generic [ref=e34]:
+        - button "Google apps" [ref=e38] [cursor=pointer]:
+          - img [ref=e39]
+        - 'button "Google Account: Sachin Bala (sachin1bala1@gmail.com)" [ref=e44] [cursor=pointer]':
+          - img [ref=e46]
+          - img [ref=e52]
+  - generic [ref=e60]:
+    - heading "job details" [level=1]
+    - generic [ref=e63]:
+      - generic [ref=e65]:
+        - generic [ref=e66] [cursor=pointer]:
+          - generic [ref=e67]: arrow_back
+          - link "Back to jobs search" [ref=e68]:
+            - /url: jobs/results
+        - generic [ref=e69]: Back to jobs search
+      - main [ref=e70]:
+        - generic [ref=e77]:
+          - heading "Product Data Scientist, Operations" [level=2] [ref=e79]
+          - generic [ref=e80]:
+            - generic [ref=e81]:
+              - generic [ref=e82]: corporate_fare
+              - generic [ref=e83]: Google
+            - generic [ref=e84]:
+              - generic [ref=e85]: place
+              - generic [ref=e86]: Austin, TX, USA
+              - generic [ref=e87]: ; +3 more
+            - img "Mid, Learn more about experience filters." [ref=e91]:
+              - generic [ref=e95]: bar_chart
+              - generic [ref=e96]: Mid
+          - generic [ref=e97]:
+            - generic [ref=e99]:
+              - generic [ref=e101]: Apply
+              - link "Apply" [ref=e102] [cursor=pointer]:
+                - /url: ./apply?jobId=CiUAL2FckRfxWiLNAy8Nd8Cbu6WYQ7PT24llZclxPcHWi2dZItQ7EjsACxwdTDUgI6IVAAdJicoKjfur6q8a70T57hIac4jK6BVMZzjWd43qS3y0iDgD5Bmzn5QPaWafp6PbzQ%3D%3D_V2&loc=US&title=Product+Data+Scientist
+            - generic [ref=e104]:
+              - button "Share Product Data Scientist, Operations" [ref=e107] [cursor=pointer]:
+                - generic [ref=e108]: share
+              - button "Bookmark Product Data Scientist, Operations" [ref=e109] [cursor=pointer]:
+                - generic [ref=e111]: bookmark_border
+          - generic [ref=e112]:
+            - generic [ref=e113]:
+              - img "Info" [ref=e114]:
+                - generic [ref=e115]: info_outline
+              - generic [ref=e116]: X
+              - generic [ref=e117]: "The application window will be open until at least May 25, 2026. This opportunity will remain online based on business needs which may be before or after the specified date.Note: By applying to this position you will have an opportunity to share your preferred working location from the following: Austin, TX, USA; Atlanta, GA, USA; Thornton, CO, USA; Addison, TX, USA."
+            - heading "Minimum qualifications:" [level=3] [ref=e118]
+            - list [ref=e119]:
+              - listitem [ref=e120]: Bachelor's degree in Statistics, Mathematics, Data Science, Engineering, Physics, Economics, or a related quantitative field.
+              - listitem [ref=e121]: 5 years of experience with analysis applications (extracting insights, performing statistical analysis, or solving business problems), and coding (Python, R, SQL) or 2 years of experience with a Master's degree.
+            - heading "Preferred qualifications:" [level=3] [ref=e122]
+            - list [ref=e123]:
+              - listitem [ref=e124]: Master's degree in Statistics, Mathematics, Data Science, Engineering, Physics, Economics, or a related quantitative field.
+              - listitem [ref=e125]: 5 years of work experience with analysis applications (extracting insights, performing statistical analysis, or solving business problems), and coding (Python, R, SQL).
+          - generic [ref=e126]:
+            - heading "About the job" [level=3] [ref=e127]
+            - text: Our team's mission is Data Science to support growing and running an efficient, reliable cloud. We focus primarily on the Google Compute Engine (GCE) and Vertex products. We are part of a larger Data Science organization that supports planning and analysis for Google's global infrastructure. We're excited and have some early successes bringing AI to our work.The US base salary range for this full-time position is $138,000-$198,000 + bonus + equity + benefits. Our salary ranges are determined by role, level, and location. Within the range, individual pay is determined by work location and additional factors, including job-related skills, experience, and relevant education or training. Your recruiter can share more about the specific salary range for your preferred location during the hiring process.
+            - generic [ref=e129]:
+              - text: Please note that the compensation details listed in US role postings reflect the base salary only, and do not include bonus, equity, or benefits. Learn more about
+              - link "benefits at Google" [ref=e130] [cursor=pointer]:
+                - /url: https://careers.google.com/benefits/
+              - text: .
+              - paragraph
+          - generic [ref=e131]:
+            - heading "Responsibilities" [level=3] [ref=e132]
+            - list [ref=e133]:
+              - listitem [ref=e134]: Work with product leaders to understand objectives and formulate quantifiable business questions.
+              - listitem [ref=e135]: Create and evaluate metrics to reflect the status of the business.
+              - listitem [ref=e136]: Deliver insights into the data by creating workflows, colabs, dashboards and other visualizations.
+              - listitem [ref=e137]: Partner with engineering teams to understand, design and improve data sources and applications.
+              - listitem [ref=e138]: Perform analysis by utilizing relevant tools (e.g., SQL, R, Python). Use comprehensive technical knowledge, custom data infrastructure or existing data models.
+          - generic [ref=e140]:
+            - paragraph [ref=e141]:
+              - text: Information collected and processed as part of your Google Careers profile, and any job applications that you choose to submit are subject to Google's
+              - link "applicant and candidate privacy policy" [ref=e142] [cursor=pointer]:
+                - /url: ./privacy-policy
+              - text: .
+            - paragraph [ref=e143]:
+              - text: Google is proud to be an equal opportunity and affirmative action employer. We are committed to building a workforce that is representative of the users we serve, creating a culture of belonging and providing an equal employment opportunity regardless of race, creed, colour, religion, gender, sexual orientation, gender identity/expression, national origin, disability, age, genetic information, veteran status, marital status, pregnancy or related condition (including breastfeeding), expecting or parents-to-be, criminal histories consistent with legal requirements or any other basis protected by law. See also
+              - link "Google's EEO Policy" [ref=e144] [cursor=pointer]:
+                - /url: https://www.google.com/about/careers/applications/eeo/
+              - text: ","
+              - 'link "Know your rights: workplace discrimination is illegal" [ref=e145] [cursor=pointer]':
+                - /url: https://careers.google.com/jobs/dist/legal/EEOC_KnowYourRights_10_20.pdf
+              - text: ","
+              - link "Belonging at Google" [ref=e146] [cursor=pointer]:
+                - /url: https://about.google/belonging/
+              - text: and
+              - link "How we hire" [ref=e147] [cursor=pointer]:
+                - /url: https://careers.google.com/how-we-hire/
+              - text: .
+            - paragraph [ref=e148]:
+              - text: If you have a need that requires accommodation, please let us know by completing our
+              - link "Accommodations for Applicants form" [ref=e149] [cursor=pointer]:
+                - /url: https://goo.gl/forms/aBt6Pu71i1kzpLHe2
+              - text: .
+            - paragraph [ref=e150]: Google is a global company and, in order to facilitate efficient collaboration and communication globally, English proficiency is a requirement for all roles unless stated otherwise in the job posting.
+            - paragraph [ref=e151]: "To all recruitment agencies: Google does not accept agency CVs. Please do not forward CVs to our jobs alias, Google employees or any other organisation location. Google is not responsible for any fees related to unsolicited CVs."
+      - contentinfo [ref=e153]:
+        - generic [ref=e155]:
+          - generic [ref=e156]:
+            - heading "Follow Life at Google on" [level=2] [ref=e157]
+            - list [ref=e158]:
+              - listitem [ref=e159]:
+                - link "View our Instagram feed (opens in a new tab)" [ref=e160] [cursor=pointer]:
+                  - /url: https://www.instagram.com/lifeatgoogle/
+              - listitem [ref=e165]:
+                - link "View our Twitter feed (opens in a new tab)" [ref=e166] [cursor=pointer]:
+                  - /url: https://twitter.com/lifeatgoogle
+              - listitem [ref=e169]:
+                - link "View our YouTube channel (opens in a new tab)" [ref=e170] [cursor=pointer]:
+                  - /url: https://www.youtube.com/lifeatgoogle
+              - listitem [ref=e173]:
+                - link "View LinkedIn (opens in a new tab)" [ref=e174] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/google/jobs/
+              - listitem [ref=e177]:
+                - link "View our Facebook (opens in a new tab)" [ref=e178] [cursor=pointer]:
+                  - /url: https://www.facebook.com/lifeatgoogle/
+          - generic [ref=e183]:
+            - generic [ref=e184]:
+              - heading "More about us" [level=2] [ref=e185]
+              - generic [ref=e186]:
+                - link "About us (opens in a new tab)" [ref=e187] [cursor=pointer]:
+                  - /url: https://about.google/
+                  - text: About us
+                  - generic [ref=e189]: open_in_new
+                - link "Contact us (opens in a new tab)" [ref=e190] [cursor=pointer]:
+                  - /url: https://about.google/contact-google/
+                  - text: Contact us
+                  - generic [ref=e192]: open_in_new
+                - link "Press (opens in a new tab)" [ref=e193] [cursor=pointer]:
+                  - /url: https://blog.google/press/
+                  - text: Press
+                  - generic [ref=e195]: open_in_new
+            - generic [ref=e196]:
+              - heading "Related information" [level=2] [ref=e197]
+              - generic [ref=e198]:
+                - link "Investor relations (opens in a new tab)" [ref=e199] [cursor=pointer]:
+                  - /url: https://abc.xyz/investor/
+                  - text: Investor relations
+                  - generic [ref=e201]: open_in_new
+                - link "Blog (opens in a new tab)" [ref=e202] [cursor=pointer]:
+                  - /url: https://blog.google/
+                  - text: Blog
+                  - generic [ref=e204]: open_in_new
+            - generic [ref=e205]:
+              - heading "Equal opportunity" [level=2] [ref=e206]
+              - paragraph [ref=e207]:
+                - text: Google is proud to be an equal opportunity and affirmative action employer. We are committed to building a workforce that is representative of the users we serve, creating a culture of belonging and providing an equal employment opportunity regardless of race, creed, colour, religion, gender, sexual orientation, gender identity/expression, national origin, disability, age, genetic information, veteran status, marital status, pregnancy or related condition (including breastfeeding), expecting or parents-to-be, criminal histories consistent with legal requirements or any other basis protected by law. See also
+                - link "Google's EEO Policy" [ref=e208] [cursor=pointer]:
+                  - /url: https://www.google.com/about/careers/applications/eeo/
+                - text: ","
+                - 'link "Know your rights: workplace discrimination is illegal" [ref=e209] [cursor=pointer]':
+                  - /url: https://careers.google.com/jobs/dist/legal/EEOC_KnowYourRights_10_20.pdf
+                - text: ","
+                - link "Belonging at Google" [ref=e210] [cursor=pointer]:
+                  - /url: https://about.google/belonging/
+                - text: and
+                - link "How we hire" [ref=e211] [cursor=pointer]:
+                  - /url: https://careers.google.com/how-we-hire/
+                - text: .
+          - generic [ref=e212]:
+            - link "google.com (opens in a new tab)" [ref=e214] [cursor=pointer]:
+              - /url: https://www.google.com/
+              - img "Google" [ref=e215]
+            - generic [ref=e216]:
+              - generic [ref=e217]:
+                - link "Privacy (opens in a new tab)" [ref=e219] [cursor=pointer]:
+                  - /url: https://policies.google.com/privacy
+                  - text: Privacy
+                  - generic [ref=e221]: open_in_new
+                - link "Applicant and candidate privacy (opens in a new tab)" [ref=e223] [cursor=pointer]:
+                  - /url: ./privacy-policy
+                  - text: Applicant and candidate privacy
+                  - generic [ref=e225]: open_in_new
+                - link "Terms (opens in a new tab)" [ref=e227] [cursor=pointer]:
+                  - /url: https://policies.google.com/terms
+                  - text: Terms
+                  - generic [ref=e229]: open_in_new
+              - generic [ref=e230]:
+                - link "Help (opens in a new tab)" [ref=e231] [cursor=pointer]:
+                  - /url: https://support.google.com/googlecareers/#topic=6095159
+                  - generic [ref=e233]: help
+                  - text: Help
+                  - generic [ref=e235]: open_in_new
+                - combobox "Select language" [ref=e239] [cursor=pointer]:
+                  - generic: language
+                  - generic:
+                    - generic: English
+                  - generic:
+                    - img
+  - generic [ref=e241]: "Info The application window will be open until at least May 25, 2026. This opportunity will remain online based on business needs which may be before or after the specified date.Note: By applying to this position you will have an opportunity to share your preferred working location from the following: Austin, TX, USA; Atlanta, GA, USA; Thornton, CO, USA; Addison, TX, USA."

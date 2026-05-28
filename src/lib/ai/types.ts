@@ -79,6 +79,7 @@ export interface AIProvider {
     model: string;
     tools: UnifiedTool[];
     onToken: (text: string) => void;
+    signal?: AbortSignal;
   }): Promise<StreamResult>;
 }
 
@@ -201,6 +202,8 @@ export interface ProviderSettings {
 
 const STORAGE_KEY = "daitalk_provider_settings";
 const KEYCHAIN_PREFIX = "daitalk_";
+// localStorage fallback keys — used when OS keychain is unavailable
+const LS_KEY_PREFIX = "daitalk_apikey_";
 const LEGACY_KEY_STORAGE: Partial<Record<ProviderID, string>> = {
   nvidia: "nvidia_api_key",
   openai: "openai_api_key",
@@ -283,7 +286,7 @@ export function saveSettings(settings: ProviderSettings): void {
 }
 
 /**
- * Load all API keys from the OS keychain.
+ * Load all API keys. Tries OS keychain first, falls back to localStorage.
  * Returns a partial map of providerId → key (only entries that are non-empty).
  */
 export async function loadApiKeysFromKeychain(): Promise<Partial<Record<ProviderID, string>>> {
@@ -291,37 +294,54 @@ export async function loadApiKeysFromKeychain(): Promise<Partial<Record<Provider
   const ids: ProviderID[] = ["claude", "gemini", "openai", "nvidia", "ollama"];
   const results = await Promise.all(
     ids.map(async (id) => {
+      let key = "";
+      // 1. Try OS keychain
       try {
-        let key = await DbClient.getApiKey(KEYCHAIN_PREFIX + id);
-        if (!key) {
-          const legacyStorageKey = LEGACY_KEY_STORAGE[id];
-          const legacyKey = legacyStorageKey ? localStorage.getItem(legacyStorageKey) ?? "" : "";
-          if (legacyKey) {
-            key = legacyKey;
-            try {
-              await DbClient.storeApiKey(KEYCHAIN_PREFIX + id, legacyKey);
-              localStorage.removeItem(legacyStorageKey!);
-            } catch {
-              // best-effort migration
-            }
-          }
-        }
-        return [id, key] as const;
+        key = await DbClient.getApiKey(KEYCHAIN_PREFIX + id);
       } catch {
-        return [id, ""] as const;
+        // keychain unavailable — fall through to localStorage
       }
+      // 2. Fall back to localStorage backup
+      if (!key && typeof window !== "undefined") {
+        key = localStorage.getItem(LS_KEY_PREFIX + id) ?? "";
+      }
+      // 3. Migrate from legacy localStorage keys
+      if (!key && typeof window !== "undefined") {
+        const legacyStorageKey = LEGACY_KEY_STORAGE[id];
+        const legacyKey = legacyStorageKey ? localStorage.getItem(legacyStorageKey) ?? "" : "";
+        if (legacyKey) {
+          key = legacyKey;
+          // Migrate to new storage
+          void saveApiKeyToKeychain(id, legacyKey).catch(() => {});
+          localStorage.removeItem(legacyStorageKey!);
+        }
+      }
+      return [id, key] as const;
     })
   );
   return Object.fromEntries(results.filter(([, k]) => k !== ""));
 }
 
 /**
- * Save a single API key to the OS keychain.
+ * Save a single API key. Saves to OS keychain AND localStorage backup.
  * Pass empty string to delete the key.
  */
 export async function saveApiKeyToKeychain(providerId: ProviderID, key: string): Promise<void> {
   const { DbClient } = await import("../db/DbClient");
-  await DbClient.storeApiKey(KEYCHAIN_PREFIX + providerId, key);
+  // Always write to localStorage backup first (fast, reliable)
+  if (typeof window !== "undefined") {
+    if (key) {
+      localStorage.setItem(LS_KEY_PREFIX + providerId, key);
+    } else {
+      localStorage.removeItem(LS_KEY_PREFIX + providerId);
+    }
+  }
+  // Also write to OS keychain (more secure, may fail silently on some setups)
+  try {
+    await DbClient.storeApiKey(KEYCHAIN_PREFIX + providerId, key);
+  } catch {
+    // localStorage backup already saved — user won't lose their key
+  }
 }
 
 export function getActiveModel(settings: ProviderSettings): string {

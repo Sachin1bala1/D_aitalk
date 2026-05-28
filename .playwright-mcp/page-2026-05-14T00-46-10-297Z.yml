@@ -1,0 +1,1378 @@
+- generic [ref=e2]:
+  - heading "0 notifications" [level=2] [ref=e3]
+  - generic [ref=e4]:
+    - generic:
+      - button [ref=e5] [cursor=pointer]:
+        - generic [ref=e7]: Skip to main content
+      - button [ref=e8] [cursor=pointer]:
+        - img [ref=e191]
+    - generic [ref=e11]:
+      - banner [ref=e13]:
+        - generic [ref=e16]:
+          - button "LinkedIn" [ref=e193] [cursor=pointer]:
+            - img "LinkedIn" [ref=e194]
+          - generic [ref=e196]:
+            - status [ref=e197]
+            - search [ref=e198]:
+              - generic [ref=e199]:
+                - img [ref=e201]
+                - textbox "I'm looking for…" [ref=e203]
+          - generic [ref=e20]:
+            - figure [ref=e208]
+            - navigation [ref=e23]:
+              - list [ref=e24]:
+                - listitem [ref=e25]:
+                  - button "Home, 1 new notification" [ref=e26] [cursor=pointer]:
+                    - img [ref=e28]
+                    - generic [ref=e30]: Home
+                - listitem [ref=e31]:
+                  - link "My Network, 0 new notifications" [ref=e32] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/mynetwork
+                    - img [ref=e34]
+                    - generic [ref=e36]: My Network
+                - listitem [ref=e37]:
+                  - link "Jobs, 0 new notifications" [ref=e38] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/jobs/
+                    - img [ref=e40]
+                    - generic [ref=e42]: Jobs
+                - listitem [ref=e43]:
+                  - link "Messaging, 0 new notifications" [ref=e44] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/messaging/
+                    - img [ref=e46]
+                    - generic [ref=e48]: Messaging
+                - listitem [ref=e49]:
+                  - link "Notifications, 0 new notifications" [ref=e50] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/notifications/
+                    - generic [ref=e51]:
+                      - img [ref=e52]
+                      - generic [ref=e1019]: "1"
+                    - generic [ref=e54]: Notifications
+                - listitem [ref=e55]:
+                  - button "Me" [ref=e56] [cursor=pointer]:
+                    - figure [ref=e58]
+                    - generic [ref=e59]:
+                      - text: Me
+                      - img [ref=e210]
+            - generic [ref=e62]:
+              - navigation [ref=e63]:
+                - list [ref=e64]:
+                  - listitem [ref=e65]:
+                    - button "For Business" [ref=e66] [cursor=pointer]:
+                      - img [ref=e68]
+                      - generic [ref=e70]:
+                        - text: For Business
+                        - img [ref=e212]
+              - link "Try Premium for $0" [ref=e73] [cursor=pointer]:
+                - /url: https://www.linkedin.com/
+                - generic [ref=e74]:
+                  - img [ref=e214]
+                  - paragraph [ref=e77]: Try Premium for $0
+      - generic [ref=e79]:
+        - toolbar
+        - main [ref=e80]:
+          - generic [ref=e82]:
+            - region "Primary content" [ref=e217]:
+              - generic [ref=e220]:
+                - generic [ref=e225]:
+                  - generic [ref=e226]:
+                    - generic [ref=e227]:
+                      - link "Company, CyberCoders." [ref=e229] [cursor=pointer]:
+                        - /url: https://www.linkedin.com/company/cybercoders/life/
+                        - generic "Company, CyberCoders." [ref=e230]:
+                          - figure [ref=e231]:
+                            - img "Company logo for, CyberCoders." [ref=e232]
+                          - paragraph [ref=e233]:
+                            - link "CyberCoders" [ref=e234]:
+                              - /url: https://www.linkedin.com/company/cybercoders/life/
+                      - button "More options" [ref=e235] [cursor=pointer]:
+                        - img [ref=e237]
+                    - paragraph [ref=e241]:
+                      - text: Manufacturing Engineer
+                      - link "Verified job" [ref=e242] [cursor=pointer]:
+                        - /url: "#"
+                        - img "Verified job" [ref=e243]:
+                          - img [ref=e244]
+                    - paragraph [ref=e246]:
+                      - text: Sunnyvale, CA · Reposted 2 weeks ago ·
+                      - strong [ref=e248]: 16 applicants
+                    - paragraph [ref=e250]:
+                      - generic [ref=e251]:
+                        - text: Promoted by hirer ·
+                        - strong [ref=e252]: Actively reviewing applicants
+                  - generic [ref=e253]:
+                    - link "$170K/yr - $200K/yr" [ref=e255] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/jobs/view/4404118444/
+                      - generic [ref=e257]: $170K/yr - $200K/yr
+                    - link "On-site" [ref=e259] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/jobs/view/4404118444/
+                      - generic [ref=e261]: On-site
+                    - link "Full-time" [ref=e263] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/jobs/view/4404118444/
+                      - generic [ref=e265]: Full-time
+                  - generic [ref=e270]:
+                    - link "Easy Apply to this job" [ref=e272] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/jobs/view/4404118444/apply/?openSDUIApplyFlow=true&trackingId=NgcfyXa4Rru%2BY6DVaEpa2w%3D%3D
+                      - generic [ref=e273]:
+                        - img [ref=e274]
+                        - generic [ref=e276]: Easy Apply
+                    - button "Save the job" [ref=e278] [cursor=pointer]:
+                      - generic [ref=e280]: Save
+                - generic [ref=e281]:
+                  - generic [ref=e286]:
+                    - heading "Use AI to assess how you fit" [level=2] [ref=e288]
+                    - paragraph [ref=e291]:
+                      - text: Get AI-powered advice on this job and more exclusive features with Premium.
+                      - link "Try Premium for $0" [ref=e292] [cursor=pointer]:
+                        - /url: https://www.linkedin.com/premium/products/?upsellOrderOrigin=Tracking%3Av1%3Apremium_job_details_how_you_fit_upsell%3AJob+Seeker%3AIn-Product&utype=coach_job&referenceId=NT%2B9PonLTxqBAjALWvfXUA%3D%3D&isSS=false&upsellSlotId=JOB_DETAILS_HOW_YOU_FIT
+                    - list [ref=e299]:
+                      - listitem [ref=e300]:
+                        - link "Show match details" [ref=e302] [cursor=pointer]:
+                          - /url: /preload/guideOverlay/?interop=guideOverlay&query=Show+match+details&originalThreadMailbox=urn%3Ali%3AguideJobs%3AACoAACmaQHYBY8EZj0px6pVmQtXz1chuVamr1_0&conversationUrn=urn%3Ali%3Afsu_guideConversationV2%3Aurn%3Ali%3Aguide%3A6ead7a39be842a19e8266757994be0eab1c934101b4d6ba264044f9ce4c06625%7Eurn%3Ali%3AguideJobs%3AACoAACmaQHYBY8EZj0px6pVmQtXz1chuVamr1_0&contextUrns=urn%3Ali%3Aguide%3A6ead7a39be842a19e8266757994be0eab1c934101b4d6ba264044f9ce4c06625&intent=GuideIntent_JOB_SEEKING_AGENT&originalIntent=GuideIntent_JOB_SEEKING_AGENT&trackingId=y59YeLiZTLqIHQv0MkkyEw%3D%3D&customContext=subIntent%7E%3AJobSeekerAgentIntent_JOB_FIT_EXPLANATION%2CjobPostingId%7E%3A4404118444%2ChasHistory%7E%3Afalse&isZeroState=true&pageContextJobPostingUrns=urn%3Ali%3Afsd_jobPosting%3A4404118444
+                          - generic [ref=e303]:
+                            - img [ref=e304]
+                            - paragraph [ref=e306]: Show match details
+                      - listitem [ref=e307]:
+                        - link "Tailor my resume" [ref=e309] [cursor=pointer]:
+                          - /url: /preload/guideOverlay/?interop=guideOverlay&query=Tailor+my+resume&originalThreadMailbox=urn%3Ali%3AguideJobs%3AACoAACmaQHYBY8EZj0px6pVmQtXz1chuVamr1_0&conversationUrn=urn%3Ali%3Afsu_guideConversationV2%3Aurn%3Ali%3Aguide%3A6ead7a39be842a19e8266757994be0eab1c934101b4d6ba264044f9ce4c06625%7Eurn%3Ali%3AguideJobs%3AACoAACmaQHYBY8EZj0px6pVmQtXz1chuVamr1_0&contextUrns=urn%3Ali%3Aguide%3A6ead7a39be842a19e8266757994be0eab1c934101b4d6ba264044f9ce4c06625&intent=GuideIntent_JOB_SEEKING_AGENT&originalIntent=GuideIntent_JOB_SEEKING_AGENT&trackingId=kODyfDwtRtybmtkjF0Sq3A%3D%3D&customContext=subIntent%7E%3AJobSeekerAgentIntent_RESUME_ASSISTANCE%2CjobPostingId%7E%3A4404118444%2ChasHistory%7E%3Afalse&isZeroState=true&pageContextJobPostingUrns=urn%3Ali%3Afsd_jobPosting%3A4404118444
+                          - generic [ref=e310]:
+                            - img [ref=e311]
+                            - paragraph [ref=e313]: Tailor my resume
+                      - listitem [ref=e314]:
+                        - link "Help me stand out" [ref=e316] [cursor=pointer]:
+                          - /url: /preload/guideOverlay/?interop=guideOverlay&query=Help+me+stand+out&originalThreadMailbox=urn%3Ali%3AguideJobs%3AACoAACmaQHYBY8EZj0px6pVmQtXz1chuVamr1_0&conversationUrn=urn%3Ali%3Afsu_guideConversationV2%3Aurn%3Ali%3Aguide%3A6ead7a39be842a19e8266757994be0eab1c934101b4d6ba264044f9ce4c06625%7Eurn%3Ali%3AguideJobs%3AACoAACmaQHYBY8EZj0px6pVmQtXz1chuVamr1_0&contextUrns=urn%3Ali%3Aguide%3A6ead7a39be842a19e8266757994be0eab1c934101b4d6ba264044f9ce4c06625&intent=GuideIntent_JOB_SEEKING_AGENT&originalIntent=GuideIntent_JOB_SEEKING_AGENT&trackingId=G%2Bk7QnZRSfidNZlfJO5u0g%3D%3D&customContext=subIntent%7E%3AJobSeekerAgentIntent_JOB_RECOMMENDED_ACTIONS%2CjobPostingId%7E%3A4404118444%2ChasHistory%7E%3Afalse&isZeroState=true&pageContextJobPostingUrns=urn%3Ali%3Afsd_jobPosting%3A4404118444
+                          - generic [ref=e317]:
+                            - img [ref=e318]
+                            - paragraph [ref=e320]: Help me stand out
+                  - generic [ref=e326]:
+                    - heading "About the job" [level=2] [ref=e328]
+                    - paragraph [ref=e329]:
+                      - generic [ref=e330]:
+                        - strong [ref=e331]: Manufacturing Engineer
+                        - strong [ref=e332]: Position Overview
+                        - text: We are seeking a Manufacturing Engineer to develop, optimize, and sustain production equipment and processes for vacuum and semiconductor-related manufacturing. The role focuses on designing and qualifying equipment (including vacuum chambers), improving manufacturability and throughput, ensuring compliance with NRTL and SEMI S2/S8 safety standards, and collaborating with cross-functional teams to bring robust, production-ready systems online.
+                        - strong [ref=e333]: Key Responsibilities
+                        - list [ref=e334]:
+                          - listitem [ref=e335]: Design, develop, and validate manufacturing equipment and fixtures with emphasis on vacuum systems and vacuum chambers.
+                          - listitem [ref=e336]: Create detailed mechanical and cable designs and producibility documentation to support manufacturing and assembly.
+                          - listitem [ref=e337]: Perform finite element analysis (FEA) and other engineering studies to ensure structural integrity and performance of equipment.
+                          - listitem [ref=e338]: Develop and maintain control logic interfaces and work with PLC engineers to integrate automation with production equipment.
+                          - listitem [ref=e339]: Lead design for compliance with safety and certification standards (NRTL, SEMI S2/S8) and prepare documentation for safety reviews and audits.
+                          - listitem [ref=e340]: Work with suppliers and internal teams to source components, perform incoming inspections, and resolve manufacturing issues.
+                          - listitem [ref=e341]: Drive continuous improvement initiatives to reduce cost, increase yield, and improve equipment uptime and serviceability.
+                          - listitem [ref=e342]: Prepare work instructions, bills of materials, and production validation plans; support installation, commissioning, and field support activities.
+                        - strong [ref=e343]: Qualifications
+                        - list [ref=e344]:
+                          - listitem [ref=e345]: Bachelors degree in Mechanical, Manufacturing, Electrical Engineering, or related field required; Masters degree preferred.
+                          - listitem [ref=e346]: 3+ years of experience in manufacturing engineering, equipment design, or a related role, preferably in vacuum systems or semiconductor equipment.
+                          - listitem [ref=e347]: Hands-on experience with vacuum systems and vacuum chamber design and commissioning.
+                          - listitem [ref=e348]: Proven experience with equipment design, cable design, and creating manufacturable assemblies and documentation.
+                          - listitem [ref=e349]: Familiarity with safety and certification processes including NRTL and SEMI S2/S8 standards.
+                          - listitem [ref=e350]: Experience with PLC integration and control system coordination with manufacturing equipment.
+                          - listitem [ref=e351]: Proficiency in FEA tools (ANSYS, SolidWorks Simulation, or equivalent) and CAD software (SolidWorks, Creo, etc.).
+                          - listitem [ref=e352]: Strong problem-solving skills, excellent written and verbal communication, and experience working in cross-functional teams.
+                          - listitem [ref=e353]: Ability to travel for supplier visits, installations, and field support as needed.
+                        - paragraph [ref=e354]:
+                          - strong [ref=e355]: Benefits
+                        - list [ref=e356]:
+                          - listitem [ref=e357]: Medical
+                          - listitem [ref=e358]: Dental
+                          - listitem [ref=e359]: Vision
+                          - listitem [ref=e360]: 401k
+                          - listitem [ref=e361]: PTO
+                          - listitem [ref=e362]: Company bonus & equity potential
+                        - strong [ref=e363]: Email Your Resume In Word To
+                        - text: Katherine.Tempel@cybercoders.com
+                        - text: Looking forward to receiving your resume through our website and going over the position with you. Clicking apply is the best way to apply.
+                        - text: "Please do NOT change the email subject line in any way. You must keep the JobID: linkedin : KT4-1984066 -- in the email subject line for your application to be considered."
+                        - text: Katherine Tempel - Recruiting Manager
+                        - text: For this position, you must be currently authorized to work in the United States without the need for sponsorship for a non-immigrant visa. This is a new role.
+                        - text: CyberCoders will consider for Employment in the City of Los Angeles qualified Applicants with Criminal Histories in a manner consistent with the requirements of the Los Angeles Fair Chance Initiative for Hiring (Ban the Box) Ordinance.
+                        - text: This job was first posted by CyberCoders on 04/16/2026 and applications will be accepted on an ongoing basis until the position is filled or closed.
+                        - strong [ref=e364]: Everforth CyberCoders is proud to be an Equal Opportunity Employer
+                        - text: All qualified applicants will receive consideration for employment without regard to race, color, religion, sex, age, sexual orientation, gender identity or expression, national origin, ancestry, citizenship, genetic information, registered domestic partner status, marital status, status as a crime victim, disability, protected veteran status, or any other characteristic protected by law. Our hiring process includes AI screening for keywords and minimum qualifications. Recruiters review all results. Everforth CyberCoders will consider qualified applicants with criminal histories in a manner consistent with the requirements of applicable state and local law, including but not limited to the Los Angeles County Fair Chance Ordinance, the San Francisco Fair Chance Ordinance, and the California Fair Chance Act. Everforth CyberCoders is committed to working with and providing reasonable accommodation to individuals with physical and mental disabilities. Individuals needing special assistance or an accommodation while seeking employment can contact a member of our Human Resources team at Benefits@CyberCoders.com to make arrangements.
+                        - text: Copyright © 2026 Everforth, Inc. All rights reserved.
+                        - button:
+                          - generic [ref=e366] [cursor=pointer]: … more
+                  - generic [ref=e371]:
+                    - heading "Set alert for similar jobs" [level=2] [ref=e372]
+                    - generic [ref=e373]:
+                      - paragraph [ref=e374]: Manufacturing Engineer, Sunnyvale, California, United States
+                      - generic [ref=e376]:
+                        - generic:
+                          - paragraph
+                        - generic [ref=e377]:
+                          - generic [ref=e378]: "Off"
+                          - generic [ref=e379] [cursor=pointer]:
+                            - switch "Tap to toggle setting"
+                  - generic [ref=e389]:
+                    - paragraph [ref=e391]: Job search faster with Premium
+                    - paragraph [ref=e392]: Access company insights like strategic priorities, headcount trends, and more
+                    - generic [ref=e393]:
+                      - figure [ref=e394]
+                      - figure [ref=e395]
+                      - figure [ref=e396]
+                      - paragraph [ref=e397]: Prathamesh and millions of other members use Premium
+                    - link "Try Premium for $0" [ref=e398] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/premium/products/?upsellOrderOrigin=Tracking%3Av1%3Ajdp_aiq_company_insights_static%3AJob+Seeker%3AIn-Product&utype=job&referenceId=a9g%2BqVJ9RtKsZsqDqqR%2BeA%3D%3D&isSS=false&upsellSlotId=JDP_AIQ_COMPANY_INSIGHTS_STATIC
+                      - generic [ref=e400]: Try Premium for $0
+                    - paragraph [ref=e401]: 1-month free trial. Cancel hassle-free. We’ll remind you 7 days before your trial ends.
+                  - generic [ref=e406]:
+                    - heading "About the company" [level=2] [ref=e408]
+                    - generic [ref=e409]:
+                      - generic [ref=e410]:
+                        - link "CyberCoders 2,104,040 followers" [ref=e411] [cursor=pointer]:
+                          - /url: https://www.linkedin.com/company/cybercoders/life/
+                          - generic [ref=e412]:
+                            - figure [ref=e413]
+                            - generic [ref=e414]:
+                              - paragraph [ref=e417]: CyberCoders
+                              - paragraph [ref=e419]: 2,104,040 followers
+                        - button "Following" [ref=e420] [cursor=pointer]:
+                          - generic [ref=e421]:
+                            - img [ref=e422]
+                            - generic [ref=e424]: Following
+                      - generic [ref=e425]:
+                        - paragraph [ref=e427]: Staffing and Recruiting
+                        - paragraph [ref=e429]: •
+                        - paragraph [ref=e431]: 201-500 employees
+                        - paragraph [ref=e433]: •
+                        - paragraph [ref=e435]: 595 on LinkedIn
+                      - paragraph [ref=e436]:
+                        - generic [ref=e437]:
+                          - text: "Everforth CyberCoders, part of the Everforth™ network, is a leading permanent placement firm connecting top talent with top companies. Our expert recruiters help candidates find meaningful roles and enable employers to hire with confidence. CyberCoders has placed tens of thousands of professionals across technology, engineering, construction, manufacturing, accounting, finance, mortgage, healthcare, and biotech. With a nationwide presence and recognition by Forbes as one of America’s Best Professional Recruiting Firms, we combine deep expertise, proprietary recruiting technology, and the strength of the Everforth network to help organizations build forward-looking teams that drive growth. 📈 Everforth Cyber Coders is part of the commercial segment of Everforth™ (NYSE: EFOR)"
+                          - button:
+                            - generic [ref=e439] [cursor=pointer]: … more
+                    - generic [ref=e440]:
+                      - generic [ref=e443]:
+                        - generic [ref=e445]:
+                          - paragraph [ref=e446]: Interested in working with us in the future?
+                          - link "Privately share your profile with our recruiters – you’ll be noted as expressing interest for up to a year and be notified about jobs and updates. Learn more" [ref=e447] [cursor=pointer]:
+                            - /url: https://www.linkedin.com/help/linkedin/answer/a1380509/
+                            - paragraph [ref=e448]:
+                              - text: Privately share your profile with our recruiters – you’ll be noted as expressing interest for up to a year and be notified about jobs and updates.
+                              - link "Learn more" [ref=e449]:
+                                - /url: https://www.linkedin.com/help/linkedin/answer/a1380509/
+                                - strong [ref=e450]: Learn more
+                        - button "I’m interested" [ref=e452] [cursor=pointer]:
+                          - generic [ref=e454]: I’m interested
+                      - generic [ref=e456]:
+                        - heading "Company photos" [level=2] [ref=e457]
+                        - generic [ref=e462]:
+                          - list [ref=e463]:
+                            - list [ref=e464]:
+                              - listitem [ref=e465]:
+                                - link [ref=e466] [cursor=pointer]:
+                                  - /url: https://www.linkedin.com/jobs/view/4404118444/
+                                  - figure [ref=e469]
+                              - listitem [ref=e470]:
+                                - link [ref=e471] [cursor=pointer]:
+                                  - /url: https://www.linkedin.com/jobs/view/4404118444/
+                                  - figure [ref=e474]
+                              - listitem [ref=e475]:
+                                - link [ref=e476] [cursor=pointer]:
+                                  - /url: https://www.linkedin.com/jobs/view/4404118444/
+                                  - figure [ref=e479]
+                              - listitem [ref=e480]:
+                                - link [ref=e481] [cursor=pointer]:
+                                  - /url: https://www.linkedin.com/jobs/view/4404118444/
+                                  - figure [ref=e484]
+                              - listitem [ref=e485]:
+                                - link [ref=e486] [cursor=pointer]:
+                                  - /url: https://www.linkedin.com/jobs/view/4404118444/
+                                  - figure [ref=e489]
+                          - button "Next" [ref=e490] [cursor=pointer]:
+                            - img [ref=e492]
+                  - generic [ref=e496]:
+                    - heading "More jobs" [level=2] [ref=e497]
+                    - generic [ref=e498]:
+                      - link "SUHNER USA Rome, GA (On-site) 5 benefits Actively reviewing applicants Posted 1 week ago · Easy Apply" [ref=e501] [cursor=pointer]:
+                        - /url: https://www.linkedin.com/jobs/collections/similar-jobs/?referenceJobId=4404118444&trackingId=5PuGdiRn3rnJXAogMn0e5g%3D%3D&currentJobId=4408785367&refId=GrmBVFAP4e9Pl6IIuj1khg%3D%3D&eBP=CwEAAAGeI-UjmOeoGplVYACEl2f4t4y2BWKBptI5c5inJhkK_vlSh0m9nfaFuvunKsPnxDs0L82ldXvuWiy8RbYQl9_oYf0eAREDio3O4hBkaAyXw8vGE64PA7zJrRg5pozGJkWIHD_qu7HO3f3zpTwWvlsqSppPsXkQBPs6xOs2_9KGhApSC17dSb2MTgNgymzFpunNoWTR9asMlra4TPFwR17IxygwuTi9I3d1wROLH_OfoSs24nGHLcDxq5pO0MHPyv5KYzb4ib0MYXz9ruF5TX5aB9m0-Bfbp8gRhmvSY1oCXoiM-QV2aDj6PNocDc5FdGdh568OrHpTm-3io-hjHghTXAtuxHplLQvBvRRwvH-7b6Ym5ovHJSqCBmfZXNbM7rMn0yMGTZqxyoP4aqunObE0k_OzEFlB5tej0ObJ5XgOUkFe-Sg91CEL&originToLandingJobPostings=4408785367
+                        - generic [ref=e502]:
+                          - generic [ref=e503]:
+                            - figure [ref=e504]
+                            - generic [ref=e505]:
+                              - generic [ref=e508]:
+                                - paragraph [ref=e511]:
+                                  - generic [ref=e512]: Mechanical Design Engineer
+                                - paragraph [ref=e515]: SUHNER USA
+                                - paragraph [ref=e517]: Rome, GA (On-site)
+                              - generic [ref=e518]:
+                                - paragraph [ref=e521]: 5 benefits
+                                - generic [ref=e522]:
+                                  - img [ref=e523]
+                                  - paragraph [ref=e527]: Actively reviewing applicants
+                          - generic [ref=e528]:
+                            - paragraph [ref=e529]:
+                              - generic [ref=e530]: Posted 1 week ago
+                              - text: 1 week ago
+                            - paragraph [ref=e531]: ·
+                            - paragraph [ref=e532]:
+                              - img [ref=e534]
+                              - text: Easy Apply
+                      - link "Gravitas Medical Berkeley, CA (On-site) Actively reviewing applicants Posted 1 day ago · Easy Apply" [ref=e538] [cursor=pointer]:
+                        - /url: https://www.linkedin.com/jobs/collections/similar-jobs/?referenceJobId=4404118444&trackingId=WzL8ORRbW7zpEqXRjbvh7Q%3D%3D&currentJobId=4413598822&refId=GrmBVFAP4e9Pl6IIuj1khg%3D%3D&eBP=CwEAAAGeI-UjmDSlQqnFTf97wt0mnLvs9hSXBRepJWofKKGivLC818amdhEC9aDUVYYBC5-RYD5vQ0Eg2OFX3lHwNp15MS2swMvJBHPTcjFOmnMLjspiSHYYoQRA_-Hg58eCSBimoMe9kTIX_CBgzSt4-Ol4Rt1Aq-Qp8S7x8lr4oOB-3KE_pvOVyWDnPt0gi2mVEOp2cNlrsEgNCBviVYLCqt1zaRiMIHP-EW9qREWkv3DfCmK7C_tUUIqeai0jHE0YoQSvRuSlCxgdNmWqYh_6Dlljj2xefBNSAD5LEYQu89mZNuo4OFqbaATyuUAbqdbE7QgMPogs4josN8wvJSOLLR0rog7fPE2rmo-r4BCGqtxjhBdkxlLDwqF3US73w7nXhpFgbmcrEkPUr3g3qX4ZxhXQ1wmbjCPKDoDqvxWXI2RFPnelsQ9LPJoQRo91_tMJFVKS6DKPJNTMQVdvXuQuZ-1gSPokCAJc&originToLandingJobPostings=4413598822
+                        - generic [ref=e539]:
+                          - generic [ref=e540]:
+                            - figure [ref=e541]
+                            - generic [ref=e542]:
+                              - generic [ref=e545]:
+                                - paragraph [ref=e548]:
+                                  - generic [ref=e549]: Senior R&D / Manufacturing Engineer
+                                - paragraph [ref=e552]: Gravitas Medical
+                                - paragraph [ref=e554]: Berkeley, CA (On-site)
+                              - generic [ref=e556]:
+                                - img [ref=e557]
+                                - paragraph [ref=e561]: Actively reviewing applicants
+                          - generic [ref=e562]:
+                            - paragraph [ref=e563]:
+                              - generic [ref=e564]: Posted 1 day ago
+                              - text: 1 day ago
+                            - paragraph [ref=e565]: ·
+                            - paragraph [ref=e566]:
+                              - img [ref=e568]
+                              - text: Easy Apply
+                      - link "BSU Incorporated Austin, TX (On-site) 401(k) benefit Actively reviewing applicants Posted 2 days ago · Easy Apply" [ref=e572] [cursor=pointer]:
+                        - /url: https://www.linkedin.com/jobs/collections/similar-jobs/?referenceJobId=4404118444&trackingId=hbqs7fNN45SGYrPoe3FLnA%3D%3D&currentJobId=4413161482&refId=GrmBVFAP4e9Pl6IIuj1khg%3D%3D&eBP=CwEAAAGeI-UjmLQCNTVerBK8et6HGqdZHaJc46dfLqXZFLhg7GKr2I-05mKllmPs5wwdACnU3Ybr4dya9IhyJ-fk3HpGf9Am-vvki63Wz3Sans0jCns6nEJW3qUWCJPTh9sYmZ20LYlmIUxtDK8fomB4CUw04ZnlVyyqFBf2nPq4AHt0Q4n7_IqyFmIZatmQeCq1Ydor4nuydxo1767sFx1yloD4n5wY3f5oNYbTl6Mg0x7i4d1imeSKj_YphRxDrTOWQ-yJl0tLtl0beqwLm345cas8EMt8J-Z0MTA9NvejMnZqEPv90QbsFJjqDAfx_xHFN3plHnY_7_njAvwI8dCceVifdm6bHnDigq6FsDNYxW3FE6Abkcop2_INDxxF3Nc4Ana0NT3Gp0ilzqx5Pm_kzGZaco__yeDDtqOFkhAbTRHhZWuKr9Fd-9RmiYZBpHb1QxKBO0vtfNCI6qnosQsVGvfrQcqfvzNJA18&originToLandingJobPostings=4413161482
+                        - generic [ref=e573]:
+                          - generic [ref=e574]:
+                            - figure [ref=e575]
+                            - generic [ref=e576]:
+                              - generic [ref=e579]:
+                                - paragraph [ref=e582]:
+                                  - generic [ref=e583]: Quality Engineer
+                                - paragraph [ref=e586]: BSU Incorporated
+                                - paragraph [ref=e588]: Austin, TX (On-site)
+                              - generic [ref=e589]:
+                                - paragraph [ref=e592]: 401(k) benefit
+                                - generic [ref=e593]:
+                                  - img [ref=e594]
+                                  - paragraph [ref=e598]: Actively reviewing applicants
+                          - generic [ref=e599]:
+                            - paragraph [ref=e600]:
+                              - generic [ref=e601]: Posted 2 days ago
+                              - text: 2 days ago
+                            - paragraph [ref=e602]: ·
+                            - paragraph [ref=e603]:
+                              - img [ref=e605]
+                              - text: Easy Apply
+                      - link "Raise Robotics San Francisco Bay Area (Hybrid) Actively reviewing applicants Posted 1 week ago · Easy Apply" [ref=e609] [cursor=pointer]:
+                        - /url: https://www.linkedin.com/jobs/collections/similar-jobs/?referenceJobId=4404118444&trackingId=EFIr7DOdHGmDCJq5sxWFvQ%3D%3D&currentJobId=4406580249&refId=GrmBVFAP4e9Pl6IIuj1khg%3D%3D&eBP=CwEAAAGeI-UjmOI5d3uLXD5deffeBTHJfn1XxEX9VXKyuTF-xWh3PYJgi8R6E3k1L4M4UvAdCkv3P_3ACOachLh0EQ0yLbbHguemMdOl9OgzFtdu9-tjMTaNLyiQlzDSGzGHSv51jqLEjiHXklM6y2waDdPkhHIxrTHLW2yYW1ND7cNeiwRaDhtpRuRNkXn1r5Hg5q2BQnpz7_jn5GvZnQnQksMjgwH4MxA3ItoSwt6OInAgEdPFJY7me5UsJVp03KaWI6ifGJttinoTHbZTPvb9AdrGjeMaDYYvKWO5ZA5z_m2wpkoy_Nz4FtLyhi-IbZQZa5l2sYtOXieid5Abe6m6VijlGC3xpMoF-rBIlLtXmA5L5uA5VKTbj2qIjM1bFDQ2XIopqKSTIpr9EaDMcREDaVPCg71bJsXlQZpI3w-qlH-_StGlYVU-pa8RFqb1obzJQdOM7CEs&originToLandingJobPostings=4406580249
+                        - generic [ref=e610]:
+                          - generic [ref=e611]:
+                            - figure [ref=e612]
+                            - generic [ref=e613]:
+                              - generic [ref=e616]:
+                                - paragraph [ref=e619]:
+                                  - generic [ref=e620]: Senior Mechanical Engineer
+                                - paragraph [ref=e623]: Raise Robotics
+                                - paragraph [ref=e625]: San Francisco Bay Area (Hybrid)
+                              - generic [ref=e627]:
+                                - img [ref=e628]
+                                - paragraph [ref=e632]: Actively reviewing applicants
+                          - generic [ref=e633]:
+                            - paragraph [ref=e634]:
+                              - generic [ref=e635]: Posted 1 week ago
+                              - text: 1 week ago
+                            - paragraph [ref=e636]: ·
+                            - paragraph [ref=e637]:
+                              - img [ref=e639]
+                              - text: Easy Apply
+                      - link "Vendome Copper & Brass Works Inc. Louisville, KY (On-site) Actively reviewing applicants Posted 5 days ago · Easy Apply" [ref=e643] [cursor=pointer]:
+                        - /url: https://www.linkedin.com/jobs/collections/similar-jobs/?referenceJobId=4404118444&trackingId=xCeEYHiKoQBSKJLVrNQLZQ%3D%3D&currentJobId=4411393613&refId=GrmBVFAP4e9Pl6IIuj1khg%3D%3D&eBP=CwEAAAGeI-UjmDKxMMB3H3XZkM-Qen2q6IRrxBQCwiUzkb17Pk7S7HtACDZ67DedwOHVjhmD8utUdWUF0nDN5_76LmIwAszlEMUNzob5PuyRmqvYDDHnEowMEPeGiwevzBSIBcplUHI09RHtfmDaiWSderWU4q-5KzMAXkfsp3K2sULavAM3SYxx9vFqRdxR4Pp2roFdXIBK6rkqDZxJsaJOQyDg3P8HtXEefCyB8DY8VvQzhv1m21we3BQ99xCo2rV17q0dRbprz8ARVfrzpbrIQKW8umsQEtDpYbtNpa5vhqI03BVTusORzcRwuiRv0LQpm_LgAGDM_eiAGYd-96IMAl_kABGRSfZsxnOWsP50L947MGzDW6AgR5nB7ZOwFGGlVt5j88N1PY9asDIjbvPcMBTaME8gvYTZYyQpPvQQ3tKRteCfenJ2egCl6UzQAU7ZOPEk8Hc04teItr_Yb34KNBlvWq4oXQtBLSA&originToLandingJobPostings=4411393613
+                        - generic [ref=e644]:
+                          - generic [ref=e645]:
+                            - figure [ref=e646]
+                            - generic [ref=e647]:
+                              - generic [ref=e650]:
+                                - paragraph [ref=e653]:
+                                  - generic [ref=e654]: Mechanical Engineer
+                                - paragraph [ref=e657]: Vendome Copper & Brass Works Inc.
+                                - paragraph [ref=e659]: Louisville, KY (On-site)
+                              - generic [ref=e661]:
+                                - img [ref=e662]
+                                - paragraph [ref=e666]: Actively reviewing applicants
+                          - generic [ref=e667]:
+                            - paragraph [ref=e668]:
+                              - generic [ref=e669]: Posted 5 days ago
+                              - text: 5 days ago
+                            - paragraph [ref=e670]: ·
+                            - paragraph [ref=e671]:
+                              - img [ref=e673]
+                              - text: Easy Apply
+                      - link "Terrestrial Energy Charlotte, NC (On-site) Posted 2 weeks ago" [ref=e677] [cursor=pointer]:
+                        - /url: https://www.linkedin.com/jobs/collections/similar-jobs/?referenceJobId=4404118444&trackingId=TYBO5hCMU9P9WPsYAJwU3w%3D%3D&currentJobId=4405343765&refId=GrmBVFAP4e9Pl6IIuj1khg%3D%3D&eBP=CwEAAAGeI-UjmANykM6zZsNFrbveL0RqwbaU_tdRuQsb91mhbTYbzQrnBa9GU1--_I-fARvlYJhA4q-_-RdixVN4Mgsfrpj_oA0nXofUy9toi6HI5hb4umeGIJsQpcfL2lx1v5Npy9u1eNvWAcFWXYHl4Rv8IycLBx7thfe4U9-k1r1qhLpTZIT9GFLZ1NcEt3NWvvxcY-Lvb7WJDpBZppTmEMS2o9EfoRbYuvqyA1XMjf8F-6lBcS35gOsghU1yHOp4mT_FrKr8v2DZV1v-FkIRKDpRtnGGZ8ykUgQTG15P-3Lpof5ASGCVVlxkH_nnisFsPwVTq23o2_BYJ3ZRFzfdKgJOOzZuZGqgoxPHLDdb-_ftc5wMwGYE_5DDz5SCNOCtClussobHNcXq5m6ZjW-K4IdWDQVETI0pul6GgxHiW2Z5Cruqja8-Cdt96-tC3PnPUlgDW6OeDReXLpFjMP749ZeYUEr_hAwY6EM&originToLandingJobPostings=4405343765
+                        - generic [ref=e678]:
+                          - generic [ref=e679]:
+                            - figure [ref=e680]
+                            - generic [ref=e684]:
+                              - paragraph [ref=e687]:
+                                - generic [ref=e690]:
+                                  - text: Mechanical Engineer or Analyst – Model Development
+                                  - img [ref=e692]
+                              - paragraph [ref=e695]: Terrestrial Energy
+                              - paragraph [ref=e697]: Charlotte, NC (On-site)
+                          - paragraph [ref=e700]:
+                            - generic [ref=e701]: Posted 2 weeks ago
+                            - text: 2 weeks ago
+                      - link "Total Seal Inc Greater Phoenix Area (On-site) Actively reviewing applicants Posted 1 day ago · Easy Apply" [ref=e704] [cursor=pointer]:
+                        - /url: https://www.linkedin.com/jobs/collections/similar-jobs/?referenceJobId=4404118444&trackingId=jYwhJP44vmINmb%2FwYBlmgA%3D%3D&currentJobId=4413807960&refId=GrmBVFAP4e9Pl6IIuj1khg%3D%3D&eBP=CwEAAAGeI-UjmFkGdIxkLbFnrKOlIxElC6xQbIBTnICAU3-4QMYjGUbDFm1gUAo0qPN8QEk_l1DHOkoxXhd9RI4bTqRM7SuztS8uaQEUhug3-ax7Q5ewedn9JCHfILTtcwlWCoqiNs3JeO-5pS9OuoqUpaUlx31X2OMt7cXxHZwyMnqqbYN7i9d3WY8zPW1S7ADshsYzeNgT9XxkxDFTzd21MdM3spKxSDjVfn8WP4ZT8kTSUSscu7a_ynBtgMB5imYfo1CMbrugN_QzI-xAp4FPdG4stE5vLsYFv9OOWVlqQ-hCO6Ln_31raUjjvaOViuYI5iL567JbjW-avvJql1Er8mRL3-hFaZnqaUqzIcGhCDb_i6pBsRdfePx1LiY-QfCihcK3WnS35cCQ2visf1sHF8QwXuL9w6ccBf3YTuhcnFy0ZQl6neBsV4AEutFSjL8yb4I1yRueC4agFdBQgu38duJpTR3EnFw7_THdZQ&originToLandingJobPostings=4413807960
+                        - generic [ref=e705]:
+                          - generic [ref=e706]:
+                            - figure [ref=e707]
+                            - generic [ref=e708]:
+                              - generic [ref=e711]:
+                                - paragraph [ref=e714]:
+                                  - generic [ref=e715]: Manufacturing Engineer - No Out of State Applicants
+                                - paragraph [ref=e718]: Total Seal Inc
+                                - paragraph [ref=e720]: Greater Phoenix Area (On-site)
+                              - generic [ref=e722]:
+                                - img [ref=e723]
+                                - paragraph [ref=e727]: Actively reviewing applicants
+                          - generic [ref=e728]:
+                            - paragraph [ref=e729]:
+                              - generic [ref=e730]: Posted 1 day ago
+                              - text: 1 day ago
+                            - paragraph [ref=e731]: ·
+                            - paragraph [ref=e732]:
+                              - img [ref=e734]
+                              - text: Easy Apply
+                      - link "WD Fremont, CA (On-site) 29 company alumni work here Posted 1 hour ago · Easy Apply" [ref=e738] [cursor=pointer]:
+                        - /url: https://www.linkedin.com/jobs/collections/similar-jobs/?referenceJobId=4404118444&trackingId=laCvcRdup%2F3%2FUbH1PUXseA%3D%3D&currentJobId=4410646220&refId=GrmBVFAP4e9Pl6IIuj1khg%3D%3D&eBP=CwEAAAGeI-UjmA8zoSB_QauCEJJk4aj9hB2o-TfYg4XgssgK6n_ysKmyxCxGrDZvu4HP9Xx2AGV3cAFA_Hc0UHPJ7MFjyFQa5NKpF7Nz5SrGFnHx8VsGgI48aEuXT3s6OOEZE_TQ0XN7zTf7W-lQ2f-d3pjq1GN20xTpRK9ohJMvpJ-hvU5cWeJofCbyJn6NprLdWWVvPLOHEkyUzFdXENorWHK_4aUg_i2_9c81M9wzRxW7uZU8lFgV-yEJIPpoam2fT8qkUMAPCYWkvxhhnBVltx9JtlJPtXqwYOWvC1iCJy2MH2BgFZhUd_YfsoDyeUY8x9dja0c_tvz6tk6ahYMDVhir-Hw0I8a8fx89jtUPdTRMhlQXaEodtNHUv7L1r5ffN7D-D-yBS7XY_Vwh7IApWbbwQuU0aulXovjTfqeboauj5cYoX3Q_VZCfftm-gCf3sSNh4BaUM3j2cUXGsHgke81n0ukduUeXLsiUGUHl&originToLandingJobPostings=4410646220
+                        - generic [ref=e739]:
+                          - generic [ref=e740]:
+                            - figure [ref=e741]
+                            - generic [ref=e742]:
+                              - generic [ref=e745]:
+                                - paragraph [ref=e748]:
+                                  - generic [ref=e749]: Wafer Manufacturing Process Engineer
+                                - paragraph [ref=e752]: WD
+                                - paragraph [ref=e754]: Fremont, CA (On-site)
+                              - generic [ref=e756]:
+                                - figure [ref=e757]
+                                - paragraph [ref=e759]: 29 company alumni work here
+                          - generic [ref=e760]:
+                            - paragraph [ref=e761]:
+                              - generic [ref=e762]: Posted 1 hour ago
+                              - text: 1 hour ago
+                            - paragraph [ref=e763]: ·
+                            - paragraph [ref=e764]:
+                              - img [ref=e766]
+                              - text: Easy Apply
+                      - link "Magma Space Washington DC-Baltimore Area (On-site) 401(k) benefit Posted 6 days ago" [ref=e770] [cursor=pointer]:
+                        - /url: https://www.linkedin.com/jobs/collections/similar-jobs/?referenceJobId=4404118444&trackingId=xCTxuIpeOF9JXOMScAc7SA%3D%3D&currentJobId=4411626264&refId=GrmBVFAP4e9Pl6IIuj1khg%3D%3D&eBP=CwEAAAGeI-UjmMdl3qW26KWLQjJZ0sqvMQ5XaT8pfHa-3tOmk5JeO-_yCBf6P4T99In-a7FqOnRExPG5VKSjWouoKlnZxrRpEUnl8fmceuB5sn3_wRZxCWTMRaZ5vWsn4BZH6ZVCKksaoUCSXKTjn0GRHF0krVEy_2rYUAaWX_ipt5Iyr7uCkvRaAYepT9DMH9eICXhaKquT0t__CLyWDJJgC0J7oj-t74N6tIkfpWIorrS_t4dUgQRtZ-u2Tgqua4AcHp7u62wg9to5mAld9L_YNshuqS1_xOQPxAImfjUKORO1hmxoZPvPnjlVJz9nG1ZfkOidxKRJOOXdVN44nn2e76JOZRQ80G0hgEx_BPWBhlZd0Uoerk2P3-peplAiMK4nXArXNPtkJQZuj0oaK98qdnJJd-hC8GDZfZtUHhSSf0R3UK_YzkVKnJYKIKk&originToLandingJobPostings=4411626264
+                        - generic [ref=e771]:
+                          - generic [ref=e772]:
+                            - figure [ref=e773]
+                            - generic [ref=e774]:
+                              - generic [ref=e777]:
+                                - paragraph [ref=e780]:
+                                  - generic [ref=e781]: Sr. GNC Modeling and Simulation Engineer
+                                - paragraph [ref=e784]: Magma Space
+                                - paragraph [ref=e786]: Washington DC-Baltimore Area (On-site)
+                              - paragraph [ref=e790]: 401(k) benefit
+                          - paragraph [ref=e792]:
+                            - generic [ref=e793]: Posted 6 days ago
+                            - text: 6 days ago
+                      - link "BIMCON Inc. Metro Detroit, MI (On-site) Posted 2 days ago · Easy Apply" [ref=e796] [cursor=pointer]:
+                        - /url: https://www.linkedin.com/jobs/collections/similar-jobs/?referenceJobId=4404118444&trackingId=dkDlq8rXub%2FlkuQfAw2cVw%3D%3D&currentJobId=4413143675&refId=GrmBVFAP4e9Pl6IIuj1khg%3D%3D&eBP=CwEAAAGeI-UjmHf-ys3O41bsmen_NEc5rtLG1n_HoqWsJNJeWH4s7i3Mn2Oi6K5647Da4ICh44aKxUE9q9WFEbEJNa6jK5bEN5E9pb7iz3R7GQMcXn3aU8OubuuxYdT_eV5maLq56b9Kld2u4FKom6a7gO0LtAPPHvgyh8S-yWk2H5vL20bfBiMqcYd54R--qWlodQKIYI6ugPSluz_0vHjeabkJLZDy9aI4LcoWUSU9ccr0SDj8pKpKa5NDaFEe8P05JELMvRRw9xXgyTseaIoBKvORRG5orVdAMdCQAiKL9_SBpETEopFjAmGgV3V0Q9SZUSIiYztJ3di49onK905qygOeN4eK_1tdryTs322I-K_6_oGIKwC1SrF6VTuRIX00cC-JJhQ1wWR8v26Lbl-fvyRGv9yzyOmeimtyYZ1QYZJw_qmJmGYMaqa57jIGaLqRXkwViLrzekGZRhO8Ah0G94Pxx2U&originToLandingJobPostings=4413143675
+                        - generic [ref=e797]:
+                          - generic [ref=e798]:
+                            - figure [ref=e799]
+                            - generic [ref=e803]:
+                              - paragraph [ref=e806]:
+                                - generic [ref=e807]: Product Design Engineer - Automotive - 3DX Implementation (Detroit, MI)
+                              - paragraph [ref=e810]: BIMCON Inc.
+                              - paragraph [ref=e812]: Metro Detroit, MI (On-site)
+                          - generic [ref=e814]:
+                            - paragraph [ref=e815]:
+                              - generic [ref=e816]: Posted 2 days ago
+                              - text: 2 days ago
+                            - paragraph [ref=e817]: ·
+                            - paragraph [ref=e818]:
+                              - img [ref=e820]
+                              - text: Easy Apply
+                      - link "Electronic Source Company Los Angeles, CA (On-site) $75/yr - $105K/yr + Bonus • 4 benefits Posted 1 month ago · Easy Apply" [ref=e824] [cursor=pointer]:
+                        - /url: https://www.linkedin.com/jobs/collections/similar-jobs/?referenceJobId=4404118444&trackingId=HEj65YPqkIyqhSG414O3WA%3D%3D&currentJobId=4392934849&refId=GrmBVFAP4e9Pl6IIuj1khg%3D%3D&eBP=CwEAAAGeI-UjmLOWu9JIDWS-VS7JU5p2Rtm5Ju2uqTwJO8PlVCP0m7XeorY4VdvSioun2l59abi52xNyWFFHloiWpkwKTYM760wqXHZBs5m0_emG76mJa4G9iw1GRU-af0037XG_mg-s-MCixZ2E4gdhqsC9AjVQsyMuF9S8HqrL375Orn-rjG-QShAalzs9HSrQiaUZV1nzf09b24x8QoIsOHqHkh1zaqA0gSOHBN8uBDZkM-9dkUB8MyFe0t7wqHVeotsiGMBvYmEOIUfAxO1Ke1QcDKRusN9apfo6rRBj1IzNChQLwxaTiKwxwhAaDCy-xNc3jLOYN_2vzFDX0z1HSaskmL_nyGOP6178O4UzZ26S7Vzjme8uPY55E1Wmju6ojkfozu7SFxurNLRweulAOBuSq_ZSFzf2nNscphiaj1WMHcGz_Y8Rmd9hK9xbdAGZ18xleMthQZ115HAap2h5QtXFE7LnkLZPPKo&originToLandingJobPostings=4392934849
+                        - generic [ref=e825]:
+                          - generic [ref=e826]:
+                            - figure [ref=e827]
+                            - generic [ref=e828]:
+                              - generic [ref=e831]:
+                                - paragraph [ref=e834]:
+                                  - generic [ref=e835]: Manufacturing Engineer
+                                - paragraph [ref=e838]: Electronic Source Company
+                                - paragraph [ref=e840]: Los Angeles, CA (On-site)
+                              - generic [ref=e842]:
+                                - paragraph [ref=e844]: $75/yr - $105K/yr + Bonus
+                                - paragraph [ref=e846]: •
+                                - paragraph [ref=e848]: 4 benefits
+                          - generic [ref=e849]:
+                            - paragraph [ref=e850]:
+                              - generic [ref=e851]: Posted 1 month ago
+                              - text: 1 month ago
+                            - paragraph [ref=e852]: ·
+                            - paragraph [ref=e853]:
+                              - img [ref=e855]
+                              - text: Easy Apply
+                      - link "Next-Gen Manufacturing and Consulting Arlington, TN (On-site) Vision benefit Posted 9 hours ago · Easy Apply" [ref=e859] [cursor=pointer]:
+                        - /url: https://www.linkedin.com/jobs/collections/similar-jobs/?referenceJobId=4404118444&trackingId=ToLE97K2G5Q%2F1DxPlcfAlg%3D%3D&currentJobId=4413997085&refId=GrmBVFAP4e9Pl6IIuj1khg%3D%3D&eBP=CwEAAAGeI-UjmJeSyLdu5vMNAe_Hz7ADx5bI4Vlz_6UA_tgZ-Nb9_CCyqlXEW5AuvM6BZnEo0grYcjrQ2h0P6PvUlmld2dTLXu5bkxUYsIJNEXpIo2PktHUoVca1seBnE2-sIGyp4MEws8vXcbtkz-hDjeMCYrkDSetyMJr93JAJ-w2MDQCdG18vBuG8nvnpkpzFtWr12zub74oMsipeslPWMk8ILtiw5yCy1grd1w0pgzwDc4k6j4GA_kqFF05DKEAF4EFei8sXikT8kFq_rD6555dEoS-mmXBvbNoQNopgw9JkMxyMHgd_XNmpP5c3TEHoRvtMqlmouJMPgAOHcSwYNP_ViLFd2Z2XW1cmM32Iq99jVXed631In7xXzGKgVST6i-K3YJa7heKE6EkISLwt_y6nk0b1dnaCzJ7MgxnxS0bcgdHAXE7PGle3E8zl3ZHxNjcR_AlQNfK-Ld_qb1sgrJI1RO81XFHogJw&originToLandingJobPostings=4413997085
+                        - generic [ref=e860]:
+                          - generic [ref=e861]:
+                            - figure [ref=e862]:
+                              - img [ref=e863]
+                            - generic [ref=e869]:
+                              - generic [ref=e872]:
+                                - paragraph [ref=e875]:
+                                  - generic [ref=e876]: Lead Mechanical Engineer
+                                - paragraph [ref=e879]: Next-Gen Manufacturing and Consulting
+                                - paragraph [ref=e881]: Arlington, TN (On-site)
+                              - paragraph [ref=e885]: Vision benefit
+                          - generic [ref=e886]:
+                            - paragraph [ref=e887]:
+                              - generic [ref=e888]: Posted 9 hours ago
+                              - text: 9 hours ago
+                            - paragraph [ref=e889]: ·
+                            - paragraph [ref=e890]:
+                              - img [ref=e892]
+                              - text: Easy Apply
+                    - link "See more jobs like this" [ref=e894] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/jobs/collections/similar-jobs/?referenceJobId=4404118444&currentJobId=4404118444
+                      - generic [ref=e895]:
+                        - img [ref=e896]
+                        - generic [ref=e898]: See more jobs like this
+            - complementary "Aside" [ref=e83]:
+              - generic [ref=e85]:
+                - generic [ref=e89]:
+                  - generic [ref=e90]:
+                    - paragraph [ref=e91]: Job search smarter with Premium
+                    - generic [ref=e92]:
+                      - img [ref=e899]
+                      - paragraph [ref=e95]: See jobs where you’d be a top applicant
+                    - generic [ref=e96]:
+                      - img [ref=e901]
+                      - paragraph [ref=e99]: Message hiring managers with InMail
+                    - generic [ref=e100]:
+                      - img [ref=e903]
+                      - paragraph [ref=e103]: Get personalized cover letter and resume tips
+                    - generic [ref=e104]:
+                      - img [ref=e905]
+                      - paragraph [ref=e107]: Plus! Get insider access to live talks with industry leaders.
+                    - generic [ref=e108]:
+                      - figure [ref=e109]
+                      - figure [ref=e110]
+                      - figure [ref=e111]
+                      - paragraph [ref=e112]: Prathamesh and millions of other members use Premium
+                    - link "Try Premium for $0" [ref=e113] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/premium/products/?upsellOrderOrigin=Tracking%3Av1%3Ajob_right_rail_upsell%3AJob+Seeker%3AIn-Product&utype=job&referenceId=K8iHiJXNRVST94QRjCpJSA%3D%3D&isSS=false&upsellSlotId=JOB_RIGHT_RAIL
+                      - generic [ref=e115]: Try Premium for $0
+                    - paragraph [ref=e116]: 1-month free trial. Cancel hassle-free. We’ll remind you 7 days before your trial ends.
+                  - button "Dismiss" [ref=e117] [cursor=pointer]:
+                    - img [ref=e907]
+                - generic [ref=e120]:
+                  - paragraph [ref=e121]: Looking for talent?
+                  - link "Post a job" [ref=e122] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/talent/job-posting-redirect/?trk=flagship3_job_detail
+                    - generic [ref=e124]: Post a job
+            - generic "Footer" [ref=e125]:
+              - generic [ref=e129]:
+                - generic [ref=e130]:
+                  - navigation [ref=e131]:
+                    - link "About" [ref=e132] [cursor=pointer]:
+                      - /url: https://about.linkedin.com/
+                      - paragraph [ref=e133]: About
+                    - link "Accessibility" [ref=e134] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/accessibility/
+                      - paragraph [ref=e135]: Accessibility
+                    - link "Talent Solutions" [ref=e136] [cursor=pointer]:
+                      - /url: https://business.linkedin.com/talent-solutions?trk=flagship_nav&veh=li-footer-lts-control&src=li-footer
+                      - paragraph [ref=e137]: Talent Solutions
+                    - link "Community Guidelines" [ref=e138] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/legal/professional-community-policies/
+                      - paragraph [ref=e139]: Community Guidelines
+                    - link "Careers" [ref=e140] [cursor=pointer]:
+                      - /url: https://careers.linkedin.com/
+                      - paragraph [ref=e141]: Careers
+                    - link "Marketing Solutions" [ref=e142] [cursor=pointer]:
+                      - /url: https://business.linkedin.com/advertise?trk=n_nav_lms_f&src=li-footer
+                      - paragraph [ref=e143]: Marketing Solutions
+                    - button "Privacy & Terms" [ref=e144] [cursor=pointer]:
+                      - generic [ref=e145]:
+                        - paragraph [ref=e146]: Privacy & Terms
+                        - img [ref=e909]
+                    - link "Ad Choices" [ref=e148] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/help/linkedin/answer/62931/
+                      - paragraph [ref=e149]: Ad Choices
+                    - link "Advertising" [ref=e150] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/ad/start/?trk=n_nav_ads_rr
+                      - paragraph [ref=e151]: Advertising
+                    - link "Sales Solutions" [ref=e152] [cursor=pointer]:
+                      - /url: https://business.linkedin.com/sales-solutions?trk=flagship_nav&veh=li-footer-lss-control&src=li-footer
+                      - paragraph [ref=e153]: Sales Solutions
+                    - link "Mobile" [ref=e154] [cursor=pointer]:
+                      - /url: https://mobile.linkedin.com/
+                      - paragraph [ref=e155]: Mobile
+                    - link "Small Business" [ref=e156] [cursor=pointer]:
+                      - /url: https://business.linkedin.com/grow?src=li-footer
+                      - paragraph [ref=e157]: Small Business
+                    - link "Safety Center" [ref=e158] [cursor=pointer]:
+                      - /url: https://safety.linkedin.com/
+                      - paragraph [ref=e159]: Safety Center
+                  - paragraph [ref=e161]: LinkedIn Corporation © 2026
+                - generic [ref=e162]:
+                  - list [ref=e163]:
+                    - listitem [ref=e164]:
+                      - generic [ref=e165]:
+                        - img [ref=e911]
+                        - generic [ref=e167]:
+                          - link "Questions?" [ref=e168] [cursor=pointer]:
+                            - /url: https://www.linkedin.com/help/linkedin/
+                            - paragraph [ref=e169]: Questions?
+                          - paragraph [ref=e170]: Visit our Help Center.
+                    - listitem [ref=e171]:
+                      - generic [ref=e172]:
+                        - img [ref=e913]
+                        - generic [ref=e174]:
+                          - link "Manage your account and privacy" [ref=e175] [cursor=pointer]:
+                            - /url: https://www.linkedin.com/mypreferences/d/
+                            - paragraph [ref=e176]: Manage your account and privacy
+                          - paragraph [ref=e177]: Go to your Settings.
+                    - listitem [ref=e178]:
+                      - generic [ref=e179]:
+                        - img [ref=e915]
+                        - generic [ref=e181]:
+                          - link "Recommendation transparency" [ref=e182] [cursor=pointer]:
+                            - /url: https://www.linkedin.com/help/linkedin/answer/a1339724/
+                            - paragraph [ref=e183]: Recommendation transparency
+                          - paragraph [ref=e184]: Learn more about Recommended Content.
+                  - generic [ref=e186]:
+                    - paragraph [ref=e188]: Select language
+                    - generic [ref=e189]:
+                      - combobox "Select language" [ref=e190] [cursor=pointer]:
+                        - option "العربية (Arabic)"
+                        - option "বাংলা (Bangla)"
+                        - option "Čeština (Czech)"
+                        - option "Dansk (Danish)"
+                        - option "Deutsch (German)"
+                        - option "Ελληνικά (Greek)"
+                        - option "English (English)" [selected]
+                        - option "Español (Spanish)"
+                        - option "فارسی (Persian)"
+                        - option "Suomi (Finnish)"
+                        - option "Français (French)"
+                        - option "हिंदी (Hindi)"
+                        - option "Magyar (Hungarian)"
+                        - option "Bahasa Indonesia (Indonesian)"
+                        - option "Italiano (Italian)"
+                        - option "עברית (Hebrew)"
+                        - option "日本語 (Japanese)"
+                        - option "한국어 (Korean)"
+                        - option "मराठी (Marathi)"
+                        - option "Bahasa Malaysia (Malay)"
+                        - option "Nederlands (Dutch)"
+                        - option "Norsk (Norwegian)"
+                        - option "ਪੰਜਾਬੀ (Punjabi)"
+                        - option "Polski (Polish)"
+                        - option "Português (Portuguese)"
+                        - option "Română (Romanian)"
+                        - option "Русский (Russian)"
+                        - option "Svenska (Swedish)"
+                        - option "తెలుగు (Telugu)"
+                        - option "ภาษาไทย (Thai)"
+                        - option "Tagalog (Tagalog)"
+                        - option "Türkçe (Turkish)"
+                        - option "Українська (Ukrainian)"
+                        - option "Tiếng Việt (Vietnamese)"
+                        - option "简体中文 (Chinese (Simplified))"
+                        - option "正體中文 (Chinese (Traditional))"
+                      - img
+  - generic [active]:
+    - generic:
+      - dialog "Apply to CyberCoders" [ref=e943]:
+        - generic [ref=e944]: Dialog content start.
+        - button "Dismiss" [ref=e945] [cursor=pointer]:
+          - img [ref=e946]
+        - heading "Apply to CyberCoders" [level=2] [ref=e950]
+        - region "Your job application progress is at 50 percent." [ref=e1103]:
+          - generic [ref=e953]:
+            - progressbar [ref=e956]: "Current value: 50"
+            - note "Your job application progress is at 50 percent." [ref=e1104]: 50%
+          - generic [ref=e959]:
+            - generic [ref=e1105]:
+              - heading "Resume" [level=3] [ref=e1106]
+              - generic [ref=e1107]:
+                - generic [ref=e1108]: Be sure to include an updated resume *
+                - generic [ref=e1109]:
+                  - generic "Selected" [ref=e1110] [cursor=pointer]:
+                    - text: PDF
+                    - paragraph [ref=e1111]:
+                      - heading "resume_sachin.pdf" [level=3] [ref=e1112]
+                      - paragraph [ref=e1113]: 103 KB · Last used on 5/10/2026
+                    - generic [ref=e1114]:
+                      - button "Download resume resume_sachin.pdf" [ref=e1115]:
+                        - img [ref=e1116]
+                      - radio "Deselect resume resume_sachin.pdf" [checked]
+                      - generic [ref=e1121]: Deselect resume resume_sachin.pdf
+                  - generic "Select this resume" [ref=e1122] [cursor=pointer]:
+                    - text: PDF
+                    - paragraph [ref=e1123]:
+                      - heading "resume_sachin24.pdf" [level=3] [ref=e1124]
+                      - paragraph [ref=e1125]: 101 KB · Last used on 3/31/2025
+                    - generic [ref=e1126]:
+                      - button "Download resume resume_sachin24.pdf" [ref=e1127]:
+                        - img [ref=e1128]
+                      - radio "Select resume resume_sachin24.pdf"
+                      - generic [ref=e1133]: Select resume resume_sachin24.pdf
+                - generic [ref=e1134]:
+                  - generic [ref=e1135]:
+                    - button "Upload resume button. Only, DOC, DOCX, PDF formats are supported. Max file size is (2 MB)." [ref=e1137] [cursor=pointer]: Upload resume
+                    - paragraph [ref=e1138]: DOC, DOCX, PDF (2 MB)
+                  - button "Show 3 more resumes" [ref=e1140] [cursor=pointer]:
+                    - img [ref=e1141]
+                    - generic [ref=e1143]: Show 3 more resumes
+            - generic [ref=e1011]:
+              - paragraph [ref=e1012]: Submitting this application won’t change your LinkedIn profile.
+              - paragraph [ref=e1013]:
+                - text: Application powered by CYBERCODERS - Prod Parent.
+                - link "Visit help center to know more" [ref=e1014] [cursor=pointer]:
+                  - /url: /help/linkedin/answer/71792?lang=en_US
+                  - text: Help Center
+            - generic [ref=e1015]:
+              - button "Back to previous step" [ref=e1144] [cursor=pointer]:
+                - generic [ref=e1145]: Back
+              - button "Review your application" [ref=e1146] [cursor=pointer]:
+                - generic [ref=e1147]: Review
+        - generic [ref=e1018]: Dialog content end.
+      - generic:
+        - generic:
+          - complementary:
+            - generic [ref=e919]:
+              - generic [ref=e921] [cursor=pointer]:
+                - img "Sachin Bala" [ref=e923]
+                - button "You are on the messaging overlay. Press enter to open the list of conversations." [ref=e924]:
+                  - generic [ref=e925]:
+                    - generic [ref=e926]: Messaging
+                    - generic [ref=e927]: You are on the messaging overlay. Press enter to open the list of conversations.
+              - generic [ref=e928]:
+                - button "Open messenger dropdown menu" [ref=e930] [cursor=pointer]:
+                  - img "Open messenger dropdown menu" [ref=e931]
+                - button "Compose message" [ref=e934] [cursor=pointer]:
+                  - img [ref=e935]
+                  - generic [ref=e937]: Compose message
+                - button "You are on the messaging overlay. Press enter to open the list of conversations." [ref=e938] [cursor=pointer]:
+                  - img [ref=e939]
+                  - generic [ref=e941]: You are on the messaging overlay. Press enter to open the list of conversations.
+          - complementary "AI-powered assistant to get help with your career, jobs etc"
+  - iframe [ref=e917]:
+    - generic [active] [ref=f205e1]:
+      - generic:
+        - region "Toast message":
+          - heading "0 notifications total" [level=2] [ref=f205e3]
+          - alert
+      - generic [ref=f205e4]:
+        - generic [ref=f205e6]:
+          - button [ref=f205e173] [cursor=pointer]:
+            - generic [ref=f205e8]: Skip to search
+          - button [ref=f205e174] [cursor=pointer]:
+            - generic [ref=f205e10]: Skip to main content
+          - button [ref=f205e175] [cursor=pointer]:
+            - generic [ref=f205e12]: Keyboard shortcuts
+          - button [ref=f205e176] [cursor=pointer]:
+            - img [ref=f205e14]
+            - generic [ref=f205e16]: Close jump menu
+        - banner [ref=f205e177]:
+          - generic [ref=f205e18]:
+            - link [ref=f205e178] [cursor=pointer]:
+              - /url: https://www.linkedin.com/feed/?nis=true
+              - img [ref=f205e179]:
+                - img [ref=f205e102]
+            - button [ref=f205e180] [cursor=pointer]:
+              - img [ref=f205e29]
+              - generic [ref=f205e31]: Search
+            - navigation [ref=f205e181]:
+              - list [ref=f205e33]:
+                - listitem [ref=f205e104]:
+                  - link [ref=f205e182] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/feed/
+                    - generic [ref=f205e106]:
+                      - generic [ref=f205e109]: new feed updates notifications
+                      - img [ref=f205e184]
+                    - generic [ref=f205e186]: Home
+                - listitem [ref=f205e116]:
+                  - link [ref=f205e187] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/mynetwork/?
+                    - img [ref=f205e189]
+                    - generic [ref=f205e191]: My Network
+                - listitem [ref=f205e124]:
+                  - link [ref=f205e192] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/jobs/?
+                    - img [ref=f205e194]
+                    - generic [ref=f205e196]: Jobs
+                - listitem [ref=f205e132]:
+                  - link [ref=f205e197] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/messaging/?
+                    - img [ref=f205e199]
+                    - generic [ref=f205e201]: Messaging
+                - listitem [ref=f205e140]:
+                  - link [ref=f205e202] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/notifications/?
+                    - generic [ref=f205e955]:
+                      - generic [ref=f205e956]:
+                        - generic [ref=f205e957]: "1"
+                        - generic [ref=f205e958]: 1 new notification
+                      - img [ref=f205e962]
+                    - generic [ref=f205e206]: Notifications
+                - listitem [ref=f205e148]:
+                  - button [ref=f205e207] [cursor=pointer]:
+                    - img [ref=f205e208]
+                    - generic [ref=f205e152]:
+                      - text: Me
+                      - img [ref=f205e153]
+                - listitem [ref=f205e155]:
+                  - button [ref=f205e209] [cursor=pointer]:
+                    - img [ref=f205e161]
+                    - generic [ref=f205e210]:
+                      - text: For Business
+                      - img [ref=f205e164]
+                - listitem [ref=f205e166]:
+                  - link [ref=f205e211] [cursor=pointer]:
+                    - /url: javascript:void(0)
+                    - generic [ref=f205e169]:
+                      - img [ref=f205e170]
+                      - generic [ref=f205e172]: Try Premium for $0
+        - generic [ref=f205e85]:
+          - generic [ref=f205e214]:
+            - main [ref=f205e215]:
+              - generic [ref=f205e218]:
+                - generic [ref=f205e222]:
+                  - generic [ref=f205e223]:
+                    - generic [ref=f205e224]:
+                      - link [ref=f205e225] [cursor=pointer]:
+                        - /url: https://www.linkedin.com/company/cybercoders/life
+                        - img [ref=f205e228]
+                      - link [ref=f205e230] [cursor=pointer]:
+                        - /url: https://www.linkedin.com/company/cybercoders/life
+                        - text: CyberCoders
+                    - generic [ref=f205e231]:
+                      - button [ref=f205e234] [cursor=pointer]:
+                        - img [ref=f205e235]
+                        - generic [ref=f205e237]: Share
+                      - button [ref=f205e239] [cursor=pointer]:
+                        - img [ref=f205e240]
+                        - generic [ref=f205e242]: Show more options
+                  - generic [ref=f205e244]:
+                    - heading [level=1] [ref=f205e245]: Manufacturing Engineer
+                    - button [ref=f205e247] [cursor=pointer]:
+                      - img [ref=f205e250]
+                  - generic [ref=f205e254]:
+                    - generic [ref=f205e255]: Sunnyvale, CA
+                    - generic [ref=f205e256]: ·
+                    - generic [ref=f205e257]:
+                      - text: Reposted
+                      - generic [ref=f205e258]: 2 weeks ago
+                    - generic [ref=f205e259]: ·
+                    - strong [ref=f205e261]: 16 applicants
+                    - paragraph [ref=f205e262]:
+                      - generic [ref=f205e263]: Promoted by hirer
+                      - generic [ref=f205e264]: ·
+                      - strong [ref=f205e266]: Actively reviewing applicants
+                  - generic [ref=f205e267]:
+                    - button [ref=f205e268] [cursor=pointer]:
+                      - strong [ref=f205e270]: $170K/yr - $200K/yr
+                    - button [ref=f205e271] [cursor=pointer]:
+                      - strong [ref=f205e273]: On-site
+                    - button [ref=f205e274] [cursor=pointer]:
+                      - strong [ref=f205e276]: Full-time
+                  - generic [ref=f205e278]:
+                    - button [ref=f205e281] [cursor=pointer]:
+                      - img [ref=f205e282]
+                      - generic [ref=f205e284]: Easy Apply
+                    - button [ref=f205e285] [cursor=pointer]:
+                      - generic [ref=f205e286]: Save
+                      - generic [ref=f205e287]: Save Manufacturing Engineer at CyberCoders
+                - generic [ref=f205e288]:
+                  - heading [level=2] [ref=f205e289]: How your profile and resume fit this job
+                  - paragraph [ref=f205e290]:
+                    - text: Get AI-powered advice on this job and more exclusive features with Premium.
+                    - link [ref=f205e291] [cursor=pointer]:
+                      - /url: http://www.linkedin.com/premium/products/?upsellOrderOrigin=Tracking%3Av1%3Apremium_job_details_how_you_fit_upsell%3AJob+Seeker%3AIn-Product&utype=coach_job&referenceId=G3o7K5%2F4RZG1JGXNexqYMA%3D%3D&isSS=false&upsellSlotId=JOB_DETAILS_HOW_YOU_FIT
+                      - text: Try Premium for $0
+                  - generic [ref=f205e295]:
+                    - list [ref=f205e300]:
+                      - listitem [ref=f205e301]:
+                        - button [ref=f205e302] [cursor=pointer]:
+                          - img [ref=f205e303]
+                          - generic [ref=f205e305]: Show match details
+                      - listitem [ref=f205e306]:
+                        - button [ref=f205e307] [cursor=pointer]:
+                          - img [ref=f205e308]
+                          - generic [ref=f205e310]: Tailor my resume
+                      - listitem [ref=f205e311]:
+                        - button [ref=f205e312] [cursor=pointer]:
+                          - img [ref=f205e313]
+                          - generic [ref=f205e315]: Help me stand out
+                    - button [ref=f205e316] [cursor=pointer]:
+                      - img [ref=f205e317]
+                - generic [ref=f205e320]:
+                  - article [ref=f205e321]:
+                    - generic [ref=f205e323]:
+                      - heading [level=2] [ref=f205e324]: About the job
+                      - generic [ref=f205e325]:
+                        - paragraph [ref=f205e326]:
+                          - strong [ref=f205e328]: Manufacturing Engineer
+                          - strong [ref=f205e330]: Position Overview
+                          - text: We are seeking a Manufacturing Engineer to develop, optimize, and sustain production equipment and processes for vacuum and semiconductor-related manufacturing. The role focuses on designing and qualifying equipment (including vacuum chambers), improving manufacturability and throughput, ensuring compliance with NRTL and SEMI S2/S8 safety standards, and collaborating with cross-functional teams to bring robust, production-ready systems online.
+                          - strong [ref=f205e332]: Key Responsibilities
+                          - list [ref=f205e334]:
+                            - listitem [ref=f205e335]: Design, develop, and validate manufacturing equipment and fixtures with emphasis on vacuum systems and vacuum chambers.
+                            - listitem [ref=f205e336]: Create detailed mechanical and cable designs and producibility documentation to support manufacturing and assembly.
+                            - listitem [ref=f205e337]: Perform finite element analysis (FEA) and other engineering studies to ensure structural integrity and performance of equipment.
+                            - listitem [ref=f205e338]: Develop and maintain control logic interfaces and work with PLC engineers to integrate automation with production equipment.
+                            - listitem [ref=f205e339]: Lead design for compliance with safety and certification standards (NRTL, SEMI S2/S8) and prepare documentation for safety reviews and audits.
+                            - listitem [ref=f205e340]: Work with suppliers and internal teams to source components, perform incoming inspections, and resolve manufacturing issues.
+                            - listitem [ref=f205e341]: Drive continuous improvement initiatives to reduce cost, increase yield, and improve equipment uptime and serviceability.
+                            - listitem [ref=f205e342]: Prepare work instructions, bills of materials, and production validation plans; support installation, commissioning, and field support activities.
+                          - strong [ref=f205e344]: Qualifications
+                          - list [ref=f205e346]:
+                            - listitem [ref=f205e347]: Bachelors degree in Mechanical, Manufacturing, Electrical Engineering, or related field required; Masters degree preferred.
+                            - listitem [ref=f205e348]: 3+ years of experience in manufacturing engineering, equipment design, or a related role, preferably in vacuum systems or semiconductor equipment.
+                            - listitem [ref=f205e349]: Hands-on experience with vacuum systems and vacuum chamber design and commissioning.
+                            - listitem [ref=f205e350]: Proven experience with equipment design, cable design, and creating manufacturable assemblies and documentation.
+                            - listitem [ref=f205e351]: Familiarity with safety and certification processes including NRTL and SEMI S2/S8 standards.
+                            - listitem [ref=f205e352]: Experience with PLC integration and control system coordination with manufacturing equipment.
+                            - listitem [ref=f205e353]: Proficiency in FEA tools (ANSYS, SolidWorks Simulation, or equivalent) and CAD software (SolidWorks, Creo, etc.).
+                            - listitem [ref=f205e354]: Strong problem-solving skills, excellent written and verbal communication, and experience working in cross-functional teams.
+                            - listitem [ref=f205e355]: Ability to travel for supplier visits, installations, and field support as needed.
+                          - paragraph [ref=f205e357]:
+                            - strong [ref=f205e359]: Benefits
+                          - list [ref=f205e361]:
+                            - listitem [ref=f205e362]: Medical
+                            - listitem [ref=f205e363]: Dental
+                            - listitem [ref=f205e364]: Vision
+                            - listitem [ref=f205e365]: 401k
+                            - listitem [ref=f205e366]: PTO
+                            - listitem [ref=f205e367]: Company bonus & equity potential
+                          - strong [ref=f205e369]: Email Your Resume In Word To
+                          - text: "Katherine.Tempel@cybercoders.com Looking forward to receiving your resume through our website and going over the position with you. Clicking apply is the best way to apply. Please do NOT change the email subject line in any way. You must keep the JobID: linkedin : KT4-1984066 -- in the email subject line for your application to be considered. Katherine Tempel - Recruiting Manager For this position, you must be currently authorized to work in the United States without the need for sponsorship for a non-immigrant visa. This is a new role. CyberCoders will consider for Employment in the City of Los Angeles qualified Applicants with Criminal Histories in a manner consistent with the requirements of the Los Angeles Fair Chance Initiative for Hiring (Ban the Box) Ordinance. This job was first posted by CyberCoders on 04/16/2026 and applications will be accepted on an ongoing basis until the position is filled or closed."
+                          - strong [ref=f205e371]: Everforth CyberCoders is proud to be an Equal Opportunity Employer
+                          - text: All qualified applicants will receive consideration for employment without regard to race, color, religion, sex, age, sexual orientation, gender identity or expression, national origin, ancestry, citizenship, genetic information, registered domestic partner status, marital status, status as a crime victim, disability, protected veteran status, or any other characteristic protected by law. Our hiring process includes AI screening for keywords and minimum qualifications. Recruiters review all results. Everforth CyberCoders will consider qualified applicants with criminal histories in a manner consistent with the requirements of applicable state and local law, including but not limited to the Los Angeles County Fair Chance Ordinance, the San Francisco Fair Chance Ordinance, and the California Fair Chance Act. Everforth CyberCoders is committed to working with and providing reasonable accommodation to individuals with physical and mental disabilities. Individuals needing special assistance or an accommodation while seeking employment can contact a member of our Human Resources team at Benefits@CyberCoders.com to make arrangements. Copyright © 2026 Everforth, Inc. All rights reserved.
+                        - heading [level=3] [ref=f205e372]: Desired Skills and Experience
+                        - paragraph [ref=f205e373]: Equipment Design, Vacuum, Cable Design, FEA, PLC, NRTL, Vacuum Chamber, Semi S2/S8
+                  - button [ref=f205e375] [cursor=pointer]:
+                    - img [ref=f205e376]
+                    - generic [ref=f205e378]: See more
+                - generic [ref=f205e380]:
+                  - generic [ref=f205e381]:
+                    - heading [level=2] [ref=f205e382]: Set alert for similar jobs
+                    - generic [ref=f205e384]: Manufacturing Engineer, Sunnyvale, California, United States
+                  - generic [ref=f205e386] [cursor=pointer]:
+                    - generic [ref=f205e387]: "Off"
+                    - generic [ref=f205e388]: Set alert
+                    - switch
+                - generic [ref=f205e390]:
+                  - heading [level=3] [ref=f205e391]: Benefits found in job post
+                  - list [ref=f205e392]:
+                    - listitem [ref=f205e393]: 401(k)
+                - generic [ref=f205e399]:
+                  - heading [level=3] [ref=f205e400]: Job search faster with Premium
+                  - paragraph [ref=f205e401]: Access company insights like strategic priorities, headcount trends, and more
+                  - generic [ref=f205e402]:
+                    - list [ref=f205e404]:
+                      - listitem [ref=f205e405]
+                      - listitem [ref=f205e407]
+                      - listitem [ref=f205e409]
+                    - paragraph [ref=f205e411]: Parth and millions of other members use Premium
+                  - link [ref=f205e412] [cursor=pointer]:
+                    - /url: http://www.linkedin.com/premium/products/?upsellOrderOrigin=Tracking%3Av1%3Apremium_job_details_how_you_match_upsell%3AJob+Seeker%3AIn-Product&utype=job&referenceId=UaH1vwcqQwOFmHrCxXoHhQ%3D%3D&isSS=false&upsellSlotId=JOB_DETAILS_HOW_YOU_MATCH&destRedirectURL=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fview%2F4404118444%2F
+                    - text: Try Premium for $0
+                  - paragraph [ref=f205e413]: 1-month free trial. Cancel hassle-free. We’ll remind you 7 days before your trial ends.
+                - generic [ref=f205e415]:
+                  - generic [ref=f205e416]:
+                    - heading [level=2] [ref=f205e417]: About the company
+                    - generic [ref=f205e418]:
+                      - generic [ref=f205e419]:
+                        - link [ref=f205e421] [cursor=pointer]:
+                          - /url: /company/cybercoders/life/
+                          - img [ref=f205e422]
+                        - generic [ref=f205e423]:
+                          - link [ref=f205e425] [cursor=pointer]:
+                            - /url: /company/cybercoders/life/
+                            - text: CyberCoders
+                          - generic [ref=f205e426]: 2,104,041 followers
+                      - button [pressed] [ref=f205e427] [cursor=pointer]:
+                        - img [ref=f205e428]
+                        - generic [ref=f205e430]: Following
+                    - generic [ref=f205e431]:
+                      - text: Staffing and Recruiting
+                      - generic [ref=f205e432]: • 201-500 employees
+                      - generic [ref=f205e433]: • 578 on LinkedIn
+                    - paragraph [ref=f205e434]:
+                      - generic [ref=f205e435]:
+                        - text: "Everforth CyberCoders, part of the Everforth™ network, is a leading permanent placement firm connecting top talent with top companies. Our expert recruiters help candidates find meaningful roles and enable employers to hire with confidence. CyberCoders has placed tens of thousands of professionals across technology, engineering, construction, manufacturing, accounting, finance, mortgage, healthcare, and biotech. With a nationwide presence and recognition by Forbes as one of America’s Best Professional Recruiting Firms, we combine deep expertise, proprietary recruiting technology, and the strength of the Everforth network to help organizations build forward-looking teams that drive growth. 📈 Everforth Cyber Coders is part of the commercial segment of Everforth™ (NYSE: EFOR)"
+                        - generic [ref=f205e436]:
+                          - generic [ref=f205e437]: …
+                          - button [ref=f205e438] [cursor=pointer]: show more
+                    - generic [ref=f205e442]:
+                      - heading [level=3] [ref=f205e443]: Interested in working with us in the future?
+                      - paragraph [ref=f205e444]:
+                        - generic [ref=f205e445]:
+                          - text: Members who share that they’re interested in a company may be 2x as likely to get a message from a recruiter than those who don’t.
+                          - link [ref=f205e446] [cursor=pointer]:
+                            - /url: https://www.linkedin.com/help/linkedin/answer/a1380509
+                            - text: Learn more
+                      - button [ref=f205e447] [cursor=pointer]:
+                        - generic [ref=f205e448]: I’m interested
+                    - generic [ref=f205e451]:
+                      - generic [ref=f205e452]:
+                        - heading [level=3] [ref=f205e454]: Company photos
+                        - generic [ref=f205e456]:
+                          - generic [ref=f205e457]: Page 1 of 3
+                          - button [disabled] [ref=f205e458]:
+                            - img
+                            - generic: Previous
+                          - button [ref=f205e459] [cursor=pointer]:
+                            - img [ref=f205e460]
+                            - generic [ref=f205e462]: Next
+                      - generic [ref=f205e463]:
+                        - button [ref=f205e465] [cursor=pointer]:
+                          - generic [ref=f205e466]:
+                            - img [ref=f205e469]
+                            - paragraph [ref=f205e472]: May 20, 2020
+                        - button [ref=f205e474] [cursor=pointer]:
+                          - generic [ref=f205e475]:
+                            - img [ref=f205e478]
+                            - paragraph [ref=f205e481]: September 22, 2021
+                  - link [ref=f205e484] [cursor=pointer]:
+                    - /url: /company/cybercoders/life/
+                    - text: Show more
+                - heading [level=2] [ref=f205e486]: More jobs
+                - list [ref=f205e488]:
+                  - listitem [ref=f205e489]:
+                    - link [ref=f205e491] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/jobs/collections/similar-jobs?currentJobId=4408785367&referenceJobId=4404118444&originToLandingJobPostings=4408785367&trackingId=Z4lbogB0%2B2dYiHsEeYiVaw%3D%3D&refId=4imnHKbZ0N4OwEhDZlyC4A%3D%3D&eBP=CwEAAAGeI-Yl-lpRYQbXQPyU695uwJLi2KgMSKjqFJDUpMdymLUtwOpwa2wB3VGgPbL9IX0_tKMtNt43rSZftcbCmCofKIyXnOeLu_OARXXrtEJD_2LNhuPJOg0NRD0n80AdM46lY5pXfkDuRd8_jzFTC5YjSy300_uUx7AHeWvjPLVuAo-o5qaOXo51QrkQvFBMQ0UiArLZTjRNymulAWuhDk9VhJl6jlFnHet6MWeD-2GiQMX5fuhWkMqhPy8scmsz_T744wkjBdXkH2kt7-nhaxqlBCrpM5QFdfjF46D0K_psS8srcgt3Ykjqa1CzjnEcIBE5UCSNn4DbBSKWJ2AWcyb0xx1jovcG5vnA5Zk-7sBcQg-t_NCHFBhXZjqf4ScbFNUT5QMEYLW8FRM7DLE6cYX6CU0qQi547umvegipR4xjj7BXheXfjDPu
+                      - generic [ref=f205e493]:
+                        - img [ref=f205e498]
+                        - generic [ref=f205e499]:
+                          - generic [ref=f205e500]:
+                            - strong [ref=f205e503]: Mechanical Design Engineer
+                            - generic [ref=f205e505]: SUHNER USA
+                            - generic [ref=f205e507]: Rome, GA (On-site)
+                            - generic [ref=f205e509]: 5 benefits
+                          - list [ref=f205e511]:
+                            - listitem [ref=f205e512]:
+                              - time [ref=f205e513]: 1 week ago
+                            - listitem [ref=f205e514]:
+                              - img [ref=f205e515]:
+                                - img [ref=f205e516]
+                              - generic [ref=f205e518]: Easy Apply
+                  - listitem [ref=f205e519]:
+                    - link [ref=f205e521] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/jobs/collections/similar-jobs?currentJobId=4413598822&referenceJobId=4404118444&originToLandingJobPostings=4413598822&trackingId=RvN4JSW7mNA0qhTIOP%2Bplw%3D%3D&refId=4imnHKbZ0N4OwEhDZlyC4A%3D%3D&eBP=CwEAAAGeI-Yl-nMY4rBfCSo_K_b10kVYsafIGjP32m1Euu0oS88cQWRcYCvM4Ip2DArRrg-tN95ZShEUhe_PFKmnvSTta-uYWObkEpRmD6FPcBbpDSAuJq1xkArbmttCo9v3nUuQnPxYTz07dlBPivlmck98XcfIbPnLK2GzD3rCnHj_FUVjwAjxwAKCJV5uaZoqaUxJlrYwHBPo3iIMAxcR3ccqkahyb37KatA7iOz1h0Goq6UR9fpiB0B8QTZKY2ouaxS7XlcZBmbNMIG2LhpKtbHMtUsh4C6VXhzsKT1wmcZX9azplcLvyCenJgpfiBrEbEDT8EuBiZrXGzENtTogufGibKRUG-40D66V4upYhhy4ug3IeD_WNnTH1ko1dE94Fk6sC1b-th0g2wgDP1q6cQv2gtwOHzOLlDbLWXcR2QJwGLWGTUbLxu6Oj29ZoQ_R4VYPeMsgFbzqBqK4vzmZpoxk0AtDOFIC
+                      - generic [ref=f205e523]:
+                        - img [ref=f205e528]
+                        - generic [ref=f205e529]:
+                          - generic [ref=f205e530]:
+                            - strong [ref=f205e533]: Senior R&D / Manufacturing Engineer
+                            - generic [ref=f205e535]: Gravitas Medical
+                            - generic [ref=f205e537]: Berkeley, CA (On-site)
+                          - list [ref=f205e539]:
+                            - listitem [ref=f205e540]:
+                              - time [ref=f205e541]: 1 day ago
+                            - listitem [ref=f205e542]:
+                              - img [ref=f205e543]:
+                                - img [ref=f205e544]
+                              - generic [ref=f205e546]: Easy Apply
+                  - listitem [ref=f205e547]:
+                    - link [ref=f205e549] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/jobs/collections/similar-jobs?currentJobId=4413161482&referenceJobId=4404118444&originToLandingJobPostings=4413161482&trackingId=4druDMThfe6pOVJ%2BmBTnlw%3D%3D&refId=4imnHKbZ0N4OwEhDZlyC4A%3D%3D&eBP=CwEAAAGeI-Yl-jTaArbSwibD-mEtSDC811DFUi-0-haoEn-2WVTrS6vRAm5gvwNr2Mzz9w_UFW4mDho5r_IO_02QmzpeScqNIVw5sydJuK_R_Bane1FZRcTgJyguuryUyFIWkschoABrObKmBO4SjpfkN_bes6M2RXl2sCtTHfXz1lmFzCp-ObSvkeRYM0GUxZ61UL3sK4SUrCCNtLhTTw3pfKwHfVRtY0utAudFSzW1y_-gCgko8hxjP6K4PxB0pgpsL3ytZk5MsawggYsBCLawlTV1z67lZ3hkfPZYG9kGqVVgZ090tkCTYPhEf-3sc50ooJBbcYmch45rGlOS8HqL0dveVkWvncrk6EzrzYJNhj9gBg4DIjsZmbQvVZLnrZkmSXkIF2cyPJAMr8LfQHN2yWdrFPGhkmG1FjeroTZxOj2nISs4OFE1lGiE_Nn1u0olbfMzfY_ktZ4p9J36j1bj02TH6d1Wei2dN30
+                      - generic [ref=f205e551]:
+                        - img [ref=f205e556]
+                        - generic [ref=f205e557]:
+                          - generic [ref=f205e558]:
+                            - strong [ref=f205e561]: Quality Engineer
+                            - generic [ref=f205e563]: BSU Incorporated
+                            - generic [ref=f205e565]: Austin, TX (On-site)
+                            - generic [ref=f205e567]: 401(k) benefit
+                          - list [ref=f205e569]:
+                            - listitem [ref=f205e570]:
+                              - time [ref=f205e571]: 2 days ago
+                            - listitem [ref=f205e572]:
+                              - img [ref=f205e573]:
+                                - img [ref=f205e574]
+                              - generic [ref=f205e576]: Easy Apply
+                  - listitem [ref=f205e577]:
+                    - link [ref=f205e579] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/jobs/collections/similar-jobs?currentJobId=4406580249&referenceJobId=4404118444&originToLandingJobPostings=4406580249&trackingId=7tiXhtdb4UfDdCbq1aWmjQ%3D%3D&refId=4imnHKbZ0N4OwEhDZlyC4A%3D%3D&eBP=CwEAAAGeI-Yl-lhj5h6mWKiDMmRxW4lWJfXyTbsguB1G262yjHGQn5hBakhEXgrVc1VGVvPtREcQaHj-VlMGTkgYQiuC39dP7xg3pKiKmmhOLMb4Dv4pAGVJMnYcGlIsV_JbX-vcJA9xUX2zDXATL0DxuhVzIMXQYRNMUv7maW8irunvUeJbLiUTxzsyCqFNDdA6jjEPK1HRKzSOi_YvUGR52yEuC8j99yFp-yl96N1zHyeuSvzovPXv7yDJt4YYCpjS3UEoQQ1rSxtqCk6AfZfEIYu_vYKUYvXwx02L4yezMssnfyCudAOvAn3Www5LP5OoFt1xDV97kg4jUxlX--0xlO6Xqm-gZLEE30BckX7xx8Cl-qFWPue3HPaUwwjnfunZMDhISlOcmYYZrwE9B0HiCG1a8uJh5ooODJaiNflKs7uju969C9GUSfgvpexCj1IekyRl8w_B
+                      - generic [ref=f205e581]:
+                        - img [ref=f205e586]
+                        - generic [ref=f205e587]:
+                          - generic [ref=f205e588]:
+                            - strong [ref=f205e591]: Senior Mechanical Engineer
+                            - generic [ref=f205e593]: Raise Robotics
+                            - generic [ref=f205e595]: San Francisco Bay Area (Hybrid)
+                          - list [ref=f205e597]:
+                            - listitem [ref=f205e598]:
+                              - time [ref=f205e599]: 1 week ago
+                            - listitem [ref=f205e600]:
+                              - img [ref=f205e601]:
+                                - img [ref=f205e602]
+                              - generic [ref=f205e604]: Easy Apply
+                  - listitem [ref=f205e605]:
+                    - link [ref=f205e607] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/jobs/collections/similar-jobs?currentJobId=4411393613&referenceJobId=4404118444&originToLandingJobPostings=4411393613&trackingId=54crISi%2FjouQNVTWtx5rpg%3D%3D&refId=4imnHKbZ0N4OwEhDZlyC4A%3D%3D&eBP=CwEAAAGeI-Yl-qZ9JE1IotutRQptLh-6WP7v6MggZZiaQIC6TRfmRpZ9hrCzRE6P2narL5YXRkvaH4GzyaanAuclHvA96ZVWE9tfLMqrmEwFydQ_XYz9FtoFRfugwO38-PSXydNFRQrJ0eOBN-dPa6BWitC5UoUN2FhDqcqJUHa10MHHqs30lHllVQhCnPMCZbxIWV_Er2TejBRqbeJ39-zid3zb52Pk_HleVJ-kSo9feFnXMp1gEJsh3epBxvAJ-CLxJZG8Qgis7Q4gOoFLr-YS_U8iF0k6y21uYucTq7AAEsTzFpvGC2rMihLNP-_fx5UmDCxzLrbwPvCGVILGHfmFvk9dkfzpD2IfI6UzM28dk7z7qadm6R4Gy9XZ3sIB_HaTcZILBx1FRKtXVLBW1X6oX0fgAIRZd7cQFjGYJSdsyynJ6zQG_mBCoa6VqqGXTeF28hTN0Wp_hSHWvy4AKc_fYLTPo5aJCVgLLqY
+                      - generic [ref=f205e609]:
+                        - img [ref=f205e614]
+                        - generic [ref=f205e615]:
+                          - generic [ref=f205e616]:
+                            - strong [ref=f205e619]: Mechanical Engineer
+                            - generic [ref=f205e621]: Vendome Copper & Brass Works Inc.
+                            - generic [ref=f205e623]: Louisville, KY (On-site)
+                            - list [ref=f205e625]:
+                              - listitem [ref=f205e626]:
+                                - generic [ref=f205e630]: 1 school alum works here
+                          - list [ref=f205e632]:
+                            - listitem [ref=f205e633]:
+                              - time [ref=f205e634]: 5 days ago
+                            - listitem [ref=f205e635]:
+                              - img [ref=f205e636]:
+                                - img [ref=f205e637]
+                              - generic [ref=f205e639]: Easy Apply
+                  - listitem [ref=f205e640]:
+                    - link [ref=f205e642] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/jobs/collections/similar-jobs?currentJobId=4413807960&referenceJobId=4404118444&originToLandingJobPostings=4413807960&trackingId=KpMseVjhqtEAeZoPi02FHA%3D%3D&refId=4imnHKbZ0N4OwEhDZlyC4A%3D%3D&eBP=CwEAAAGeI-Yl-ibAf9j_0dX9Cp_ldg5eWLx4PZTA2gXcPfpI8816EKQelvt643_0XRpSueguMpKfVAdfckk1rFmet38xABy4wDOBfH-M0DZ8RZ5dWh8AC5dgXyu6a1I3XzL61TV8cChDTiFWemgqUynofCt-O6R7-n6kicUTPHPsLKdXbT2gfTP7i1vIb0y4WOZTm4fHbf_mFvo9ekXSAz6Y305q-2Ygj_2RO3dhH4CBLrkoYOk9bjLrtLnaMc5NUzCYjSIZYLedQ0Wewj6BGxHZoADF4Qfm0HzXHoYeLbBpO2KYlNdUqUPGEZFnXZ47SVeoTLnhU2BVLLtw-4nC_TVuVGhuv1R3X8mpdqHMMgU2qgdZ5WtieZghpRDCjMIMt2PuL6zrtZgtGFg4IBMSXHvvl2ZiVYP4agkprtnrvtylNL30bGAbd7chwMJHbZfojlrhQ3phnOIC-ozVQQr7sJQiV4ALUQRcWtp1eJmlJA
+                      - generic [ref=f205e644]:
+                        - img [ref=f205e649]
+                        - generic [ref=f205e650]:
+                          - generic [ref=f205e651]:
+                            - strong [ref=f205e654]: Manufacturing Engineer - No Out of State Applicants
+                            - generic [ref=f205e656]: Total Seal Inc
+                            - generic [ref=f205e658]: Greater Phoenix Area (On-site)
+                          - list [ref=f205e660]:
+                            - listitem [ref=f205e661]:
+                              - time [ref=f205e662]: 1 day ago
+                            - listitem [ref=f205e663]:
+                              - img [ref=f205e664]:
+                                - img [ref=f205e665]
+                              - generic [ref=f205e667]: Easy Apply
+                  - listitem [ref=f205e668]:
+                    - link [ref=f205e670] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/jobs/collections/similar-jobs?currentJobId=4405343765&referenceJobId=4404118444&originToLandingJobPostings=4405343765&trackingId=gtn3B9R4g66SBQqRcOSwUQ%3D%3D&refId=4imnHKbZ0N4OwEhDZlyC4A%3D%3D&eBP=CwEAAAGeI-Yl-kK5ALj_XJuUlddLQF_iNHICA53wosJZARRbSzRi3bDNLi3DqIrDjvOkl8TpXuA7FjMydeoeOjWaAESoTPdPRcP6bt3I1A9a42HxbeEGYTywpa2s8F1pwvQBHVEs5vj-6joPbyIZPfujg2tlRRf1nplB3Zwpu_4LWf8FpRpgZAxaHk8Fn9ebFB1RRm28VLLMWPnIhbua1-rqUp_8d3WZldly_XiLRt-gGvP3zB08r2i4lrd_Slz2x728Ik-7396a-ScVa-XS0WyDceQWrW-x9k8XuPXcjMF_DWFrKoGTGOFnsFG5Di3GRa6IaXhLAg16ZdTFxdYeQ8lahUllnHmDLmJwp-zOEvx6F7AcgEZT2KolaCec0EtVuf8N8j7BR_gmVBuxmZT2hMznauLUuA1ZdfWNWmr9DNIfcmrOv4yVGdQS0-Cc9UsDjzgKTIsGdRjQ4vkWKSlrCGdDrRnTEdTQTVmbVTM
+                      - generic [ref=f205e672]:
+                        - img [ref=f205e677]
+                        - generic [ref=f205e678]:
+                          - generic [ref=f205e679]:
+                            - generic [ref=f205e681]:
+                              - strong [ref=f205e682]: Mechanical Engineer or Analyst – Model Development
+                              - img [ref=f205e684]
+                            - generic [ref=f205e687]: Terrestrial Energy
+                            - generic [ref=f205e689]: Charlotte, NC (On-site)
+                          - list [ref=f205e691]:
+                            - listitem [ref=f205e692]:
+                              - time [ref=f205e693]: 2 weeks ago
+                  - listitem [ref=f205e694]:
+                    - link [ref=f205e696] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/jobs/collections/similar-jobs?currentJobId=4413143675&referenceJobId=4404118444&originToLandingJobPostings=4413143675&trackingId=EczgZfUDHCfPVPupwbgUfw%3D%3D&refId=4imnHKbZ0N4OwEhDZlyC4A%3D%3D&eBP=CwEAAAGeI-Yl-q37-B3jwvn73VLW7TFBWxcd82lOp3O-yBSjwRp4Zor7hBfas7Z1_wV7HdDos1YGubw-O0q3nICrlybQ2IH8gsgZXzzzC0Yoq_M2TLOMfczNZfoYNPGFUm9vvoNu8hj-Y6hTl_bOry1SZJxTGFCT9KPsxBu87y5_mrb3gXO9ahKPIVHUgzjoSmvIHrGb9mK0wSHFKmavM1bfip4cTEZrOll3pFkGKheuz3WMI9Y_ovbTK88bEcgRNg-nZvaODJbjwMjBU58BaV3agefa1qLGvrpO-YABm7yCzn2wnQmKnTbm95Oms_kWdcR26kB3d4ZyWX7Y_U3YEE80ZwHYh6ruAc3kn7wLnqMgzPfVZpQdawbs1xDy5fcSvyA6t9XxLpPcKXC3BU2Nzb2vTG1fWPqlpQWbO79MYBR4x5GBDRbmonjGMeT-x9sQ4cINtU8ARsqmGcVrffwyeoWQ82P5S7Pg-WoLjzk
+                      - generic [ref=f205e698]:
+                        - img [ref=f205e703]
+                        - generic [ref=f205e704]:
+                          - generic [ref=f205e705]:
+                            - strong [ref=f205e708]: Product Design Engineer - Automotive - 3DX Implementation (Detroit, MI)
+                            - generic [ref=f205e710]: BIMCON Inc.
+                            - generic [ref=f205e712]: Metro Detroit, MI (On-site)
+                          - list [ref=f205e714]:
+                            - listitem [ref=f205e715]:
+                              - time [ref=f205e716]: 2 days ago
+                            - listitem [ref=f205e717]:
+                              - img [ref=f205e718]:
+                                - img [ref=f205e719]
+                              - generic [ref=f205e721]: Easy Apply
+                  - listitem [ref=f205e722]:
+                    - link [ref=f205e724] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/jobs/collections/similar-jobs?currentJobId=4362653802&referenceJobId=4404118444&originToLandingJobPostings=4362653802&trackingId=cmUsoCgYk7ybsPnBWSqblw%3D%3D&refId=4imnHKbZ0N4OwEhDZlyC4A%3D%3D&eBP=CwEAAAGeI-Yl-vDDyFUPaDwD5UyKWv0IW5bGw-eBTNZ2lpJ6k0ApkKD7su2f5_pXgbVNImIw3YWpLC6HJosrwtm4hPjMvjMjgg7it-qneRY3T4IXIm_tbQ1GXLlSUwWp0c7Yf_HuSaL0Jm8sfCBYPmpofcHJYuklKPqpFHBxokwXI9lFTw4QyWhVUWDbEZ39ugtCgVUFdVPVoaTQgvIjt6kbrUF3hQjixLQwwd0jDk3vbGc5RUEFZeuIGIL9Ng1h_yVsMN8Uwk377YNZtLoQSUgF68I_7ssP7zv2C2GtRfDRwAiv0mCMo6UBkhwS8yP4H2i0OZ1-vX_AY_irDMCBOusDJFJ0Wi9ZFW899UZRzA_ZUQZYdDq18ydeQAhGp1PiUKvQSFDYjn9nGkotfGAhRr6sEMrkdTArKi7KfkkFe9poCdabTCJYiwNgfEToWG_gXhVz0pbpcFN3pQuVrdFm_uipw-H3Xe-Mrw
+                      - generic [ref=f205e726]:
+                        - img [ref=f205e731]
+                        - generic [ref=f205e732]:
+                          - generic [ref=f205e733]:
+                            - strong [ref=f205e736]: Product Engineer
+                            - generic [ref=f205e738]: Finch Care
+                            - generic [ref=f205e740]: United States (Remote)
+                          - list [ref=f205e742]:
+                            - listitem [ref=f205e743]:
+                              - time [ref=f205e744]: 3 months ago
+                  - listitem [ref=f205e745]:
+                    - link [ref=f205e747] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/jobs/collections/similar-jobs?currentJobId=4411626264&referenceJobId=4404118444&originToLandingJobPostings=4411626264&trackingId=XXkXzdP85OZpShQ12KpjQw%3D%3D&refId=4imnHKbZ0N4OwEhDZlyC4A%3D%3D&eBP=CwEAAAGeI-Yl-uEUl-2XSUVgbeLrvUvAo_yf4SnZyOnyPWqh0Z31IYiolgC8RJtKuDMibQDN4_kNyX9t4JCLFT7kT-Mq1fNT_ALKJqnjeGkYU3K9NpI0CWNbW3n3mhVOPMhXQJB8V7m3TcZWPWtqfFVg0m0VqOA53uTbU-9SuDzeeiPbHY0go2ZiRNiy2sNoyFr7NXjqrJlwHfUeSSpTrFj8UO3gCwG4bRfSxbL6B2OcDKHOIj5fm6NZOqi1dXgIxJvwbyPuu-qOuOOEfaZGKjoMJzr0LEQ5mEy3_T0CJtOAbkW29fvBbo1nZ8U7H9gufVCqxlyG4i0XrC-W3VoCwzPa3T3GgPlEgSXT6h7acRr6ZsRl7mR96TshnuOy4n46sxSzwsrcEkJbGLGT159rAGXjJd6UikmosFmRO5HV7BIGghaAaG0VNHdUygVy_dU
+                      - generic [ref=f205e749]:
+                        - img [ref=f205e754]
+                        - generic [ref=f205e755]:
+                          - generic [ref=f205e756]:
+                            - strong [ref=f205e759]: Sr. GNC Modeling and Simulation Engineer
+                            - generic [ref=f205e761]: Magma Space
+                            - generic [ref=f205e763]: Washington DC-Baltimore Area (On-site)
+                            - generic [ref=f205e765]: 401(k) benefit
+                          - list [ref=f205e767]:
+                            - listitem [ref=f205e768]:
+                              - time [ref=f205e769]: 6 days ago
+                            - listitem [ref=f205e770]:
+                              - strong [ref=f205e772]:
+                                - generic [ref=f205e773]: Be an early applicant
+                  - listitem [ref=f205e774]:
+                    - link [ref=f205e776] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/jobs/collections/similar-jobs?currentJobId=4413997085&referenceJobId=4404118444&originToLandingJobPostings=4413997085&trackingId=14lyJZqXaBdzZvHFqeJPYw%3D%3D&refId=4imnHKbZ0N4OwEhDZlyC4A%3D%3D&eBP=CwEAAAGeI-Yl-pkVw8zkLfblqf3JMAw4n8xTpSgTfb-m7PI1z2pP044U7iEXbS0IAZDfvzxrMiZSA2a-jC-R7kBFQlAti5DXYh1FacDiUMsxHBHX1SjfVV89lg9R2NC2tj8JPUJ9gjU8QpIjFf-W47k6RqunddA0CmWiN0kMlCkMy-9UxkqBR9gubX0H9r3GNTpUV-ZELsiPYRsxr3XFPD7xziUlflH2GoyHetYn4cX-Qs-DEgUNtcf754s6yVA2mlpboVVYg0fXwX2YoMRTvcstrC-_K4hjCrg6e8zLs6PNBN4nQWrrjcIcDMP3zcW4Q-LqauVJJj404l2ZJkVwskKWsytYQaSk33eBIfgzv0cuYFwAAtlPy6EHM74y9r5i3ZvHUuwq8eL0deMfkIzBUoGNga2eiEVDxX3WMFtBHTHyXAq17ilsAhjXDk27SjTyaE4sncwwh17jf78OkSSa8DxlWdfqQHtY7MqVWIU
+                      - generic [ref=f205e778]:
+                        - img [ref=f205e781]
+                        - generic [ref=f205e782]:
+                          - generic [ref=f205e783]:
+                            - strong [ref=f205e786]: Lead Mechanical Engineer
+                            - generic [ref=f205e788]: Next-Gen Manufacturing and Consulting
+                            - generic [ref=f205e790]: Arlington, TN (On-site)
+                            - generic [ref=f205e792]: Vision benefit
+                          - list [ref=f205e794]:
+                            - listitem [ref=f205e795]:
+                              - time [ref=f205e796]: 9 hours ago
+                            - listitem [ref=f205e797]:
+                              - img [ref=f205e798]:
+                                - img [ref=f205e799]
+                              - generic [ref=f205e801]: Easy Apply
+                  - listitem [ref=f205e802]:
+                    - link [ref=f205e804] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/jobs/collections/similar-jobs?currentJobId=4392934849&referenceJobId=4404118444&originToLandingJobPostings=4392934849&trackingId=cfZyK3hiOkwerk8lpVpeIw%3D%3D&refId=4imnHKbZ0N4OwEhDZlyC4A%3D%3D&eBP=CwEAAAGeI-Yl-6wJWoKCH40O9geeW1-a7AEnDOsI2rH8CojF0YOZUnQ11bfbMYejt9B8757Dge0BJED4NKouiu4I751Zah61rSiDLAFHld_gQskWDTUhXPGrSOVrqb5xahx4RGdohBB9KsxZGIMDI-9HDinM9ZnrZ06g7IJt_hoikByHvgMu0N-USmMyB59WjMs-6xdRKJnMze2SXTuz63b1K0imTRueU6b5JI21XTf8hkoxt89B3AWbZj__3VxZM1jTafgwse433knKGOyYC6QTW0OjWWi35WVyyPhWYTw1K17BOiiSoADDTxuWOok4dfJDtULmKdCHgmtgg84odLvB9ntlAt5aFqO6ve4WTWQ8YHS-eozuFkOkVaVD8qTfBb4GNHWCFZ3ktKvdFM8nzq0OhKZSn_i7wntjeoWIrBbqBlaKG2BDFghoOXiUCZZev7qtzYgby0k-ywTD_ZAuBoiXlQ0k-xdgAwuGMIs
+                      - generic [ref=f205e806]:
+                        - img [ref=f205e811]
+                        - generic [ref=f205e812]:
+                          - generic [ref=f205e813]:
+                            - strong [ref=f205e816]: Manufacturing Engineer
+                            - generic [ref=f205e818]: Electronic Source Company
+                            - generic [ref=f205e820]: Los Angeles, CA (On-site)
+                            - generic [ref=f205e822]: $75/yr - $105K/yr + Bonus · 4 benefits
+                          - list [ref=f205e824]:
+                            - listitem [ref=f205e825]:
+                              - time [ref=f205e826]: 1 month ago
+                            - listitem [ref=f205e827]:
+                              - img [ref=f205e828]:
+                                - img [ref=f205e829]
+                              - generic [ref=f205e831]: Easy Apply
+                - link [ref=f205e833] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/jobs/collections/similar-jobs?referenceJobId=4404118444
+                  - text: See more jobs like this
+            - complementary [ref=f205e834]:
+              - generic [ref=f205e835]:
+                - generic [ref=f205e836]:
+                  - generic [ref=f205e838]:
+                    - heading [level=3] [ref=f205e839]: Job search smarter with Premium
+                    - list [ref=f205e840]:
+                      - listitem [ref=f205e841]:
+                        - img [ref=f205e845]
+                        - generic [ref=f205e848]: See jobs where you’d be a top applicant
+                      - listitem [ref=f205e849]:
+                        - img [ref=f205e853]
+                        - generic [ref=f205e856]: Message hiring managers with InMail
+                      - listitem [ref=f205e857]:
+                        - img [ref=f205e861]
+                        - generic [ref=f205e864]: Get personalized cover letter and resume tips
+                      - listitem [ref=f205e865]:
+                        - img [ref=f205e869]
+                        - generic [ref=f205e872]: Plus! Get insider access to live talks with industry leaders.
+                    - generic [ref=f205e873]:
+                      - list [ref=f205e875]:
+                        - listitem [ref=f205e876]
+                        - listitem [ref=f205e878]
+                        - listitem [ref=f205e880]
+                      - paragraph [ref=f205e882]: Parth and millions of other members use Premium
+                    - link [ref=f205e883] [cursor=pointer]:
+                      - /url: http://www.linkedin.com/premium/products/?upsellOrderOrigin=Tracking%3Av1%3Ajob_right_rail_upsell%3AJob+Seeker%3AIn-Product&utype=job&referenceId=6xjJWPTKSVWKxUQvwxy2Hg%3D%3D&isSS=false&upsellSlotId=JOB_RIGHT_RAIL&destRedirectURL=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fview%2F4404118444%2F
+                      - text: Try Premium for $0
+                    - paragraph [ref=f205e884]: 1-month free trial. Cancel hassle-free. We’ll remind you 7 days before your trial ends.
+                  - button [ref=f205e885] [cursor=pointer]:
+                    - img [ref=f205e886]
+                    - generic [ref=f205e888]: Dismiss premium promotion
+                - generic [ref=f205e889]:
+                  - paragraph [ref=f205e890]: Looking for talent?
+                  - link [ref=f205e891] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/talent/job-posting-redirect?trk=flagship3_job_detail
+                    - text: Post a job
+          - contentinfo [ref=f205e893]:
+            - generic [ref=f205e895]:
+              - generic [ref=f205e896]:
+                - navigation [ref=f205e897]:
+                  - list [ref=f205e898]:
+                    - listitem [ref=f205e899]:
+                      - link [ref=f205e900] [cursor=pointer]:
+                        - /url: https://about.linkedin.com/
+                        - text: About
+                    - listitem [ref=f205e901]:
+                      - link [ref=f205e902] [cursor=pointer]:
+                        - /url: https://www.linkedin.com/accessibility
+                        - text: Accessibility
+                    - listitem [ref=f205e903]:
+                      - link [ref=f205e904] [cursor=pointer]:
+                        - /url: https://business.linkedin.com/talent-solutions?trk=flagship_nav&veh=li-footer-lts-control&src=li-footer
+                        - text: Talent Solutions
+                    - listitem [ref=f205e905]:
+                      - link [ref=f205e906] [cursor=pointer]:
+                        - /url: https://www.linkedin.com/legal/professional-community-policies
+                        - text: Professional Community Policies
+                    - listitem [ref=f205e907]:
+                      - link [ref=f205e908] [cursor=pointer]:
+                        - /url: https://careers.linkedin.com/
+                        - text: Careers
+                    - listitem [ref=f205e909]:
+                      - link [ref=f205e910] [cursor=pointer]:
+                        - /url: https://business.linkedin.com/marketing-solutions?trk=n_nav_lms_f&src=li-footer
+                        - text: Marketing Solutions
+                    - listitem [ref=f205e911]:
+                      - button [ref=f205e913] [cursor=pointer]:
+                        - generic [ref=f205e915]:
+                          - text: Privacy & Terms
+                          - img [ref=f205e916]
+                    - listitem [ref=f205e918]:
+                      - link [ref=f205e919] [cursor=pointer]:
+                        - /url: https://www.linkedin.com/help/linkedin/answer/62931
+                        - text: Ad Choices
+                    - listitem [ref=f205e920]:
+                      - link [ref=f205e921] [cursor=pointer]:
+                        - /url: https://business.linkedin.com/marketing-solutions/ads?trk=n_nav_ads_f
+                        - text: Advertising
+                    - listitem [ref=f205e922]:
+                      - link [ref=f205e923] [cursor=pointer]:
+                        - /url: https://business.linkedin.com/sales-solutions?trk=flagship_nav&veh=li-footer-lss-control&src=li-footer
+                        - text: Sales Solutions
+                    - listitem [ref=f205e924]:
+                      - link [ref=f205e925] [cursor=pointer]:
+                        - /url: https://mobile.linkedin.com/
+                        - text: Mobile
+                    - listitem [ref=f205e926]:
+                      - link [ref=f205e927] [cursor=pointer]:
+                        - /url: https://smallbusiness.linkedin.com?&src=li-footer
+                        - text: Small Business
+                    - listitem [ref=f205e928]:
+                      - link [ref=f205e929] [cursor=pointer]:
+                        - /url: https://safety.linkedin.com
+                        - text: Safety Center
+                - generic [ref=f205e931]:
+                  - list [ref=f205e932]:
+                    - listitem [ref=f205e933]:
+                      - img [ref=f205e934]
+                      - generic [ref=f205e936]:
+                        - link [ref=f205e937] [cursor=pointer]:
+                          - /url: https://www.linkedin.com/help/linkedin?trk=d_flagship3_job_details
+                          - text: Questions?
+                        - paragraph [ref=f205e938]: Visit our Help Center.
+                    - listitem [ref=f205e939]:
+                      - img [ref=f205e940]
+                      - generic [ref=f205e942]:
+                        - link [ref=f205e943] [cursor=pointer]:
+                          - /url: https://www.linkedin.com/psettings/
+                          - text: Manage your account and privacy
+                        - paragraph [ref=f205e944]: Go to your Settings.
+                    - listitem [ref=f205e945]:
+                      - img [ref=f205e946]
+                      - generic [ref=f205e948]:
+                        - link [ref=f205e949] [cursor=pointer]:
+                          - /url: https://www.linkedin.com/help/linkedin/answer/a1339724
+                          - text: Recommendation transparency
+                        - paragraph [ref=f205e950]: Learn more about Recommended Content.
+                  - generic [ref=f205e951]:
+                    - generic [ref=f205e952]: Select Language
+                    - combobox [ref=f205e953]
+              - paragraph [ref=f205e954]: LinkedIn Corporation © 2026
+      - region [ref=f205e100]

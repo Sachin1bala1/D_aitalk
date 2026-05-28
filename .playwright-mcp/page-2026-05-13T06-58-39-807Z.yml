@@ -1,0 +1,287 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - link "Skip to content" [ref=e4] [cursor=pointer]:
+      - /url: "#start-of-content"
+    - banner [ref=e6]:
+      - heading "Navigation Menu" [level=2] [ref=e7]
+      - generic [ref=e9]:
+        - button "Toggle navigation" [ref=e11] [cursor=pointer]
+        - link "Homepage" [ref=e17] [cursor=pointer]:
+          - /url: /
+          - img [ref=e18]
+        - generic [ref=e20]:
+          - link "Sign in" [ref=e21] [cursor=pointer]:
+            - /url: /login?return_to=https%3A%2F%2Fgithub.com%2FSachin1bala1%3Ftab%3Drepositories
+          - button "Appearance settings" [ref=e24] [cursor=pointer]:
+            - img
+  - main [ref=e27]:
+    - generic [ref=e30]:
+      - generic [ref=e31]:
+        - generic:
+          - generic:
+            - generic:
+              - img "@Sachin1bala1"
+            - generic:
+              - strong: Sachin1bala1
+              - generic:
+                - generic:
+                  - link "Follow":
+                    - /url: /login?return_to=https%3A%2F%2Fgithub.com%2FSachin1bala1%3Ftab%3Drepositories
+      - generic [ref=e33]:
+        - navigation "User profile" [ref=e34]:
+          - link "Overview" [ref=e35] [cursor=pointer]:
+            - /url: /Sachin1bala1
+            - img [ref=e36]
+            - text: Overview
+          - link "Repositories 16" [ref=e38] [cursor=pointer]:
+            - /url: /Sachin1bala1?tab=repositories
+            - img [ref=e39]
+            - text: Repositories
+            - generic "16" [ref=e41]
+          - link "Projects" [ref=e42] [cursor=pointer]:
+            - /url: /Sachin1bala1?tab=projects
+            - img [ref=e43]
+            - text: Projects
+          - link "Packages" [ref=e45] [cursor=pointer]:
+            - /url: /Sachin1bala1?tab=packages
+            - img [ref=e46]
+            - text: Packages
+        - group [ref=e50]:
+          - button "More" [ref=e51] [cursor=pointer]:
+            - generic [ref=e52]:
+              - img [ref=e53]
+              - generic [ref=e55]: More
+    - generic [ref=e57]:
+      - generic [ref=e59]:
+        - generic:
+          - generic:
+            - generic:
+              - img "@Sachin1bala1"
+            - generic:
+              - generic:
+                - strong: Sachin1bala1
+            - generic:
+              - generic:
+                - generic:
+                  - link "Follow":
+                    - /url: /login?return_to=https%3A%2F%2Fgithub.com%2FSachin1bala1%3Ftab%3Drepositories
+        - generic [ref=e60]:
+          - generic [ref=e61]:
+            - link "View Sachin1bala1's full-sized avatar" [ref=e63] [cursor=pointer]:
+              - /url: https://avatars.githubusercontent.com/u/106492631?v=4
+              - img "View Sachin1bala1's full-sized avatar" [ref=e64]
+            - heading "Sachin Bala Sachin1bala1" [level=1] [ref=e66]:
+              - generic [ref=e67]: Sachin Bala
+              - generic [ref=e68]: Sachin1bala1
+          - generic [ref=e69]:
+            - link "Follow" [ref=e76] [cursor=pointer]:
+              - /url: /login?return_to=https%3A%2F%2Fgithub.com%2FSachin1bala1%3Ftab%3Drepositories
+            - generic [ref=e77]:
+              - generic [ref=e79]:
+                - link "0 followers" [ref=e80] [cursor=pointer]:
+                  - /url: https://github.com/Sachin1bala1?tab=followers
+                  - img [ref=e81]
+                  - text: 0 followers
+                - text: ·
+                - link "1 following" [ref=e83] [cursor=pointer]:
+                  - /url: https://github.com/Sachin1bala1?tab=following
+              - list
+          - button "Block or report user" [ref=e85] [cursor=pointer]:
+            - generic [ref=e87]: Block or report user
+      - generic [ref=e90]:
+        - search "Repositories" [ref=e93]:
+          - generic [ref=e94]:
+            - searchbox "Find a repository…" [ref=e96]
+            - generic [ref=e97]:
+              - group [ref=e98]:
+                - button "Type" [ref=e99] [cursor=pointer]: Type
+              - group [ref=e101]:
+                - button "Language" [ref=e102] [cursor=pointer]: Language
+              - group [ref=e104]:
+                - button "Sort" [ref=e105] [cursor=pointer]: Sort
+        - list [ref=e108]:
+          - listitem [ref=e109]:
+            - generic [ref=e110]:
+              - heading "D_aitalk Public" [level=3] [ref=e112]:
+                - link "D_aitalk" [ref=e113] [cursor=pointer]:
+                  - /url: /Sachin1bala1/D_aitalk
+                - generic [ref=e114]: Public
+              - paragraph [ref=e116]: D_aitalk
+              - generic [ref=e117]:
+                - generic [ref=e118]: TypeScript
+                - text: Updated May 13, 20266 hours ago
+          - listitem [ref=e121]:
+            - generic [ref=e122]:
+              - heading "the_ai_talk Public" [level=3] [ref=e124]:
+                - link "the_ai_talk" [ref=e125] [cursor=pointer]:
+                  - /url: /Sachin1bala1/the_ai_talk
+                - generic [ref=e126]: Public
+              - paragraph [ref=e128]: agentic
+              - generic [ref=e129]:
+                - generic [ref=e130]: TypeScript
+                - text: Updated May 1, 20262 weeks ago
+          - listitem [ref=e133]:
+            - generic [ref=e134]:
+              - heading "daitalk_surface Public" [level=3] [ref=e136]:
+                - link "daitalk_surface" [ref=e137] [cursor=pointer]:
+                  - /url: /Sachin1bala1/daitalk_surface
+                - generic [ref=e138]: Public
+              - generic [ref=e139]:
+                - generic [ref=e140]: TypeScript
+                - text: Updated Apr 23, 20263 weeks ago
+          - listitem [ref=e143]:
+            - generic [ref=e144]:
+              - heading "codex_project Public" [level=3] [ref=e146]:
+                - link "codex_project" [ref=e147] [cursor=pointer]:
+                  - /url: /Sachin1bala1/codex_project
+                - generic [ref=e148]: Public
+              - generic [ref=e149]:
+                - generic [ref=e150]: JavaScript
+                - text: Updated Apr 11, 2026on Apr 11
+          - listitem [ref=e153]:
+            - generic [ref=e154]:
+              - heading "Tiktok Public" [level=3] [ref=e156]:
+                - link "Tiktok" [ref=e157] [cursor=pointer]:
+                  - /url: /Sachin1bala1/Tiktok
+                - generic [ref=e158]: Public
+              - paragraph [ref=e160]: tiktok_agent
+              - generic [ref=e161]:
+                - generic [ref=e162]: Python
+                - text: Updated Apr 10, 2026on Apr 9
+          - listitem [ref=e165]:
+            - generic [ref=e166]:
+              - heading "engineering-data-agent Public" [level=3] [ref=e168]:
+                - link "engineering-data-agent" [ref=e169] [cursor=pointer]:
+                  - /url: /Sachin1bala1/engineering-data-agent
+                - generic [ref=e170]: Public
+              - paragraph [ref=e172]: agentic
+              - generic [ref=e173]:
+                - generic [ref=e174]: TypeScript
+                - text: Updated Apr 3, 2026on Apr 3
+          - listitem [ref=e177]:
+            - generic [ref=e178]:
+              - heading "manufacturing_Ai Public" [level=3] [ref=e180]:
+                - link "manufacturing_Ai" [ref=e181] [cursor=pointer]:
+                  - /url: /Sachin1bala1/manufacturing_Ai
+                - generic [ref=e182]: Public
+              - generic [ref=e183]:
+                - generic [ref=e184]: Python
+                - text: Updated Apr 3, 2026on Apr 3
+          - listitem [ref=e187]:
+            - generic [ref=e188]:
+              - heading "insight-to-deck Public" [level=3] [ref=e190]:
+                - link "insight-to-deck" [ref=e191] [cursor=pointer]:
+                  - /url: /Sachin1bala1/insight-to-deck
+                - generic [ref=e192]: Public
+              - generic [ref=e193]:
+                - generic [ref=e194]: TypeScript
+                - text: Updated Sep 8, 2025on Sep 7, 2025
+          - listitem [ref=e197]:
+            - generic [ref=e198]:
+              - heading "ai-data-interpreter Public" [level=3] [ref=e200]:
+                - link "ai-data-interpreter" [ref=e201] [cursor=pointer]:
+                  - /url: /Sachin1bala1/ai-data-interpreter
+                - generic [ref=e202]: Public
+              - paragraph [ref=e204]: this app interpret data and review the data
+              - generic [ref=e205]:
+                - generic [ref=e206]: Python
+                - text: Updated Aug 2, 2025on Aug 1, 2025
+          - listitem [ref=e209]:
+            - generic [ref=e210]:
+              - heading "test_webpage Public" [level=3] [ref=e212]:
+                - link "test_webpage" [ref=e213] [cursor=pointer]:
+                  - /url: /Sachin1bala1/test_webpage
+                - generic [ref=e214]: Public
+              - generic [ref=e215]:
+                - generic [ref=e216]: HTML
+                - text: Updated Jan 15, 2025on Jan 14, 2025
+          - listitem [ref=e219]:
+            - generic [ref=e220]:
+              - heading "GPS-and-localization-practise Public" [level=3] [ref=e222]:
+                - link "GPS-and-localization-practise" [ref=e223] [cursor=pointer]:
+                  - /url: /Sachin1bala1/GPS-and-localization-practise
+                - generic [ref=e224]: Public
+              - generic [ref=e225]:
+                - generic [ref=e226]: Python
+                - text: Updated Feb 28, 2023on Feb 27, 2023
+          - listitem [ref=e229]:
+            - generic [ref=e230]:
+              - heading "Lidar-point-cloud-data-exteaction-and-plot Public" [level=3] [ref=e232]:
+                - link "Lidar-point-cloud-data-exteaction-and-plot" [ref=e233] [cursor=pointer]:
+                  - /url: /Sachin1bala1/Lidar-point-cloud-data-exteaction-and-plot
+                - generic [ref=e234]: Public
+              - generic [ref=e235]:
+                - generic [ref=e236]: Python
+                - text: Updated Feb 28, 2023on Feb 27, 2023
+          - listitem [ref=e239]:
+            - generic [ref=e240]:
+              - heading "Object_Detection_using_YOLO_3 Public" [level=3] [ref=e242]:
+                - link "Object_Detection_using_YOLO_3" [ref=e243] [cursor=pointer]:
+                  - /url: /Sachin1bala1/Object_Detection_using_YOLO_3
+                - generic [ref=e244]: Public
+              - generic [ref=e245]:
+                - generic [ref=e246]: Python
+                - text: Updated Feb 14, 2023on Feb 13, 2023
+          - listitem [ref=e249]:
+            - generic [ref=e250]:
+              - heading "JavaPractise Public" [level=3] [ref=e252]:
+                - link "JavaPractise" [ref=e253] [cursor=pointer]:
+                  - /url: /Sachin1bala1/JavaPractise
+                - generic [ref=e254]: Public
+              - generic [ref=e255]:
+                - generic [ref=e256]: Java
+                - text: Updated Jan 18, 2023on Jan 17, 2023
+          - listitem [ref=e259]:
+            - generic [ref=e260]:
+              - heading "Spin-Slot-Casino-Machine Public" [level=3] [ref=e262]:
+                - link "Spin-Slot-Casino-Machine" [ref=e263] [cursor=pointer]:
+                  - /url: /Sachin1bala1/Spin-Slot-Casino-Machine
+                - generic [ref=e264]: Public
+              - generic [ref=e265]:
+                - generic [ref=e266]: Python
+                - text: Updated Nov 3, 2022on Nov 3, 2022
+          - listitem [ref=e269]:
+            - generic [ref=e270]:
+              - heading "Sudoku-Solver Public" [level=3] [ref=e272]:
+                - link "Sudoku-Solver" [ref=e273] [cursor=pointer]:
+                  - /url: /Sachin1bala1/Sudoku-Solver
+                - generic [ref=e274]: Public
+              - generic [ref=e275]:
+                - generic [ref=e276]: Python
+                - text: Updated Oct 28, 2022on Oct 28, 2022
+  - contentinfo [ref=e279]:
+    - heading "Footer" [level=2] [ref=e280]
+    - generic [ref=e281]:
+      - generic [ref=e282]:
+        - link "GitHub Homepage" [ref=e283] [cursor=pointer]:
+          - /url: https://github.com
+          - img [ref=e284]
+        - generic [ref=e286]: © 2026 GitHub, Inc.
+      - navigation "Footer" [ref=e287]:
+        - heading "Footer navigation" [level=3] [ref=e288]
+        - list "Footer navigation" [ref=e289]:
+          - listitem [ref=e290]:
+            - link "Terms" [ref=e291] [cursor=pointer]:
+              - /url: https://docs.github.com/site-policy/github-terms/github-terms-of-service
+          - listitem [ref=e292]:
+            - link "Privacy" [ref=e293] [cursor=pointer]:
+              - /url: https://docs.github.com/site-policy/privacy-policies/github-privacy-statement
+          - listitem [ref=e294]:
+            - link "Security" [ref=e295] [cursor=pointer]:
+              - /url: https://github.com/security
+          - listitem [ref=e296]:
+            - link "Status" [ref=e297] [cursor=pointer]:
+              - /url: https://www.githubstatus.com/
+          - listitem [ref=e298]:
+            - link "Community" [ref=e299] [cursor=pointer]:
+              - /url: https://github.community/
+          - listitem [ref=e300]:
+            - link "Docs" [ref=e301] [cursor=pointer]:
+              - /url: https://docs.github.com/
+          - listitem [ref=e302]:
+            - link "Contact" [ref=e303] [cursor=pointer]:
+              - /url: https://support.github.com?tags=dotcom-footer
+          - listitem [ref=e304]:
+            - button "Manage cookies" [ref=e306] [cursor=pointer]
+          - listitem [ref=e307]:
+            - button "Do not share my personal information" [ref=e309] [cursor=pointer]

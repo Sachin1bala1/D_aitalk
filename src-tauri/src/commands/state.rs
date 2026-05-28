@@ -13,4 +13,5 @@ pub struct AppState {
     pub cancelled_queries: CancelSet,
     pub query_guards: SharedQueryGuardState,
     pub memory_db: Arc<tokio::sync::Mutex<Option<sqlx::SqlitePool>>>,
+    pub query_cache: crate::db::query_cache::QueryCache,
 }

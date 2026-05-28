@@ -5,7 +5,7 @@
  * Streams text tokens live, shows inline tool steps, handles Plan Mode queuing.
  */
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Sparkles, Settings2, Clock, Trash2, Wrench, FileText } from "lucide-react";
+import { Send, Sparkles, Settings2, Clock, Trash2, Wrench, FileText, Square } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import type { FullSchema } from "../../lib/db/DbClient";
 import type { QueryResults } from "../../lib/stores/WorkspaceStore";
@@ -168,6 +168,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
   const [messages, setMessages] = useState<ChatMessage[]>(() => aiSession?.messages as ChatMessage[] ?? [WELCOME]);
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [thinkingStatus, setThinkingStatus] = useState<string | null>(null);
   const [queryDepth, setQueryDepth] = useState<'fast' | 'deep' | null>(aiSession?.queryDepth ?? null);
   const [sessionSections, setSessionSections] = useState<AnalysisSection[]>(aiSession?.sessionSections ?? []);
   const [reportPanelOpen, setReportPanelOpen] = useState(false);
@@ -175,9 +176,15 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [conversationTurns, setConversationTurns] = useState<ConversationTurn[]>(aiSession?.conversationTurns ?? []);
   const historyRef = useRef<ConversationTurn[]>(aiSession?.conversationTurns ?? []);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const toolsCalledRef = useRef<string[]>([]);
   const toolOutcomeRef = useRef<ToolExecutionOutcome[]>([]);
   const [sessionQuestion, setSessionQuestion] = useState(aiSession?.sessionQuestion ?? "");
+  const [proactiveSuggestion, setProactiveSuggestion] = useState<{
+    summary: string;
+    date: string;
+    continuePrompt: string;
+  } | null>(null);
 
   // Load API keys from OS keychain on mount and merge into settings
   useEffect(() => {
@@ -279,7 +286,11 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
     preserveQueryDepth?: boolean;
     resumeCheckpoint?: TaskCheckpoint | null;
   }) => {
-    if (!userMsg.trim() || isProcessing) return;
+    if (!userMsg.trim()) return;
+    // Abort any stale in-flight request before starting fresh
+    abortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
     const provider = getProvider(providerSettings);
     if (!provider) {
       setSettingsOpen(true);
@@ -299,15 +310,41 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
     setSessionQuestion("");
     setSessionQuestion(userMsg);
     addMsg({ role: "user", content: visibleUserMessage });
+    setProactiveSuggestion(null);
     setIsProcessing(true);
     clearTaskCheckpoint();
 
     let memoryContext: MemoryContext | undefined;
     try {
-      const [episodes, profile] = await Promise.all([
-        EpisodicMemory.search(userMsg, 5, connectionId ?? undefined),
+      const [scoredEpisodes, profile] = await Promise.all([
+        EpisodicMemory.searchWithScores(userMsg, 5, connectionId ?? undefined),
         UserCalibrationProfile.getProfile(),
       ]);
+      const episodes = scoredEpisodes.map((s) => s.episode);
+
+      // Proactive suggestion: surface top match if score is high and session just started
+      const topMatch = scoredEpisodes[0];
+      if (
+        topMatch &&
+        topMatch.score > 0.7 &&
+        historyRef.current.length === 0
+      ) {
+        const ep = topMatch.episode;
+        const date = new Date(ep.createdAt).toLocaleDateString();
+        const summary =
+          ep.outcome ??
+          (typeof ep.findings?.["summary"] === "string"
+            ? (ep.findings["summary"] as string)
+            : ep.problem.slice(0, 120));
+        setProactiveSuggestion({
+          summary: summary.slice(0, 160),
+          date,
+          continuePrompt: `Continue the analysis from ${date}: ${ep.problem.slice(0, 80)}`,
+        });
+      } else {
+        setProactiveSuggestion(null);
+      }
+
       const workspaceRules = useWorkspaceRuleStore.getState().getApprovedRules(connectionId ?? null);
       const [customerBrief, pendingOutcomes] = await Promise.all([
         BusinessClient.getCustomerBrief().catch(() => []),
@@ -327,6 +364,28 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
     toolsCalledRef.current = [];
     toolOutcomeRef.current = [];
 
+    // Session continuity: if in-context history is empty but prior episodes exist,
+    // inject a synthetic prior-session summary so the agent doesn't start blind.
+    if (historyRef.current.length === 0 && memoryContext && memoryContext.recentEpisodes.length > 0) {
+      const priorLines = memoryContext.recentEpisodes
+        .slice(0, 3)
+        .map((ep) => {
+          const date = new Date(ep.createdAt).toLocaleDateString();
+          const summary = ep.outcome ?? (typeof ep.findings?.["summary"] === "string" ? ep.findings["summary"] as string : "");
+          const tables = Array.isArray(ep.findings?.["tablesAccessed"])
+            ? ` (tables: ${(ep.findings["tablesAccessed"] as string[]).join(", ")})`
+            : "";
+          return `[${date}] "${ep.problem.slice(0, 80)}"${tables} → ${summary.slice(0, 150)}`;
+        })
+        .join("\n");
+      historyRef.current = [
+        {
+          role: "assistant",
+          text: `[PRIOR SESSION MEMORY — from past conversations, not this one]\n${priorLines}\n[Current conversation starts now]`,
+        },
+      ];
+    }
+
     try {
       const sharedTaskOptions = {
         provider,
@@ -336,8 +395,10 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
         currentSQL,
         currentResults,
         memoryContext,
+        signal: abortController.signal,
 
         onToken: appendToken,
+        onThinking: setThinkingStatus,
 
         onToolStart: (toolName: string, input: unknown) => {
           toolsCalledRef.current.push(toolName);
@@ -483,18 +544,51 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       }
 
       try {
+        // Build richer findings: capture tables accessed and tool result summaries
+        const tablesAccessed: string[] = [];
+        const toolResultSnippets: string[] = [];
+        for (const turn of updatedHistory) {
+          if (!turn.toolResults) continue;
+          for (const tr of turn.toolResults) {
+            if (!tr.isError) {
+              try {
+                const parsed = JSON.parse(tr.content) as Record<string, unknown>;
+                if (parsed?.fields) {
+                  const fields = parsed.fields as Array<{ name: string }>;
+                  toolResultSnippets.push(
+                    `${tr.name}: ${fields.map((f) => f.name).join(", ")} (${parsed.rowCount ?? "?"} rows)`
+                  );
+                }
+              } catch { /* ignore */ }
+              if (tr.content.includes('"')) {
+                const tableMatches = tr.content.match(/"([^"]+)"\."([^"]+)"/g);
+                if (tableMatches) tablesAccessed.push(...tableMatches);
+              }
+            }
+          }
+        }
         await EpisodicMemory.store({
           sessionId: `session-${Date.now()}`,
           connectionId: connectionId ?? undefined,
           problem: userMsg,
           toolsUsed: toolsCalledRef.current,
-          findings: { summary: finalText?.slice(0, 300) ?? "" },
-          outcome: finalText?.slice(0, 300) ?? "",
+          findings: {
+            summary: finalText?.slice(0, 500) ?? "",
+            toolResults: toolResultSnippets.slice(0, 6).join(" | "),
+            tablesAccessed: [...new Set(tablesAccessed)].slice(0, 10),
+            toolCount: toolsCalledRef.current.length,
+          },
+          outcome: finalText?.slice(0, 500) ?? "",
         });
       } catch {
+        // Memory failure must not block the agent
       }
     } catch (e: unknown) {
       finalizeStream();
+      if (e instanceof DOMException && e.name === "AbortError") {
+        addMsg({ role: "assistant", content: "⏹ Interrupted" });
+        return;
+      }
       const rawMsg: string = e instanceof Error ? e.message : String(e);
       const provider = providerSettings.activeProvider;
       let hint = rawMsg;
@@ -502,9 +596,9 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
         hint =
           "Gemini accepted the key, but this project has no usable quota for the selected model right now. Enable billing in Google AI Studio / Google Cloud, switch to a Gemini model with available quota, or use another provider.";
       }
-      if (rawMsg.toLowerCase().includes("timed out")) {
+      if (rawMsg.toLowerCase().includes("timed out") || rawMsg.toLowerCase().includes("timeout")) {
         hint =
-          "The model took longer than the interactive budget for this request. The runtime now retries slow rounds automatically, but this provider or model is still responding slowly right now. Try again or switch to a faster model/provider for routine work.";
+          "The model is responding slowly and all retries timed out. Click Send again to retry — it often works on the next attempt. For heavy analysis, consider switching to a faster model in Configure Provider.";
       }
       if (rawMsg === "Connection error." || rawMsg.includes("fetch")) {
         if (provider === "ollama") {
@@ -516,6 +610,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
       addMsg({ role: "error", content: `Agent error: ${hint}` });
     } finally {
       setIsProcessing(false);
+      setThinkingStatus(null);
     }
   }, [
     activeModel,
@@ -529,7 +624,6 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
     currentSQL,
     currentSchema,
     finalizeStream,
-    isProcessing,
     providerSettings,
     setSessionSections,
     setSessionQuestion,
@@ -540,7 +634,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
 
   const handleSend = async () => {
     const userMsg = input.trim();
-    if (!userMsg || isProcessing) return;
+    if (!userMsg) return;
     setInput("");
     await executeAgentRequest(userMsg);
   };
@@ -579,6 +673,34 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
 
   return (
     <div className="flex flex-col h-full bg-[#0d0d0d]">
+      {/* Proactive memory suggestion */}
+      {proactiveSuggestion && !isProcessing && (
+        <div className="mx-3 mt-2 mb-1 px-3 py-2 rounded-lg bg-[#4f8ef7]/10 border border-[#4f8ef7]/20 flex items-start gap-2 text-xs">
+          <Sparkles className="w-3.5 h-3.5 text-[#4f8ef7] mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <span className="text-white/50">{proactiveSuggestion.date}: </span>
+            <span className="text-white/70">{proactiveSuggestion.summary}</span>
+          </div>
+          <div className="flex gap-1 shrink-0">
+            <button
+              onClick={() => {
+                setInput(proactiveSuggestion.continuePrompt);
+                setProactiveSuggestion(null);
+                inputRef.current?.focus();
+              }}
+              className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#4f8ef7]/20 text-[#4f8ef7] hover:bg-[#4f8ef7]/30"
+            >
+              Continue
+            </button>
+            <button
+              onClick={() => setProactiveSuggestion(null)}
+              className="px-2 py-0.5 rounded text-[10px] font-medium text-white/30 hover:text-white/60"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
         {/* Hypothesis Panel — shown only when there are active hypotheses */}
         {taskCheckpoint?.lifecycle === "interrupted" && (
@@ -635,6 +757,18 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
                   {msg.streaming && (
                     <span className="inline-block w-1.5 h-4 bg-[#00d2ff] animate-pulse ml-0.5 align-middle" />
                   )}
+                  {msg.streaming && msg.toolLog && msg.toolLog.length > 0 && (
+                    <div className="text-[10px] text-white/40 font-mono mt-1">
+                      {(() => {
+                        const running = msg.toolLog.filter((t) => t.result === undefined);
+                        const done = msg.toolLog.filter((t) => t.result !== undefined);
+                        if (running.length > 0) {
+                          return `Running tool ${done.length + 1} of ${msg.toolLog.length}: ${running[0].toolName}\u2026`;
+                        }
+                        return `\u2713 ${done.length} tool${done.length !== 1 ? "s" : ""} completed`;
+                      })()}
+                    </div>
+                  )}
                   {msg.toolLog && msg.toolLog.length > 0 && (
                     <ToolCallLog entries={msg.toolLog} onApplySQL={onApplySQL} />
                   )}
@@ -658,10 +792,10 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
           return null;
         })}
 
-        {isProcessing && messages[messages.length - 1]?.role !== "assistant" && (
-          <div className="flex items-center gap-2 text-xs text-[#00d2ff]/70 font-mono animate-pulse">
-            <Sparkles className="w-3 h-3" />
-            <span>Thinking…</span>
+        {isProcessing && thinkingStatus && (
+          <div className="flex items-center gap-2 text-xs text-white/50 font-mono px-1">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse shrink-0" />
+            <span>{thinkingStatus}</span>
           </div>
         )}
       </div>
@@ -682,21 +816,30 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                handleSend();
+                void handleSend();
               }
             }}
             placeholder={connectionId ? "Ask Daitalk AI… (Ctrl+K)" : "Connect a database first…"}
-            disabled={isProcessing}
-            className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg pl-4 pr-12 py-3 text-sm focus:outline-none focus:border-[#00d2ff] resize-none min-h-[44px] max-h-32 disabled:opacity-50"
+            className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg pl-4 pr-12 py-3 text-sm focus:outline-none focus:border-[#00d2ff] resize-none min-h-[44px] max-h-32"
             rows={1}
           />
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || isProcessing || !connectionId}
-            className="absolute right-2 bottom-2 p-2 bg-[#00d2ff] text-black rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity"
-          >
-            <Send className="w-3.5 h-3.5" />
-          </button>
+          {isProcessing ? (
+            <button
+              onClick={() => abortControllerRef.current?.abort()}
+              className="absolute right-2 bottom-2 p-2 bg-red-500/20 text-red-400 rounded-md hover:bg-red-500/30 transition-colors"
+              title="Stop (interrupt agent)"
+            >
+              <Square className="w-3.5 h-3.5 fill-current" />
+            </button>
+          ) : (
+            <button
+              onClick={() => void handleSend()}
+              disabled={!input.trim() || !connectionId}
+              className="absolute right-2 bottom-2 p-2 bg-[#00d2ff] text-black rounded-md hover:opacity-90 disabled:opacity-40 transition-opacity"
+            >
+              <Send className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Footer bar: provider badge + mode + settings */}

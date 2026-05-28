@@ -1,0 +1,480 @@
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=e3]:
+    - navigation "Primary" [ref=e4]:
+      - link "LinkedIn" [ref=e5] [cursor=pointer]:
+        - /url: /?trk=public_jobs_nav-header-logo
+        - generic [ref=e6]: LinkedIn
+      - generic [ref=e8]:
+        - button "Junior AI Engineer in Austin, TX Expand search" [ref=e9]:
+          - generic [ref=e11]: Junior AI Engineer in Austin, TX
+          - generic [ref=e12]: Expand search
+        - status [ref=e13]
+      - generic [ref=e14]:
+        - link "Sign in" [ref=e15] [cursor=pointer]:
+          - /url: https://www.linkedin.com/login?emailAddress=&fromSignIn=&fromSignIn=true&session_redirect=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fview%2Fjunior-ai-engineer-at-onto-innovation-4310893067&trk=public_jobs_nav-header-signin
+        - link "Join now" [ref=e16] [cursor=pointer]:
+          - /url: https://www.linkedin.com/signup/cold-join?source=jobs_registration&session_redirect=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fview%2Fjunior-ai-engineer-at-onto-innovation-4310893067&trk=public_jobs_nav-header-join
+  - main [ref=e17]:
+    - generic [ref=e19]:
+      - generic [ref=e21]:
+        - link "Onto Innovation" [ref=e22] [cursor=pointer]:
+          - /url: https://www.linkedin.com/company/onto-innovation?trk=public_jobs_topcard_logo
+          - img "Onto Innovation" [ref=e23]
+        - generic [ref=e25]:
+          - heading "Junior AI Engineer" [level=1] [ref=e26]
+          - heading "Onto Innovation · Wilmington, MA 2 days ago Over 200 applicants See who Onto Innovation has hired for this role" [level=4] [ref=e27]:
+            - generic [ref=e28]:
+              - link "Onto Innovation" [ref=e30] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/onto-innovation?trk=public_jobs_topcard-org-name
+              - text: · Wilmington, MA
+            - generic [ref=e31]:
+              - text: 2 days ago
+              - figure "Over 200 applicants" [ref=e32]:
+                - text: ·
+                - text: Over 200 applicants
+            - link "See who Onto Innovation has hired for this role" [ref=e34] [cursor=pointer]:
+              - /url: https://www.linkedin.com/login?session_redirect=https%3A%2F%2Fwww%2Elinkedin%2Ecom%2Fsearch%2Fresults%2Fpeople%2F%3FfacetCurrentCompany%3D51707785%26title%3DArtificial%2BIntelligence%2BEngineer&emailAddress=&fromSignIn=&trk=public_jobs_see-who-was-hired_people-search-link_face-pile-cta
+              - generic [ref=e35]:
+                - img [ref=e36]
+                - img [ref=e37]
+                - img [ref=e38]
+              - paragraph [ref=e40]: See who Onto Innovation has hired for this role
+          - generic [ref=e41]:
+            - button "Apply" [ref=e42] [cursor=pointer]: Apply
+            - link "Save" [ref=e43] [cursor=pointer]:
+              - /url: https://www.linkedin.com/login?emailAddress=&fromSignIn=&session_redirect=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fview%2Fjunior-ai-engineer-at-onto-innovation-4310893067&trk=public_jobs
+        - button "Open menu" [ref=e46] [cursor=pointer]
+      - generic [ref=e47]:
+        - generic [ref=e49]:
+          - generic [ref=e51]:
+            - generic [ref=e52]:
+              - text: "Onto Innovation is a leader in process control, combining global scale with an expanded portfolio of leading-edge technologies that include: 3D metrology spanning the chip from nanometer-scale transistors to micron-level die-interconnects; macro defect inspection of wafers and packages; metal interconnect composition; factory analytics; and lithography for advanced semiconductor packaging. Our breadth of offerings across the entire semiconductor value chain helps our customers solve their most difficult yield, device performance, quality, and reliability issues. Onto Innovation strives to optimize customers’ critical path of progress by making them smarter, faster and more efficient."
+              - strong [ref=e53]: Job Summary & Responsibilities
+              - text: Junior AI Engineer
+              - strong [ref=e54]: "Team:"
+              - text: You’ll partner closely with our AI Lead Engineer and collaborate with field/service engineers who support our
+              - strong [ref=e55]: inspection & metrology
+              - text: tools across fabs.
+              - strong [ref=e56]: "Goal:"
+              - text: Build practical AI helpers that speed up tasks from
+              - strong [ref=e57]: recipe setup
+              - text: and
+              - strong [ref=e58]: troubleshooting
+              - text: to
+              - strong [ref=e59]: fleet management analytics
+              - text: and
+              - strong [ref=e60]: expert guidance
+              - text: from internal knowledge.
+              - strong [ref=e61]: About Us
+              - text: Onto Innovation is a worldwide leader in the design, development, manufacture and support of defect inspection, advanced packaging lithography, process control metrology, and data analysis systems and software used by semiconductor device manufacturers worldwide. Onto Innovation provides a full-fab solution through its families of proprietary products that provide critical yield-enhancing information and real time process control responses, enabling microelectronic device manufacturers to drive down the costs and time to market of their products. The Company’s expanding portfolio of equipment and software solutions is used in both the wafer processing and final manufacturing of ICs, and in adjacent markets such as FPD, and LED manufacturing.
+              - text: What you’ll do
+              - list [ref=e62]:
+                - listitem [ref=e63]: "Prototype AI assistants & agents for field workflows: guided recipe setup, log triage, playbook lookups, parts/alarms advice, and fleet-wide health checks."
+                - listitem [ref=e64]: "Build retrieval systems (RAG): ingest manuals, specs, ticket notes, recipes, logs, and best-practice docs; design chunking, embeddings, and indexing; tune prompts and retrieval for accuracy/latency."
+                - listitem [ref=e65]: "Connect AI to our tools and data: stand up MCP servers (Model Context Protocol) and other connectors to safely expose internal systems (document stores, MES, issue trackers, telemetry APIs) to LLMs."
+                - listitem [ref=e66]: Fine-tune or adapt models (e.g., LoRA/QLoRA) for domain terms, error codes, and tool-specific intents when retrieval alone isn’t enough.
+                - listitem [ref=e67]: "Evaluate and harden: set up offline & online evals for groundedness/relevance; add guardrails, observability, and traceability; write runbooks."
+                - listitem [ref=e68]: "Ship small apps: package prototypes behind simple APIs or lightweight UIs that field engineers can use (web chat, Slack/Teams bots, or CLI)."
+                - listitem [ref=e69]: "Data plumbing: parse messy PDFs/images/CSVs; normalize schemas for recipes, events, alarms, SPC/trace data."
+                - listitem [ref=e70]: Computer Vision – understanding, defect detection, segmentation, or SEM/optical imaging.
+                - listitem [ref=e71]: "Work like an engineer: write readable Python/TypeScript, tests, and docs; use Git; participate in code reviews; iterate fast with the AI lead and domain SMEs."
+              - strong [ref=e72]: Minimum Qualifications
+              - list [ref=e73]:
+                - listitem [ref=e74]: BS in CS/EE/CE/ME (or equivalent experience).
+                - listitem [ref=e75]: Python proficiency (data wrangling, APIs, packaging); comfort on Linux and with Git.
+                - listitem [ref=e76]: Built at least one LLM app using a framework such as LangChain, LlamaIndex, or Semantic Kernel.
+                - listitem [ref=e77]: Hands-on with vector search (e.g., FAISS/Weaviate/Milvus) and embeddings; understands chunking, metadata, and hybrid search basics.
+                - listitem [ref=e78]: Familiarity with RAG and prompt engineering; can measure quality (groundedness/relevance) and reduce hallucinations.
+                - listitem [ref=e79]: Basic backend skills (REST/JSON, auth, environment secrets); experience containerizing with Docker.
+                - listitem [ref=e80]: Comfortable reading technical manuals/logs and collaborating with non-software teammates.
+              - text: Nice to haves
+              - list [ref=e81]:
+                - listitem [ref=e82]: Worked with agent frameworks (LangGraph, AutoGen, CrewAI) or implemented tool-calling/plan-execute loops.
+                - listitem [ref=e83]: Built or configured MCP servers to connect LLMs to internal data/tools.
+                - listitem [ref=e84]: Experience parsing complex docs (e.g., Unstructured, GROBID) and handling images/figures from manuals.
+                - listitem [ref=e85]: Exposure to semiconductor equipment or factory systems (SECS/GEM, EDA/Interface A, MES, SPC); familiarity with KLA/AMAT/TEL/ASML tool ecosystems.
+                - listitem [ref=e86]: Time-series and log analysis (Pandas, SQL, TimescaleDB/InfluxDB), wafer map/vision background, or simple CV.
+                - listitem [ref=e87]: Model adaptation experience (LoRA/QLoRA, PEFT) and experiment tracking (MLflow/W&B).
+                - listitem [ref=e88]: LLM observability/evals (Ragas, TruLens, LangSmith), basic security/PII handling, and role-based access.
+                - listitem [ref=e89]: Cloud familiarity (AWS/Azure/GCP) and lightweight front-ends (React/Next.js) for internal tools.
+                - listitem [ref=e90]: Prior work on fleet-level dashboards/analytics or recipe/parameter management.
+              - text: What success looks like (first 90 days)
+              - list [ref=e91]:
+                - listitem [ref=e92]: Ship a search+chat knowledge assistant over our internal docs with clear eval dashboards for faithfulness/relevance.
+                - listitem [ref=e93]: Stand up at least one MCP connector to an internal source (e.g., SharePoint/Confluence or log store) and demo safe tool calls.
+                - listitem [ref=e94]: "Deliver a focused POC: e.g., an agent that reads recent alarms & logs to suggest next steps, or a fleet health summary with links to playbooks."
+                - listitem [ref=e95]: Document everything (design notes, runbooks, and “how to” guides) and gather field feedback for iteration.
+              - text: How we work
+              - list [ref=e96]:
+                - listitem [ref=e97]: Pragmatic, security-minded, iterate-in-the-open with our engineers.
+                - listitem [ref=e98]: We value curiosity, clear writing, and the grit to trace weird edge cases in logs and manuals.
+              - text: Apply
+              - text: Send your resume/GitHub/portfolio and a short note about an LLM or agent project you’ve built (what made it work, what you measured, and what you’d improve).
+              - strong [ref=e99]: Qualifications
+              - text: see above
+              - text: Onto Innovation Inc. offers competitive salaries and a generous benefits package, including health/dental/vision/life/disability, PTO, 401K plan with employer match, and an Employee Stock Purchase Program (ESPP) along with health & wellness initiatives. We provide a collaborative working environment along with resources, and state-of-the-art tools & equipment to promote success; and a welcoming, inclusive corporate culture where individuals are recognized for their contributions.
+              - text: Onto Innovation Inc. is an Equal Opportunity Employer and all qualified applicants will receive consideration for employment without regard to race, color, religion, gender, sexual orientation, national origin, genetic information, age, disability, veteran status, or any other legally protected basis.
+              - text: For positions requiring access to technical data, Onto Innovation Inc., Inc. may have to obtain export licensing approval from the U.S. Department of Commerce - Bureau of Industry and Security and/or the U.S. Department of State - Directorate of Defense Trade Controls. As such, applicants for this position – except US Citizens, US Permanent Residents, and protected individuals as defined by 8 U.S.C. 1324b(a)(3) – may have to go through an export licensing review process.
+            - button "Show more" [ref=e100] [cursor=pointer]: Show more
+          - list [ref=e102]:
+            - listitem [ref=e103]:
+              - heading "Seniority level" [level=3] [ref=e104]
+              - text: Entry level
+            - listitem [ref=e105]:
+              - heading "Employment type" [level=3] [ref=e106]
+              - text: Full-time
+            - listitem [ref=e107]:
+              - heading "Job function" [level=3] [ref=e108]
+              - text: Engineering and Information Technology
+            - listitem [ref=e109]:
+              - heading "Industries" [level=3] [ref=e110]
+              - text: Semiconductor Manufacturing
+        - generic [ref=e113]:
+          - generic [ref=e114]:
+            - img [ref=e115]
+            - img [ref=e116]
+            - img [ref=e117]
+          - generic [ref=e118]:
+            - paragraph [ref=e119]: Referrals increase your chances of interviewing at Onto Innovation by 2x
+            - link "See who you know" [ref=e120] [cursor=pointer]:
+              - /url: https://www.linkedin.com/login?session_redirect=https%3A%2F%2Fwww%2Elinkedin%2Ecom%2Fsearch%2Fresults%2Fpeople%2F%3FfacetCurrentCompany%3D51707785&emailAddress=&fromSignIn=&trk=public_jobs_find-a-referral-cta
+      - generic [ref=e123]:
+        - paragraph [ref=e124]:
+          - text: Get notified about new Artificial Intelligence Engineer jobs in
+          - strong [ref=e125]: Wilmington, MA
+          - text: .
+        - link "Sign in to create job alert" [ref=e126] [cursor=pointer]:
+          - /url: https://www.linkedin.com/login?emailAddress=&fromSignIn=&session_redirect=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fview%2Fjunior-ai-engineer-at-onto-innovation-4310893067&trk=public_jobs_job-alert-guest-redirect-cta
+      - generic [ref=e127]:
+        - heading "Similar jobs" [level=2] [ref=e128]
+        - generic [ref=e130]:
+          - list [ref=e131]:
+            - listitem [ref=e132]:
+              - generic [ref=e133]:
+                - link "ML Engineer" [ref=e134] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/jobs/view/ml-engineer-at-catalyst-labs-4398667614?refId=4I1%2BRyFzrQMX7K9bVXB48Q%3D%3D&trackingId=gIGlmjAatG9Fc%2FwlMcl5dA%3D%3D
+                  - generic [ref=e135]: ML Engineer
+                - generic [ref=e136]:
+                  - heading "ML Engineer" [level=3] [ref=e137]
+                  - heading "Catalyst Labs" [level=4] [ref=e138]:
+                    - link "Catalyst Labs" [ref=e139] [cursor=pointer]:
+                      - /url: https://uk.linkedin.com/company/catalystlabssl?trk=public_jobs_similar-jobs_main-jobs-card-subtitle
+                  - generic [ref=e140]:
+                    - generic [ref=e141]: Boston, MA
+                    - time [ref=e142]: 1 month ago
+            - listitem [ref=e143]:
+              - generic [ref=e144]:
+                - link "Machine Learning Engineer" [ref=e145] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-at-ikigai-4338786218?refId=4I1%2BRyFzrQMX7K9bVXB48Q%3D%3D&trackingId=4WuI%2Fm9ntodj47Ah4FSAXg%3D%3D
+                  - generic [ref=e146]: Machine Learning Engineer
+                - generic [ref=e147]:
+                  - heading "Machine Learning Engineer" [level=3] [ref=e148]
+                  - heading "Ikigai" [level=4] [ref=e149]:
+                    - link "Ikigai" [ref=e150] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/company/ikigailabs?trk=public_jobs_similar-jobs_main-jobs-card-subtitle
+                  - generic [ref=e151]:
+                    - generic [ref=e152]: Cambridge, MA
+                    - time [ref=e153]: 5 months ago
+            - listitem [ref=e154]:
+              - generic [ref=e155]:
+                - link "AI Engineer/ML Engineer - Senior Developers - AI Training - Boston, US" [ref=e156] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/jobs/view/ai-engineer-ml-engineer-senior-developers-ai-training-boston-us-at-prolific-4405874255?refId=4I1%2BRyFzrQMX7K9bVXB48Q%3D%3D&trackingId=l2%2BUJiYDR%2BcNTcPrdGT4OQ%3D%3D
+                  - generic [ref=e157]: AI Engineer/ML Engineer - Senior Developers - AI Training - Boston, US
+                - generic [ref=e158]:
+                  - heading "AI Engineer/ML Engineer - Senior Developers - AI Training - Boston, US" [level=3] [ref=e159]
+                  - heading "Prolific" [level=4] [ref=e160]:
+                    - link "Prolific" [ref=e161] [cursor=pointer]:
+                      - /url: https://uk.linkedin.com/company/prolific-com?trk=public_jobs_similar-jobs_main-jobs-card-subtitle
+                  - generic [ref=e162]:
+                    - generic [ref=e163]: Boston, MA
+                    - time [ref=e164]: 2 weeks ago
+            - listitem [ref=e165]:
+              - generic [ref=e166]:
+                - link "Applied AI / ML Engineer" [ref=e167] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/jobs/view/applied-ai-ml-engineer-at-catalyst-labs-4398671360?refId=4I1%2BRyFzrQMX7K9bVXB48Q%3D%3D&trackingId=WDEBVZB9jvinNvIDhKwjSQ%3D%3D
+                  - generic [ref=e168]: Applied AI / ML Engineer
+                - generic [ref=e169]:
+                  - heading "Applied AI / ML Engineer" [level=3] [ref=e170]
+                  - heading "Catalyst Labs" [level=4] [ref=e171]:
+                    - link "Catalyst Labs" [ref=e172] [cursor=pointer]:
+                      - /url: https://uk.linkedin.com/company/catalystlabssl?trk=public_jobs_similar-jobs_main-jobs-card-subtitle
+                  - generic [ref=e173]:
+                    - generic [ref=e174]: Boston, MA
+                    - time [ref=e175]: 1 month ago
+            - listitem [ref=e176]:
+              - generic [ref=e177]:
+                - link "Machine Learning Engineer" [ref=e178] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-at-air-space-intelligence-4364375046?refId=4I1%2BRyFzrQMX7K9bVXB48Q%3D%3D&trackingId=Qkc%2BwHH%2Fu0mjvWxaZm%2BH3w%3D%3D
+                  - generic [ref=e179]: Machine Learning Engineer
+                - generic [ref=e180]:
+                  - heading "Machine Learning Engineer" [level=3] [ref=e181]
+                  - heading "Air Space Intelligence" [level=4] [ref=e182]:
+                    - link "Air Space Intelligence" [ref=e183] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/company/airspace-intelligence?trk=public_jobs_similar-jobs_main-jobs-card-subtitle
+                  - generic [ref=e184]:
+                    - generic [ref=e185]: Boston, MA
+                    - time [ref=e186]: 3 months ago
+            - listitem [ref=e187]:
+              - generic [ref=e188]:
+                - link "Software Engineer | AI" [ref=e189] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/jobs/view/software-engineer-ai-at-gecko-robotics-4356551971?refId=4I1%2BRyFzrQMX7K9bVXB48Q%3D%3D&trackingId=FqlEmJN48aU0VQY%2FeQxH3w%3D%3D
+                  - generic [ref=e190]: Software Engineer | AI
+                - generic [ref=e191]:
+                  - heading "Software Engineer | AI" [level=3] [ref=e192]
+                  - heading "Gecko Robotics" [level=4] [ref=e193]:
+                    - link "Gecko Robotics" [ref=e194] [cursor=pointer]:
+                      - /url: https://www.linkedin.com/company/geckorobotics?trk=public_jobs_similar-jobs_main-jobs-card-subtitle
+                  - generic [ref=e195]:
+                    - generic [ref=e196]: Boston, MA
+                    - time [ref=e197]: 3 months ago
+          - button "Show more jobs like this" [ref=e198] [cursor=pointer]: Show more jobs like this
+    - generic [ref=e200]:
+      - generic [ref=e201]:
+        - heading "People also viewed" [level=2] [ref=e202]
+        - list [ref=e204]:
+          - listitem [ref=e205]:
+            - generic [ref=e206]:
+              - link "Machine Learning Engineer, ML Systems and Infrastructure" [ref=e207] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-ml-systems-and-infrastructure-at-autodesk-4409949332?refId=4I1%2BRyFzrQMX7K9bVXB48Q%3D%3D&trackingId=Y1goqqXI4AwhLbsEy7r55A%3D%3D
+                - generic [ref=e208]: Machine Learning Engineer, ML Systems and Infrastructure
+              - generic [ref=e209]:
+                - heading "Machine Learning Engineer, ML Systems and Infrastructure" [level=3] [ref=e210]
+                - paragraph [ref=e211]:
+                  - link "Autodesk" [ref=e212] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/autodesk?trk=public_jobs_people-also-viewed_aside-job-card-subtitle
+                - generic [ref=e213]:
+                  - generic [ref=e214]: Boston, MA
+                  - time [ref=e215]: 6 days ago
+          - listitem [ref=e216]:
+            - generic [ref=e217]:
+              - link "Data Engineer" [ref=e218] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/data-engineer-at-arbor-4385537616?refId=4I1%2BRyFzrQMX7K9bVXB48Q%3D%3D&trackingId=0s3RdvCga420OGJGE3fHlA%3D%3D
+                - generic [ref=e219]: Data Engineer
+              - generic [ref=e220]:
+                - heading "Data Engineer" [level=3] [ref=e221]
+                - paragraph [ref=e222]:
+                  - link "Arbor" [ref=e223] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/joinarbor?trk=public_jobs_people-also-viewed_aside-job-card-subtitle
+                - generic [ref=e224]:
+                  - generic [ref=e225]: Boston, MA
+                  - time [ref=e226]: 2 months ago
+          - listitem [ref=e227]:
+            - generic [ref=e228]:
+              - link "Senior Machine Learning Engineer" [ref=e229] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/senior-machine-learning-engineer-at-asus-4412973600?refId=4I1%2BRyFzrQMX7K9bVXB48Q%3D%3D&trackingId=mYHme4J%2FPKPdNYt7FtlIiw%3D%3D
+                - generic [ref=e230]: Senior Machine Learning Engineer
+              - generic [ref=e231]:
+                - heading "Senior Machine Learning Engineer" [level=3] [ref=e232]
+                - paragraph [ref=e233]:
+                  - link "ASUS" [ref=e234] [cursor=pointer]:
+                    - /url: https://tw.linkedin.com/company/asus?trk=public_jobs_people-also-viewed_aside-job-card-subtitle
+                - generic [ref=e235]:
+                  - generic [ref=e236]: Boston, MA
+                  - time [ref=e237]: 1 day ago
+          - listitem [ref=e238]:
+            - generic [ref=e239]:
+              - link "AI Engineer" [ref=e240] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/ai-engineer-at-blue-cross-blue-shield-of-massachusetts-4398075957?refId=4I1%2BRyFzrQMX7K9bVXB48Q%3D%3D&trackingId=oa2M0iTk00B17vl6JHrAJQ%3D%3D
+                - generic [ref=e241]: AI Engineer
+              - generic [ref=e242]:
+                - heading "AI Engineer" [level=3] [ref=e243]
+                - paragraph [ref=e244]:
+                  - link "Blue Cross Blue Shield of Massachusetts" [ref=e245] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/blue-cross-blue-shield-of-massachusetts?trk=public_jobs_people-also-viewed_aside-job-card-subtitle
+                - generic [ref=e246]:
+                  - generic [ref=e247]: Boston, MA
+                  - time [ref=e248]: 1 week ago
+          - listitem [ref=e249]:
+            - generic [ref=e250]:
+              - link "Machine Learning Engineer, Distributed & Scalable Training" [ref=e251] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/machine-learning-engineer-distributed-scalable-training-at-lila-sciences-4312073984?refId=4I1%2BRyFzrQMX7K9bVXB48Q%3D%3D&trackingId=Yd7H9juo5PMmV4zG1LIsmg%3D%3D
+                - generic [ref=e252]: Machine Learning Engineer, Distributed & Scalable Training
+              - generic [ref=e253]:
+                - heading "Machine Learning Engineer, Distributed & Scalable Training" [level=3] [ref=e254]
+                - paragraph [ref=e255]:
+                  - link "Lila Sciences" [ref=e256] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/lila-sciences?trk=public_jobs_people-also-viewed_aside-job-card-subtitle
+                - generic [ref=e257]:
+                  - generic [ref=e258]: Cambridge, MA
+                  - time [ref=e259]: 19 hours ago
+          - listitem [ref=e260]:
+            - generic [ref=e261]:
+              - link "AI/ML Research Engineer" [ref=e262] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/ai-ml-research-engineer-at-manifold-bio-4401307859?refId=4I1%2BRyFzrQMX7K9bVXB48Q%3D%3D&trackingId=S1Q1TpEMDaF0cB4IcoIcLQ%3D%3D
+                - generic [ref=e263]: AI/ML Research Engineer
+              - generic [ref=e264]:
+                - heading "AI/ML Research Engineer" [level=3] [ref=e265]
+                - paragraph [ref=e266]:
+                  - link "Manifold Bio" [ref=e267] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/manifold-bio?trk=public_jobs_people-also-viewed_aside-job-card-subtitle
+                - generic [ref=e268]:
+                  - generic [ref=e269]: Boston, MA
+                  - time [ref=e270]: 1 week ago
+          - listitem [ref=e271]:
+            - generic [ref=e272]:
+              - link "AI Trainer - Advanced Python Developers - Boston" [ref=e273] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/ai-trainer-advanced-python-developers-boston-at-prolific-4391191062?refId=4I1%2BRyFzrQMX7K9bVXB48Q%3D%3D&trackingId=zYOzRPQ%2Bl8eiovBKVIRMkw%3D%3D
+                - generic [ref=e274]: AI Trainer - Advanced Python Developers - Boston
+              - generic [ref=e275]:
+                - heading "AI Trainer - Advanced Python Developers - Boston" [level=3] [ref=e276]
+                - paragraph [ref=e277]:
+                  - link "Prolific" [ref=e278] [cursor=pointer]:
+                    - /url: https://uk.linkedin.com/company/prolific-com?trk=public_jobs_people-also-viewed_aside-job-card-subtitle
+                - generic [ref=e279]:
+                  - generic [ref=e280]: Boston, MA
+                  - time [ref=e281]: 1 month ago
+          - listitem [ref=e282]:
+            - generic [ref=e283]:
+              - link "Machine Learning / Reinforcement Learning Engineer" [ref=e284] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/machine-learning-reinforcement-learning-engineer-at-eka-robotics-4408721110?refId=4I1%2BRyFzrQMX7K9bVXB48Q%3D%3D&trackingId=HpN%2FmRBy%2FonifGx1KDyLXQ%3D%3D
+                - generic [ref=e285]: Machine Learning / Reinforcement Learning Engineer
+              - generic [ref=e286]:
+                - heading "Machine Learning / Reinforcement Learning Engineer" [level=3] [ref=e287]
+                - paragraph [ref=e288]:
+                  - link "Eka Robotics" [ref=e289] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/eka-robotics?trk=public_jobs_people-also-viewed_aside-job-card-subtitle
+                - generic [ref=e290]:
+                  - generic [ref=e291]: Cambridge, MA
+                  - time [ref=e292]: 1 week ago
+          - listitem [ref=e293]:
+            - generic [ref=e294]:
+              - link "Internship - Applied AI Engineer" [ref=e295] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/internship-applied-ai-engineer-at-infineon-technologies-4392094120?refId=4I1%2BRyFzrQMX7K9bVXB48Q%3D%3D&trackingId=%2B%2FElYselCRp1TBf5IW%2FItw%3D%3D
+                - generic [ref=e296]: Internship - Applied AI Engineer
+              - generic [ref=e297]:
+                - heading "Internship - Applied AI Engineer" [level=3] [ref=e298]
+                - paragraph [ref=e299]:
+                  - link "Infineon Technologies" [ref=e300] [cursor=pointer]:
+                    - /url: https://de.linkedin.com/company/infineon-technologies?trk=public_jobs_people-also-viewed_aside-job-card-subtitle
+                - generic [ref=e301]:
+                  - generic [ref=e302]: Andover, MA
+                  - time [ref=e303]: 2 days ago
+          - listitem [ref=e304]:
+            - generic [ref=e305]:
+              - link "Data Scientist - Data-Driven Global Investment Firm" [ref=e306] [cursor=pointer]:
+                - /url: https://www.linkedin.com/jobs/view/data-scientist-data-driven-global-investment-firm-at-andiamo-4381047972?refId=4I1%2BRyFzrQMX7K9bVXB48Q%3D%3D&trackingId=OOWIg7lXV1H95aDvNQ0c1A%3D%3D
+                - generic [ref=e307]: Data Scientist - Data-Driven Global Investment Firm
+              - generic [ref=e308]:
+                - heading "Data Scientist - Data-Driven Global Investment Firm" [level=3] [ref=e309]
+                - paragraph [ref=e310]:
+                  - link "Andiamo" [ref=e311] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/andiamo-partners?trk=public_jobs_people-also-viewed_aside-job-card-subtitle
+                - generic [ref=e312]:
+                  - generic [ref=e313]: Boston, MA
+                  - time [ref=e314]: 2 days ago
+      - generic [ref=e315]:
+        - heading "Similar Searches" [level=2] [ref=e316]
+        - list [ref=e318]:
+          - listitem [ref=e319]:
+            - link "Mechanical Engineering Manager jobs 14,581 open jobs" [ref=e320] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/mechanical-engineering-manager-jobs?trk=public_jobs_full-click
+              - generic [ref=e321]:
+                - heading "Mechanical Engineering Manager jobs" [level=3] [ref=e322]
+                - generic [ref=e323]: 14,581 open jobs
+          - listitem [ref=e324]:
+            - link "Vice President Audit jobs 1,703 open jobs" [ref=e325] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/vice-president-audit-jobs?trk=public_jobs_full-click
+              - generic [ref=e326]:
+                - heading "Vice President Audit jobs" [level=3] [ref=e327]
+                - generic [ref=e328]: 1,703 open jobs
+          - listitem [ref=e329]:
+            - link "Director of Manufacturing Engineering jobs 4,451 open jobs" [ref=e330] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/director-of-manufacturing-engineering-jobs?trk=public_jobs_full-click
+              - generic [ref=e331]:
+                - heading "Director of Manufacturing Engineering jobs" [level=3] [ref=e332]
+                - generic [ref=e333]: 4,451 open jobs
+          - listitem [ref=e334]:
+            - link "Intellectual Property Manager jobs 951 open jobs" [ref=e335] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/intellectual-property-manager-jobs?trk=public_jobs_full-click
+              - generic [ref=e336]:
+                - heading "Intellectual Property Manager jobs" [level=3] [ref=e337]
+                - generic [ref=e338]: 951 open jobs
+          - listitem [ref=e339]:
+            - link "Manufacturing Quality Engineer jobs 17,848 open jobs" [ref=e340] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/manufacturing-quality-engineer-jobs?trk=public_jobs_full-click
+              - generic [ref=e341]:
+                - heading "Manufacturing Quality Engineer jobs" [level=3] [ref=e342]
+                - generic [ref=e343]: 17,848 open jobs
+          - listitem [ref=e344]:
+            - link "Head of Corporate Development jobs 2,663 open jobs" [ref=e345] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/head-of-corporate-development-jobs?trk=public_jobs_full-click
+              - generic [ref=e346]:
+                - heading "Head of Corporate Development jobs" [level=3] [ref=e347]
+                - generic [ref=e348]: 2,663 open jobs
+          - listitem [ref=e349]:
+            - link "Audit Executive jobs 45,953 open jobs" [ref=e350] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/audit-executive-jobs?trk=public_jobs_full-click
+              - generic [ref=e351]:
+                - heading "Audit Executive jobs" [level=3] [ref=e352]
+                - generic [ref=e353]: 45,953 open jobs
+          - listitem [ref=e354]:
+            - link "Head of Audit jobs 1,557 open jobs" [ref=e355] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/head-of-audit-jobs?trk=public_jobs_full-click
+              - generic [ref=e356]:
+                - heading "Head of Audit jobs" [level=3] [ref=e357]
+                - generic [ref=e358]: 1,557 open jobs
+          - listitem [ref=e359]:
+            - link "MBA Director jobs 782 open jobs" [ref=e360] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/mba-director-jobs?trk=public_jobs_full-click
+              - generic [ref=e361]:
+                - heading "MBA Director jobs" [level=3] [ref=e362]
+                - generic [ref=e363]: 782 open jobs
+          - listitem [ref=e364]:
+            - link "Diesel Technician jobs 28,872 open jobs" [ref=e365] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/diesel-technician-jobs?trk=public_jobs_full-click
+              - generic [ref=e366]:
+                - heading "Diesel Technician jobs" [level=3] [ref=e367]
+                - generic [ref=e368]: 28,872 open jobs
+          - listitem [ref=e369]:
+            - link "Vice President Corporate Development jobs 1,234 open jobs" [ref=e370] [cursor=pointer]:
+              - /url: https://www.linkedin.com/jobs/vice-president-corporate-development-jobs?trk=public_jobs_full-click
+              - generic [ref=e371]:
+                - heading "Vice President Corporate Development jobs" [level=3] [ref=e372]
+                - generic [ref=e373]: 1,234 open jobs
+      - generic [ref=e376]:
+        - heading "Explore top content on LinkedIn" [level=2] [ref=e378]
+        - paragraph [ref=e379]: Find curated posts and insights for relevant topics all in one place.
+        - link "View top content" [ref=e380] [cursor=pointer]:
+          - /url: https://www.linkedin.com/top-content/
+  - generic [ref=e384]:
+    - button "More searches" [ref=e385] [cursor=pointer]: More searches
+    - list
+  - contentinfo [ref=e387]:
+    - list [ref=e388]:
+      - listitem [ref=e389]:
+        - generic [ref=e390]: LinkedIn
+        - generic [ref=e392]: © 2026
+      - listitem [ref=e393]:
+        - link "About" [ref=e394] [cursor=pointer]:
+          - /url: https://about.linkedin.com?trk=d_jobs_guest_details_footer-about
+      - listitem [ref=e395]:
+        - link "Accessibility" [ref=e396] [cursor=pointer]:
+          - /url: https://www.linkedin.com/accessibility?trk=d_jobs_guest_details_footer-accessibility
+      - listitem [ref=e397]:
+        - link "User Agreement" [ref=e398] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/user-agreement?trk=d_jobs_guest_details_footer-user-agreement
+      - listitem [ref=e399]:
+        - link "Privacy Policy" [ref=e400] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/privacy-policy?trk=d_jobs_guest_details_footer-privacy-policy
+      - listitem [ref=e401]:
+        - link "Your California Privacy Choices" [ref=e402] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/california-privacy-disclosure?trk=d_jobs_guest_details_footer-california-privacy-rights-act
+      - listitem [ref=e403]:
+        - link "Cookie Policy" [ref=e404] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/cookie-policy?trk=d_jobs_guest_details_footer-cookie-policy
+      - listitem [ref=e405]:
+        - link "Copyright Policy" [ref=e406] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/copyright-policy?trk=d_jobs_guest_details_footer-copyright-policy
+      - listitem [ref=e407]:
+        - link "Brand Policy" [ref=e408] [cursor=pointer]:
+          - /url: https://brand.linkedin.com/policies?trk=d_jobs_guest_details_footer-brand-policy
+      - listitem [ref=e409]:
+        - link "Guest Controls" [ref=e410] [cursor=pointer]:
+          - /url: https://www.linkedin.com/psettings/guest-controls?trk=d_jobs_guest_details_footer-guest-controls
+      - listitem [ref=e411]:
+        - link "Community Guidelines" [ref=e412] [cursor=pointer]:
+          - /url: https://www.linkedin.com/legal/professional-community-policies?trk=d_jobs_guest_details_footer-community-guide
+      - listitem [ref=e413]:
+        - button "Language" [ref=e415]: Language
