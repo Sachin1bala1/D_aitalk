@@ -10,7 +10,7 @@ const GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 
 const SCOPES = [
-  "https://www.googleapis.com/auth/generative-language.retriever",
+  "https://www.googleapis.com/auth/generative-language",
   "email",
   "profile",
 ].join(" ");

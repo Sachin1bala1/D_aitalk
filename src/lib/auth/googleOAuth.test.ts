@@ -42,7 +42,9 @@ describe("buildAuthUrl", () => {
     expect(url).toContain("code_challenge=abc123");
     expect(url).toContain("code_challenge_method=S256");
     expect(url).toContain("state=xyz");
-    expect(url).toContain("scope=");
+    expect(url).toContain("response_type=code");
+    expect(url).toContain("access_type=offline");
+    expect(url).toContain("generative-language");
   });
 });
 
