@@ -148,6 +148,41 @@ export const GEMINI_REFRESH_TOKEN_KEY = "gemini_refresh_token";
 export const GEMINI_TOKEN_EXPIRY_KEY = "gemini_token_expiry";
 const OAUTH_EXPIRY_BUFFER_MS = 60_000;
 
+// Keys are stored under "daitalk_<key>" in the OS keychain, matching the prefix
+// used by the rest of the app, but bypassing the ProviderID-typed saveApiKeyToKeychain.
+const KEYCHAIN_PREFIX = "daitalk_";
+const LS_PREFIX = "daitalk_apikey_";
+
+async function storeOAuthValue(key: string, value: string): Promise<void> {
+  const { DbClient } = await import("../db/DbClient");
+  if (typeof window !== "undefined") {
+    if (value) {
+      localStorage.setItem(LS_PREFIX + key, value);
+    } else {
+      localStorage.removeItem(LS_PREFIX + key);
+    }
+  }
+  try {
+    await DbClient.storeApiKey(KEYCHAIN_PREFIX + key, value);
+  } catch {
+    // localStorage backup is sufficient
+  }
+}
+
+async function loadOAuthValue(key: string): Promise<string> {
+  const { DbClient } = await import("../db/DbClient");
+  try {
+    const val = await DbClient.getApiKey(KEYCHAIN_PREFIX + key);
+    if (val) return val;
+  } catch {
+    // keychain unavailable — fall through to localStorage
+  }
+  if (typeof window !== "undefined") {
+    return localStorage.getItem(LS_PREFIX + key) ?? "";
+  }
+  return "";
+}
+
 // ── Full OAuth flow ───────────────────────────────────────────────────────────
 
 /**
@@ -158,17 +193,17 @@ const OAUTH_EXPIRY_BUFFER_MS = 60_000;
 export async function startGoogleOAuthFlow(): Promise<TokenResponse> {
   const { invoke } = await import("@tauri-apps/api/core");
   const { open } = await import("@tauri-apps/plugin-shell");
-  const { saveApiKeyToKeychain } = await import("../ai/types");
   const { listen } = await import("@tauri-apps/api/event");
 
   const { codeVerifier, codeChallenge } = await generatePKCE();
-  const state = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))))
-    .replace(/[^A-Za-z0-9]/g, "")
-    .slice(0, 16);
+  // Use crypto.randomUUID for state — full 128-bit entropy, no stripping needed
+  const state = crypto.randomUUID().replace(/-/g, "");
 
   let resolvePort!: (port: number) => void;
-  const portPromise = new Promise<number>((resolve) => {
+  let rejectPort!: (err: Error) => void;
+  const portPromise = new Promise<number>((resolve, reject) => {
     resolvePort = resolve;
+    rejectPort = reject;
   });
 
   const unlisten = await listen<{ port: number }>("oauth_server_ready", (event) => {
@@ -176,17 +211,26 @@ export async function startGoogleOAuthFlow(): Promise<TokenResponse> {
     unlisten();
   });
 
+  const portTimeout = setTimeout(() => {
+    unlisten();
+    rejectPort(new Error("OAuth server did not start within 5 seconds"));
+  }, 5000);
+
   const callbackPromise = invoke<{ code: string; state: string; port: number }>(
     "start_oauth_server",
     { stateParam: state }
-  );
+  ).catch((err) => {
+    clearTimeout(portTimeout);
+    unlisten();
+    throw err;
+  });
 
-  const port = await Promise.race([
-    portPromise,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("OAuth server did not start")), 5000)
-    ),
-  ]);
+  let port: number;
+  try {
+    port = await portPromise;
+  } finally {
+    clearTimeout(portTimeout);
+  }
 
   const redirectUri = `http://127.0.0.1:${port}/callback`;
   const authUrl = buildAuthUrl({
@@ -207,11 +251,11 @@ export async function startGoogleOAuthFlow(): Promise<TokenResponse> {
     codeVerifier,
   });
 
-  await saveApiKeyToKeychain(GEMINI_ACCESS_TOKEN_KEY as any, tokens.accessToken);
+  await storeOAuthValue(GEMINI_ACCESS_TOKEN_KEY, tokens.accessToken);
   if (tokens.refreshToken) {
-    await saveApiKeyToKeychain(GEMINI_REFRESH_TOKEN_KEY as any, tokens.refreshToken);
+    await storeOAuthValue(GEMINI_REFRESH_TOKEN_KEY, tokens.refreshToken);
   }
-  await saveApiKeyToKeychain(GEMINI_TOKEN_EXPIRY_KEY as any, String(tokens.expiresAt));
+  await storeOAuthValue(GEMINI_TOKEN_EXPIRY_KEY, String(tokens.expiresAt));
 
   return tokens;
 }
@@ -221,16 +265,13 @@ export async function startGoogleOAuthFlow(): Promise<TokenResponse> {
  * Returns null if no token is stored.
  */
 export async function loadGeminiOAuthToken(): Promise<string | null> {
-  const { loadApiKeysFromKeychain, saveApiKeyToKeychain } = await import("../ai/types");
-  const keys = await loadApiKeysFromKeychain();
-
-  const accessToken = (keys as any)[GEMINI_ACCESS_TOKEN_KEY];
-  const refreshToken = (keys as any)[GEMINI_REFRESH_TOKEN_KEY];
-  const expiryStr = (keys as any)[GEMINI_TOKEN_EXPIRY_KEY];
-
+  const accessToken = await loadOAuthValue(GEMINI_ACCESS_TOKEN_KEY);
   if (!accessToken) return null;
 
-  const expiry = Number(expiryStr ?? 0);
+  const refreshToken = await loadOAuthValue(GEMINI_REFRESH_TOKEN_KEY);
+  const expiryStr = await loadOAuthValue(GEMINI_TOKEN_EXPIRY_KEY);
+
+  const expiry = Number(expiryStr || 0);
   const nearExpiry = expiry > 0 && Date.now() >= expiry - OAUTH_EXPIRY_BUFFER_MS;
 
   if (nearExpiry && refreshToken) {
@@ -239,8 +280,8 @@ export async function loadGeminiOAuthToken(): Promise<string | null> {
         clientId: GOOGLE_CLIENT_ID,
         refreshToken,
       });
-      await saveApiKeyToKeychain(GEMINI_ACCESS_TOKEN_KEY as any, refreshed.accessToken);
-      await saveApiKeyToKeychain(GEMINI_TOKEN_EXPIRY_KEY as any, String(refreshed.expiresAt));
+      await storeOAuthValue(GEMINI_ACCESS_TOKEN_KEY, refreshed.accessToken);
+      await storeOAuthValue(GEMINI_TOKEN_EXPIRY_KEY, String(refreshed.expiresAt));
       return refreshed.accessToken;
     } catch {
       return null;
@@ -252,8 +293,7 @@ export async function loadGeminiOAuthToken(): Promise<string | null> {
 
 /** Disconnect Google account — removes all OAuth tokens from keychain. */
 export async function disconnectGoogleAccount(): Promise<void> {
-  const { saveApiKeyToKeychain } = await import("../ai/types");
-  await saveApiKeyToKeychain(GEMINI_ACCESS_TOKEN_KEY as any, "");
-  await saveApiKeyToKeychain(GEMINI_REFRESH_TOKEN_KEY as any, "");
-  await saveApiKeyToKeychain(GEMINI_TOKEN_EXPIRY_KEY as any, "");
+  await storeOAuthValue(GEMINI_ACCESS_TOKEN_KEY, "");
+  await storeOAuthValue(GEMINI_REFRESH_TOKEN_KEY, "");
+  await storeOAuthValue(GEMINI_TOKEN_EXPIRY_KEY, "");
 }
