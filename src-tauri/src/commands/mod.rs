@@ -9,6 +9,7 @@ mod query;
 mod schema;
 mod state;
 mod utility;
+mod oauth;
 
 pub use ai::*;
 pub use connection::*;
@@ -21,3 +22,4 @@ pub use query::*;
 pub use schema::*;
 pub use state::*;
 pub use utility::*;
+pub use oauth::*;

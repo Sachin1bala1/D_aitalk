@@ -134,6 +134,7 @@ pub fn run() {
             commands::list_derived_tables,
             commands::drop_derived_table,
             commands::clear_query_cache,
+            commands::start_oauth_server,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
