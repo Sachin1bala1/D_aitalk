@@ -203,11 +203,18 @@ export function ProviderSettingsDialog({ open, onClose, onSave }: Props) {
                   )}
                 </button>
               </div>
-              {activeKey && activeMeta.keyPrefix && !activeKey.startsWith(activeMeta.keyPrefix) && (
-                <p className="mt-1 text-xs text-amber-400/70">
-                  Key should start with "{activeMeta.keyPrefix}"
-                </p>
-              )}
+              {activeKey && activeMeta.keyPrefix && (() => {
+                const prefixes = Array.isArray(activeMeta.keyPrefix)
+                  ? activeMeta.keyPrefix
+                  : [activeMeta.keyPrefix];
+                const valid = prefixes.length === 0 || prefixes.some((p) => activeKey.startsWith(p));
+                if (valid) return null;
+                return (
+                  <p className="mt-1 text-xs text-amber-400/70">
+                    Key should start with {prefixes.map((p) => `"${p}"`).join(" or ")}
+                  </p>
+                );
+              })()}
             </div>
           )}
 

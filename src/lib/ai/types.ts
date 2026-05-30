@@ -92,7 +92,8 @@ export interface ProviderMeta {
   name: string;
   icon: string; // emoji fallback
   keyPlaceholder: string;
-  keyPrefix: string;
+  /** One or more valid key prefixes — warning shown if key matches none. Empty array = no validation. */
+  keyPrefix: string | string[];
   defaultModel: string;
   models: { id: string; label: string }[];
   /** For NVIDIA / any custom base URL provider */
@@ -119,8 +120,8 @@ export const PROVIDER_CATALOG: ProviderMeta[] = [
     id: "gemini",
     name: "Gemini (Google)",
     icon: "✦",
-    keyPlaceholder: "AIzaSy...",
-    keyPrefix: "AIza",
+    keyPlaceholder: "AIzaSy… or AQ.…",
+    keyPrefix: ["AIza", "AQ."],
     defaultModel: "gemini-2.5-flash",
     models: [
       { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro (best)" },
