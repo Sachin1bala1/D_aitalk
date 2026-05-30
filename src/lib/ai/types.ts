@@ -121,12 +121,12 @@ export const PROVIDER_CATALOG: ProviderMeta[] = [
     icon: "✦",
     keyPlaceholder: "AIzaSy...",
     keyPrefix: "AIza",
-    defaultModel: "gemini-2.5-pro-preview-05-06",
+    defaultModel: "gemini-2.5-flash",
     models: [
-      { id: "gemini-2.5-pro-preview-05-06", label: "Gemini 2.5 Pro (best)" },
-      { id: "gemini-2.5-flash-preview-05-20", label: "Gemini 2.5 Flash (fast)" },
+      { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro (best)" },
+      { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash (fast, recommended)" },
       { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
-      { id: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
+      { id: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
     ],
   },
   {

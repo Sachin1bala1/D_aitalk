@@ -9,7 +9,8 @@ export class GeminiProvider implements AIProvider {
   private client: GoogleGenAI;
 
   constructor(apiKey: string) {
-    this.client = new GoogleGenAI({ apiKey });
+    // Use v1 (stable) — Gemini 2.5 models are not available on v1beta
+    this.client = new GoogleGenAI({ apiKey, httpOptions: { apiVersion: "v1" } });
   }
 
   async stream(params: {
