@@ -12,10 +12,18 @@ import { PROVIDER_CATALOG } from "./types";
 export function getProvider(settings: ProviderSettings): AIProvider | null {
   const { activeProvider, keys } = settings;
 
-  // Ollama is local — no API key required
   if (activeProvider === "ollama") return new OllamaProvider();
 
   const apiKey = keys[activeProvider] ?? "";
+
+  if (activeProvider === "gemini") {
+    // OAuth access token takes priority over API key
+    const accessToken = (keys as Record<string, string | undefined>)["gemini_access_token"];
+    if (accessToken) return new GeminiProvider({ accessToken });
+    if (apiKey) return new GeminiProvider({ apiKey });
+    return null;
+  }
+
   if (!apiKey) return null;
 
   const meta = PROVIDER_CATALOG.find((p) => p.id === activeProvider);
@@ -23,8 +31,6 @@ export function getProvider(settings: ProviderSettings): AIProvider | null {
   switch (activeProvider) {
     case "claude":
       return new ClaudeProvider(apiKey);
-    case "gemini":
-      return new GeminiProvider(apiKey);
     case "openai":
       return new OpenAIProvider(apiKey, "openai");
     case "nvidia":

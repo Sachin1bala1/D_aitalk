@@ -2,14 +2,23 @@ import { GoogleGenAI } from "@google/genai";
 import type { Content, Part, Schema, FunctionDeclaration } from "@google/genai";
 import type { AIProvider, ConversationTurn, StreamResult, ToolParameter, UnifiedTool } from "../types";
 
+export type GeminiInit = { apiKey: string } | { accessToken: string };
+
 export class GeminiProvider implements AIProvider {
   readonly id = "gemini" as const;
   readonly name = "Gemini";
 
   private client: GoogleGenAI;
 
-  constructor(apiKey: string) {
-    this.client = new GoogleGenAI({ apiKey });
+  constructor(init: GeminiInit | string) {
+    if (typeof init === "string") {
+      this.client = new GoogleGenAI({ apiKey: init });
+    } else if ("apiKey" in init) {
+      this.client = new GoogleGenAI({ apiKey: init.apiKey });
+    } else {
+      // OAuth access token: passed to googleAuthOptions for Node.js Vertex AI auth
+      this.client = new GoogleGenAI({ accessToken: init.accessToken } as any);
+    }
   }
 
   async stream(params: {

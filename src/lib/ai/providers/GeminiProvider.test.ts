@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { unifiedParamsToGemini } from "./GeminiProvider";
+import { unifiedParamsToGemini, GeminiProvider } from "./GeminiProvider";
 import type { UnifiedTool } from "../types";
 
 describe("GeminiProvider schema normalization", () => {
@@ -33,5 +33,39 @@ describe("GeminiProvider schema normalization", () => {
     expect(schema.properties?.values?.properties?.nested?.type).toBe("STRING");
     expect(schema.properties?.columns?.type).toBe("ARRAY");
     expect(schema.properties?.columns?.items?.type).toBe("STRING");
+  });
+});
+
+import { vi } from "vitest";
+
+vi.mock("@google/genai", () => {
+  class MockGoogleGenAI {
+    constructor(config: unknown) {
+      // Store config for verification in tests if needed
+    }
+    models = {
+      generateContentStream: vi.fn(),
+    };
+  }
+  return { GoogleGenAI: MockGoogleGenAI };
+});
+
+describe("GeminiProvider constructor", () => {
+  it("accepts apiKey string (legacy)", () => {
+    const provider = new GeminiProvider("AIzaSytest");
+    expect(provider.id).toBe("gemini");
+    expect(provider.name).toBe("Gemini");
+  });
+
+  it("accepts { apiKey } object", () => {
+    const provider = new GeminiProvider({ apiKey: "AIzaSytest2" });
+    expect(provider.id).toBe("gemini");
+    expect(provider.name).toBe("Gemini");
+  });
+
+  it("accepts { accessToken } object", () => {
+    const provider = new GeminiProvider({ accessToken: "ya29.test" });
+    expect(provider.id).toBe("gemini");
+    expect(provider.name).toBe("Gemini");
   });
 });
