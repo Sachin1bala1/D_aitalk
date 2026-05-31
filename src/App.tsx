@@ -36,6 +36,7 @@ import { FounderDashboard } from "./components/panels/FounderDashboard";
 import { ObjectPropertiesPanel } from "./components/panels/ObjectPropertiesPanel";
 import { QuickOpenDialog } from "./components/dialogs/QuickOpenDialog";
 import { WelcomeScreen } from "./components/onboarding/WelcomeScreen";
+import { ConnectScreen } from "./components/onboarding/ConnectScreen";
 import { OnboardingTour } from "./components/onboarding/OnboardingTour";
 import { MemoryPanel } from "./components/ai/MemoryPanel";
 import HarnessDashboard from './components/admin/HarnessDashboard';
@@ -113,6 +114,7 @@ export default function App() {
   const [showWelcome, setShowWelcome] = useState(
     () => !loadAppPreferencesSync().onboardingDismissed,
   );
+  const [showConnectScreen, setShowConnectScreen] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [activePanel, setActivePanel] = useState<WorkspacePanel>("agent");
   const [inTransaction, setInTransaction] = useState(false);
@@ -151,6 +153,26 @@ export default function App() {
     }
 
     registerHandlers();
+
+    // Check if an AI provider is configured — show ConnectScreen if not
+    void (async () => {
+      const { loadApiKeysFromKeychain } = await import("./lib/ai/types");
+      const { loadGeminiOAuthToken } = await import("./lib/auth/googleOAuth");
+      try {
+        const [keys, oauthToken] = await Promise.all([
+          loadApiKeysFromKeychain(),
+          loadGeminiOAuthToken().catch(() => null),
+        ]);
+        const hasAnyProvider =
+          oauthToken ||
+          Object.values(keys).some((v) => typeof v === "string" && v.length > 0);
+        if (!hasAnyProvider) {
+          setShowConnectScreen(true);
+        }
+      } catch {
+        // keychain unavailable — don't block the user
+      }
+    })();
 
     // Listen for health monitor events from the Rust backend
     let unsubDrop: (() => void) | undefined;
@@ -1418,6 +1440,12 @@ export default function App() {
           handleExecute(sql);
         }}
       />
+
+      {showConnectScreen && (
+        <ConnectScreen
+          onComplete={() => setShowConnectScreen(false)}
+        />
+      )}
 
       {showWelcome && (
         <WelcomeScreen
