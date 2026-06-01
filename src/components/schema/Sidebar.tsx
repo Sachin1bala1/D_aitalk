@@ -193,7 +193,7 @@ export function Sidebar({
   const allDiscoveredSchemas = Object.keys(schemaGroups).sort();
 
   const schemasToShow =
-    hasSchemas && visibleSchemas && visibleSchemas.length > 0
+    hasSchemas && visibleSchemas !== undefined
       ? allDiscoveredSchemas.filter((s) => visibleSchemas.includes(s))
       : allDiscoveredSchemas;
 
@@ -218,10 +218,13 @@ export function Sidebar({
   const renderTableRow = (tableName: string, rowSchemaName: string = schemaName ?? "public") => {
     const isFocused =
       focusedNode != null &&
-      (focusedNode === tableName || focusedNode.endsWith(`.${tableName}`));
+      focusedNode === `${rowSchemaName}.${tableName}`;
     const tableMeta = fullSchema?.tables.find(
       (t) => t.name === tableName && (!hasSchemas || t.schema === rowSchemaName)
     );
+    // NOTE: fullSchema.columns is keyed by bare table name (not "schema.table").
+    // If two schemas have a table with the same name, this returns the last-written columns.
+    // Fix requires keying by "schema.table" in the Rust introspection layer — tracked as a future improvement.
     const richCols = fullSchema?.columns[tableName];
     const fkColumns = new Set(
       fullSchema?.foreign_keys
@@ -477,7 +480,6 @@ export function Sidebar({
             visibleSchemas={visibleSchemas ?? allDiscoveredSchemas}
             onChange={(schemas) => {
               onVisibleSchemasChange(schemas);
-              setFilterOpen(false);
             }}
             onClose={() => setFilterOpen(false)}
           />
