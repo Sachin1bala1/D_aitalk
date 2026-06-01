@@ -130,6 +130,7 @@ export default function App() {
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
   const [proactiveSuggestions, setProactiveSuggestions] = useState<ProactiveSuggestion[]>([]);
   const [workspaceSessionReady, setWorkspaceSessionReady] = useState(false);
+  const visibleSchemas = useWorkspaceStore((s) => s.visibleSchemas);
   const persistedArtifacts = useWorkspaceStore((state) => state.artifacts);
   const persistedArtifactRevisions = useWorkspaceStore((state) => state.artifactRevisions);
   const persistedArtifactHeads = useWorkspaceStore((state) => state.artifactHeads);
@@ -1099,6 +1100,10 @@ export default function App() {
                 setEditorSql(sql);
                 toast.info(`Running: ${description}`);
                 setTimeout(() => handleExecute(), 50);
+              }}
+              visibleSchemas={activeConnectionId ? (visibleSchemas[activeConnectionId] ?? []) : []}
+              onVisibleSchemasChange={(schemas) => {
+                if (activeConnectionId) setVisibleSchemas(activeConnectionId, schemas);
               }}
             />
           ) : (
