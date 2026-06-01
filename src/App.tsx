@@ -94,6 +94,7 @@ export default function App() {
     gogChartRequest,
     setSelectedTableNode,
     setSchema,
+    setVisibleSchemas,
     setActiveConnection,
     addConnection,
     removeConnection,
@@ -802,10 +803,28 @@ export default function App() {
     try {
       const schema = await DbClient.getSchema(connectionId);
       setSchema(connectionId, schema);
+
+      // Run smart default once per connection (when visible_schemas not yet set)
+      const conn = connections.find((c) => c.id === connectionId);
+      if (conn && !conn.visible_schemas) {
+        const { deriveDefaultVisibleSchemas } = await import("./lib/schema/schemaDefaults");
+        const defaults = deriveDefaultVisibleSchemas(schema);
+        setVisibleSchemas(connectionId, defaults);
+      }
     } catch (error: any) {
-      // Still set an empty schema so the sidebar renders (connection is active, schema just unavailable)
-      setSchema(connectionId, { tables: [], columns: {}, functions: [], foreign_keys: [], indexes: [], hypertable_tables: [], driver: "postgres", connection_id: connectionId });
-      toast.error(`Schema load failed: ${error.message ?? "unknown error"} — click Refresh in sidebar to retry`);
+      setSchema(connectionId, {
+        tables: [],
+        columns: {},
+        functions: [],
+        foreign_keys: [],
+        indexes: [],
+        hypertable_tables: [],
+        driver: "postgres",
+        connection_id: connectionId,
+      });
+      toast.error(
+        `Schema load failed: ${error.message ?? "unknown error"} — click Refresh in sidebar to retry`
+      );
     }
   };
 
