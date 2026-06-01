@@ -1075,7 +1075,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     setVisibleSchemas: (connectionId, schemas) =>
       set((state) => {
         state.visibleSchemas[connectionId] = schemas;
-        // Persist to ConnectionConfig so it survives app restarts
+        // Marks visible_schemas on the in-memory ConnectionConfig so it flows
+        // through to persistConnections() when the caller saves connections.
         const conn = state.connections.find((c) => c.id === connectionId);
         if (conn) conn.visible_schemas = schemas;
       }),
