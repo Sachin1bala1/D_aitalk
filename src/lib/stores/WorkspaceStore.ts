@@ -624,6 +624,7 @@ export interface WorkspaceState {
   activeConnectionId: string | null;
   connections: ConnectionConfig[];
   schemas: Record<string, FullSchema>;
+  visibleSchemas: Record<string, string[]>;
   connectionHealth: Record<string, "healthy" | "error" | "checking">;
   connectionColors: Record<string, string>;
 
@@ -673,6 +674,7 @@ export interface WorkspaceState {
   addConnection: (config: ConnectionConfig) => void;
   removeConnection: (id: string) => void;
   setSchema: (connectionId: string, schema: FullSchema) => void;
+  setVisibleSchemas: (connectionId: string, schemas: string[]) => void;
   setConnectionHealth: (id: string, status: "healthy" | "error" | "checking") => void;
   setConnectionColor: (id: string, color: string) => void;
 
@@ -759,6 +761,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     activeConnectionId: null,
     connections: [],
     schemas: {},
+    visibleSchemas: {},
     connectionHealth: {},
     connectionColors: {},
 
@@ -1067,6 +1070,14 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     setSchema: (connectionId, schema) =>
       set((state) => {
         state.schemas[connectionId] = schema;
+      }),
+
+    setVisibleSchemas: (connectionId, schemas) =>
+      set((state) => {
+        state.visibleSchemas[connectionId] = schemas;
+        // Persist to ConnectionConfig so it survives app restarts
+        const conn = state.connections.find((c) => c.id === connectionId);
+        if (conn) conn.visible_schemas = schemas;
       }),
 
     setActiveTab: (tabId) =>

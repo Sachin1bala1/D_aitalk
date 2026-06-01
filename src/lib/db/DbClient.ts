@@ -98,6 +98,7 @@ export interface ConnectionConfig {
   pool_min?: number;
   pool_max?: number;
   read_only?: boolean;
+  visible_schemas?: string[];
   pi_config?: PIConfig;
   rest_config?: RestApiConfig;
 }
