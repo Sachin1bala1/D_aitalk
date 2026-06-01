@@ -386,6 +386,11 @@ export default function App() {
           addConnection(hydrated);
           const schema = await DbClient.getSchema(hydrated.id);
           setSchema(hydrated.id, schema);
+          if (!hydrated.visible_schemas) {
+            const { deriveDefaultVisibleSchemas } = await import("./lib/schema/schemaDefaults");
+            const defaults = deriveDefaultVisibleSchemas(schema);
+            setVisibleSchemas(hydrated.id, defaults);
+          }
           setConnectionHealth(hydrated.id, "healthy");
           if (!firstRestoredId) firstRestoredId = hydrated.id;
         } catch {
@@ -805,7 +810,7 @@ export default function App() {
       setSchema(connectionId, schema);
 
       // Run smart default once per connection (when visible_schemas not yet set)
-      const conn = connections.find((c) => c.id === connectionId);
+      const conn = useWorkspaceStore.getState().connections.find((c) => c.id === connectionId);
       if (conn && !conn.visible_schemas) {
         const { deriveDefaultVisibleSchemas } = await import("./lib/schema/schemaDefaults");
         const defaults = deriveDefaultVisibleSchemas(schema);
@@ -830,9 +835,6 @@ export default function App() {
 
   const handleConnect = async (connectionId: string, config?: import("./lib/db/DbClient").ConnectionConfig) => {
     setActiveConnection(connectionId);
-    await refreshSchema(connectionId);
-    updateTab(activeTabId, { connectionId });
-    setIsConnecting(false);
     if (config) {
       addConnection(config);
       const nextConnections = [
@@ -841,6 +843,9 @@ export default function App() {
       ];
       persistConnections(nextConnections).catch(() => {});
     }
+    await refreshSchema(connectionId);
+    updateTab(activeTabId, { connectionId });
+    setIsConnecting(false);
     toast.success("Connected");
     if (!smokeMode) {
       BusinessClient.trackUsageEvent({
