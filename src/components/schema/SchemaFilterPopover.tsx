@@ -38,6 +38,8 @@ export function SchemaFilterPopover({
   return (
     <div
       ref={ref}
+      role="dialog"
+      aria-label="Filter visible schemas"
       className="absolute top-8 right-2 z-50 w-52 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-xl py-2"
     >
       <p className="text-[10px] text-white/30 uppercase tracking-wider px-3 pb-1.5 border-b border-[#2a2a2a] mb-1">

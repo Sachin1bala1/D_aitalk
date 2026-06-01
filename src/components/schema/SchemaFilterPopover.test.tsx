@@ -24,6 +24,10 @@ describe("SchemaFilterPopover", () => {
   const allSchemas = ["public", "auth", "storage", "analytics"];
   const onChange = vi.fn();
 
+  beforeEach(() => {
+    onChange.mockReset();
+  });
+
   const render = (visible = ["public"]) => {
     act(() => {
       root.render(
