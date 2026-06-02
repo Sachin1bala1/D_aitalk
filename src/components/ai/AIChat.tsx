@@ -312,6 +312,7 @@ export function AIChat({ currentSQL, currentResults, currentSchema, connectionId
     addMsg({ role: "user", content: visibleUserMessage });
     setProactiveSuggestion(null);
     setIsProcessing(true);
+    setThinkingStatus("Thinking…");
     clearTaskCheckpoint();
 
     let memoryContext: MemoryContext | undefined;
