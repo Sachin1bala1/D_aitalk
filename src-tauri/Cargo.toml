@@ -41,7 +41,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 sqlparser = "0.43"
 
-# duckdb = { version = "1", features = ["bundled"] }  # Requires MSVC toolchain; MinGW linker fails on vtable symbols
+# duckdb = { version = "1", features = ["bundled"] }  # Requires MSVC toolchain (cl.exe); enable once VS Build Tools installed
 lru = "0.12"
 keyring = "3"
 hmac = "0.12"
@@ -80,3 +80,6 @@ incremental = false
 [profile.dev.package."*"]
 # All dependencies: no debug info either
 debug = false
+
+[profile.dev.package."libduckdb-sys"]
+opt-level = 1

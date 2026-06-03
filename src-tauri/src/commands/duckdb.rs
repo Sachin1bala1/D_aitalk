@@ -146,3 +146,26 @@ pub async fn duckdb_list_views(
         .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn register_file_with_duckdb(
+    path: String,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let duck = state.duckdb.clone();
+    tokio::task::spawn_blocking(move || duck.register_file(&path))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn list_duckdb_views(
+    state: State<'_, AppState>,
+) -> Result<Vec<String>, String> {
+    let duck = state.duckdb.clone();
+    tokio::task::spawn_blocking(move || duck.list_views())
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+}

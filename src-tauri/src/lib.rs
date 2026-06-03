@@ -64,6 +64,8 @@ pub fn run() {
             commands::duckdb_load_parquet,
             commands::duckdb_load_csv,
             commands::duckdb_list_views,
+            commands::register_file_with_duckdb,
+            commands::list_duckdb_views,
             commands::db_get_table_ddl,
             commands::db_update_parameter_affinity,
             commands::db_save_benchmark,
