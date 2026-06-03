@@ -23,42 +23,59 @@ use sha2::Sha256;
 
 type HmacSha256 = Hmac<Sha256>;
 
-const LICENSE_SECRET: &str = "dataiq-mvp-secret-2026";
+/// Parse and verify a license key of the form `DATAIQ-{TIER}-{expiry_days}-{hmac_hex}`.
+/// Returns `(tier_lower, expired)` on success, or `None` if the key is structurally
+/// invalid or the HMAC does not match.
+fn validate_license_key(key: &str) -> Option<(String, bool)> {
+    let secret = std::env::var("DATAIQ_LICENSE_SECRET")
+        .unwrap_or_else(|_| "dataiq-dev-secret-2026".to_string());
 
-fn validate_license_key(key: &str) -> Option<String> {
-    let parts: Vec<&str> = key.splitn(2, '-').collect();
-    if parts.len() != 2 {
+    let parts: Vec<&str> = key.trim().split('-').collect();
+    if parts.len() != 4 || parts[0] != "DATAIQ" {
         return None;
     }
-    let tier = parts[0].to_uppercase();
+
+    let tier = parts[1]; // "PRO" or "ENT"
     if tier != "PRO" && tier != "ENT" {
         return None;
     }
-    let expected_hmac = compute_license_hmac(&tier);
-    if parts[1].to_uppercase() == expected_hmac {
-        Some(tier)
-    } else {
-        None
-    }
-}
+    let expiry_str = parts[2];
+    let provided_hmac = parts[3];
 
-fn compute_license_hmac(tier: &str) -> String {
-    let mut mac = HmacSha256::new_from_slice(LICENSE_SECRET.as_bytes())
-        .expect("HMAC can take key of any size");
-    mac.update(tier.as_bytes());
-    let result = mac.finalize();
-    let bytes = result.into_bytes();
-    hex::encode(&bytes[..8]).to_uppercase()
+    // Verify HMAC-SHA256 over "TIER-expiry_days"
+    let message = format!("{}-{}", tier, expiry_str);
+    let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
+        .expect("HMAC can take any key size");
+    mac.update(message.as_bytes());
+    let computed = hex::encode(mac.finalize().into_bytes());
+
+    if computed != provided_hmac {
+        return None;
+    }
+
+    // Check expiry (days since Unix epoch)
+    let expiry_days: u64 = expiry_str.parse().unwrap_or(0);
+    let now_days = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+        / 86400;
+
+    let expired = now_days > expiry_days;
+    let tier_lower = tier.to_lowercase();
+    Some((tier_lower, expired))
 }
 
 #[tauri::command]
 pub fn activate_license(key: String) -> Result<String, String> {
-    let trimmed = key.trim().to_uppercase();
-    match validate_license_key(&trimmed) {
-        Some(tier) => {
+    match validate_license_key(key.trim()) {
+        Some((_tier, true)) => Err("License key has expired".to_string()),
+        Some((tier, false)) => {
             let entry =
                 keyring::Entry::new("daitalk", "license_key").map_err(|e| e.to_string())?;
-            entry.set_password(&trimmed).map_err(|e| e.to_string())?;
+            entry
+                .set_password(key.trim())
+                .map_err(|e| e.to_string())?;
             Ok(tier)
         }
         None => Err("Invalid license key".to_string()),
@@ -70,9 +87,9 @@ pub fn check_license() -> Result<serde_json::Value, String> {
     let entry = keyring::Entry::new("daitalk", "license_key").map_err(|e| e.to_string())?;
     match entry.get_password() {
         Ok(stored_key) => match validate_license_key(&stored_key) {
-            Some(tier) => {
-                let display = if tier == "ENT" { "enterprise" } else { "pro" };
-                Ok(serde_json::json!({ "tier": display, "valid": true }))
+            Some((tier, false)) => Ok(serde_json::json!({ "tier": tier, "valid": true })),
+            Some((_tier, true)) => {
+                Ok(serde_json::json!({ "tier": "free", "valid": false, "expired": true }))
             }
             None => Ok(serde_json::json!({ "tier": "free", "valid": false })),
         },
