@@ -137,6 +137,10 @@ pub fn run() {
             commands::drop_derived_table,
             commands::clear_query_cache,
             commands::start_oauth_server,
+            commands::pi_test_connection_direct,
+            commands::pi_search_tags_direct,
+            commands::pi_get_tag_history,
+            commands::pi_get_current_values,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
