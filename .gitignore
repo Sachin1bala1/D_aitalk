@@ -6,3 +6,4 @@ src-tauri/gen/
 .env.local
 *.log
 .worktrees/
+.playwright-mcp/
