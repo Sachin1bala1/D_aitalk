@@ -7,7 +7,7 @@
 import { commandBus } from "./CommandBus";
 import { AGENT_TOOLS } from "./toolDefinitions";
 import { isDestructive, describeCommand } from "./commands";
-import type { AgentCommand, RunUserToolCmd, DeclareHypothesesCmd, DeclareConfidenceCmd, CreateGoGChartCmd } from "./commands";
+import type { AgentCommand, RunUserToolCmd, DeclareHypothesesCmd, DeclareConfidenceCmd, CreateGoGChartCmd, QueryPIHistorianCmd } from "./commands";
 import { useUserToolStore } from "../stores/UserToolStore";
 import { userToolToUnifiedTool } from "../tools/user.tools";
 import { statToolToKernelKey } from "../tools/stat.tools";
@@ -461,6 +461,31 @@ async function resolveColumnTypes(
   return {};
 }
 
+// ── Domain Context ────────────────────────────────────────────────────────────
+
+/**
+ * Builds domain-specific context when PI tags are active in the workspace.
+ * Injected into the system prompt — additive only, does not change loop logic.
+ */
+export function buildDomainContext(piTags: Array<{ name: string; engineering_units: string }>): string {
+  if (piTags.length === 0) return '';
+  return `
+DOMAIN CONTEXT: You are analyzing industrial process data from an OSIsoft PI historian.
+Available PI tags: ${piTags.map((t) => `${t.name} (${t.engineering_units})`).join(', ')}
+
+Engineering analysis priorities:
+1. When asked about a tag, always compute descriptive statistics first
+2. For time-series data, create a control chart with 3σ limits by default
+3. Calculate Cp/Cpk when the user mentions spec limits or "capability"
+4. Use Western Electric rules to identify special causes, not common cause variation
+5. Frame all findings in terms of process impact, not just statistics
+6. A Cpk > 1.33 means the process is capable. Cpk < 1.0 means it is not.
+7. When you see violations on a control chart, suggest investigating root causes
+
+Never ask the engineer to write code. They are process domain experts, not developers.
+`;
+}
+
 // ── System Prompt ─────────────────────────────────────────────────────────────
 
 function buildSystemPrompt(
@@ -811,6 +836,12 @@ NEVER call create_chart with a column name that isn't in the loaded results.
     parts.push(`## Harness Guidance (Auto-Updated)\n${harnessAdditions}`);
   }
 
+  const domainContext = buildDomainContext(useWorkspaceStore.getState().piTags ?? []);
+  if (domainContext) {
+    // Append to existing system prompt
+    parts.push(domainContext);
+  }
+
   return parts.join("\n\n");
 }
 
@@ -1094,6 +1125,15 @@ function toolCallToCommand(
         webIds: i.web_ids as string[],
         risk: "safe",
       };
+    case "query_pi_historian":
+      return {
+        type: "query_pi_historian",
+        tag_names: i.tag_names as string[],
+        start_time: i.start_time as string,
+        end_time: i.end_time as string,
+        interval: i.interval as string,
+        risk: "safe",
+      } satisfies QueryPIHistorianCmd;
     default:
       return null;
   }
