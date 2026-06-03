@@ -637,6 +637,35 @@ export const AGENT_TOOLS: UnifiedTool[] = [
     }
   },
 
+  // ── PI Historian (high-level, tag-name-aware) ─────────────────────────────
+  {
+    name: "query_pi_historian",
+    description: "Query time-series data from an OSIsoft PI historian. Use when the user asks about process tags, sensor readings, or historical plant data. Automatically converts relative time expressions like 'last 30 days' to PI time format.",
+    parameters: {
+      type: "object" as const,
+      properties: {
+        tag_names: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of PI tag names to query (e.g. 'REACTOR_101_TEMP', 'PUMP_201_VIBRATION')",
+        } as any,
+        start_time: {
+          type: "string",
+          description: "Start time in PI format: '*-30d' for 30 days ago, '*-8h' for 8 hours ago, or ISO 8601",
+        },
+        end_time: {
+          type: "string",
+          description: "End time: '*' for now, or ISO 8601",
+        },
+        interval: {
+          type: "string",
+          description: "Interpolation interval: '1h' for hourly, '15m' for 15-minute, '1d' for daily",
+        },
+      },
+      required: ["tag_names", "start_time", "end_time", "interval"],
+    },
+  },
+
   // ── Billion-Scale Visualization ───────────────────────────────────────────
   {
     name: "create_gog_chart",

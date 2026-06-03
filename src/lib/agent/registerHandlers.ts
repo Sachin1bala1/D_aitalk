@@ -59,6 +59,7 @@ import type {
   PISearchTagsCmd,
   PIGetHistoryCmd,
   PIGetCurrentCmd,
+  QueryPIHistorianCmd,
   CreateDerivedTableCmd,
 } from "./commands";
 import { useUserToolStore } from "../stores/UserToolStore";
@@ -1593,6 +1594,71 @@ export function registerHandlers() {
       return { success: true, result: values };
     } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
+  // Handler for query_pi_historian
+  commandBus.register<QueryPIHistorianCmd>("query_pi_historian", async (cmd) => {
+    const store = useWorkspaceStore.getState();
+    const piTags = store.piTags;
+
+    // Look up WebIDs by tag name from saved workspace tags
+    const webIds = cmd.tag_names
+      .map((name) => piTags.find((t) => t.name === name)?.web_id)
+      .filter((id): id is string => Boolean(id));
+
+    if (webIds.length === 0) {
+      return {
+        success: false,
+        error: `No matching PI tags found for: ${cmd.tag_names.join(", ")}. Use the PI connection panel to add tags to your workspace first.`,
+      };
+    }
+
+    try {
+      const tagData = await invoke<Array<{
+        web_id: string;
+        name: string;
+        values: Array<{ timestamp: string; value: number | string; good: boolean }>;
+      }>>("pi_get_tag_history", {
+        connectionId: store.activeConnectionId ?? "",
+        webIds,
+        start: cmd.start_time,
+        end: cmd.end_time,
+        interval: cmd.interval,
+      });
+
+      // Convert to QueryResults format and store as current results
+      const allTimestamps = [...new Set(
+        tagData.flatMap((t) => t.values.map((v) => v.timestamp))
+      )].sort();
+
+      const rows = allTimestamps.map((ts) => {
+        const row: Record<string, unknown> = { timestamp: ts };
+        tagData.forEach((tag) => {
+          const point = tag.values.find((v) => v.timestamp === ts);
+          row[tag.name] = point?.good ? point.value : null;
+        });
+        return row;
+      });
+
+      const fields = [{ name: "timestamp" }, ...cmd.tag_names.map((name) => ({ name }))];
+      store.setQueryResults({
+        rows,
+        fields,
+        rowCount: rows.length,
+        elapsedMs: 0,
+        queryId: `pi-historian-${Date.now()}`,
+        source_tables: cmd.tag_names,
+      });
+
+      const totalPoints = tagData.reduce((n, t) => n + t.values.length, 0);
+      return {
+        success: true,
+        result: `Retrieved ${totalPoints} data points for ${cmd.tag_names.join(", ")} from ${cmd.start_time} to ${cmd.end_time}. The data has been loaded as the current result set. Consider calling create_chart with chart_type='control_chart' to visualize it with SPC limits.`,
+      };
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return { success: false, error: `Failed to query PI historian: ${msg}` };
     }
   });
 

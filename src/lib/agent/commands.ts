@@ -361,6 +361,15 @@ export interface PIGetCurrentCmd {
   risk: "safe";
 }
 
+export interface QueryPIHistorianCmd {
+  type: "query_pi_historian";
+  tag_names: string[];
+  start_time: string;
+  end_time: string;
+  interval: string;
+  risk: "safe";
+}
+
 // ── Union ─────────────────────────────────────────────────────────────────────
 
 export type AgentCommand =
@@ -399,6 +408,7 @@ export type AgentCommand =
   | PISearchTagsCmd
   | PIGetHistoryCmd
   | PIGetCurrentCmd
+  | QueryPIHistorianCmd
   | CreateDerivedTableCmd;
 
 export type CommandType = AgentCommand["type"];
@@ -457,5 +467,6 @@ export function describeCommand(cmd: AgentCommand): string {
     case "pi_get_history": return `PI history for ${cmd.webIds.length} tag(s): ${cmd.start} → ${cmd.end}`;
     case "pi_get_current": return `PI current values for ${cmd.webIds.length} tag(s)`;
     case "create_derived_table": return `Save derived table "${cmd.name}" (${cmd.rows.length} rows)`;
+    case "query_pi_historian": return `PI historian: ${cmd.tag_names.join(", ")} from ${cmd.start_time} to ${cmd.end_time}`;
   }
 }
