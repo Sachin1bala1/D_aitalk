@@ -99,6 +99,18 @@ export function isVisualizationRequest(question: string): boolean {
 
 const RESULT_FETCHING_TOOL_NAMES = new Set(["execute_sql", "open_table", "run_duckdb_analysis"]);
 
+/** Returns true when query results contain a timestamp column + ≥1 numeric column with ≥10 rows. */
+export function shouldAutoChart(results: { rows: unknown[]; fields: { name: string; dataType?: string }[] } | null | undefined): boolean {
+  if (!results || results.rows.length < 10) return false;
+  const hasTimestamp = results.fields.some(f =>
+    /time|date|timestamp|ts/i.test(f.name)
+  );
+  const numericCount = results.fields.filter(f =>
+    /int|float|double|decimal|numeric|real/i.test(f.dataType ?? '')
+  ).length;
+  return hasTimestamp && numericCount >= 1;
+}
+
 export function isUnderspecifiedVisualizationRequest(question: string): boolean {
   if (!isVisualizationRequest(question)) return false;
   const q = question.toLowerCase().trim();
@@ -1399,12 +1411,17 @@ export async function runAgentLoop(
 
           // Append data evidence summary for execute_sql results with rows
           let enrichedContent = rawContent;
+          let autoChartHint = "";
           if (result.success && tc.name === "execute_sql") {
             try {
               const qr = result.result as QueryResults | undefined;
               if (qr) {
                 const evidence = buildDataEvidence(qr);
                 if (evidence) enrichedContent = rawContent + "\n\n" + evidence;
+                // Inject auto-chart hint for time-series data
+                if (shouldAutoChart(qr)) {
+                  autoChartHint = "\n\n💡 The query result contains time-series data. Consider calling create_chart with chart_type='line' and time column on X-axis to visualize trends and control limits.";
+                }
               }
             } catch {
               // non-fatal — proceed without evidence
@@ -1414,7 +1431,7 @@ export async function runAgentLoop(
           return {
             toolCallId: tc.id,
             name: tc.name,
-            content: buildReflectionGuidance(tc.name, enrichedContent, !result.success),
+            content: buildReflectionGuidance(tc.name, enrichedContent + autoChartHint, !result.success),
             isError: !result.success,
           };
         } catch (err) {
