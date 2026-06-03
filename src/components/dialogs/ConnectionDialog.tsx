@@ -18,6 +18,7 @@ import {
 import { diagnoseConnection, DiagnosisResult } from "../../lib/connection/ConnectionDoctor";
 import { ConnectionDoctorPanel } from "./ConnectionDoctorPanel";
 import { loadApiKeysFromKeychain } from "../../lib/ai/types";
+import { PIConnectionPanel } from "./PIConnectionPanel";
 
 interface ConnectionDialogProps {
   open: boolean;
@@ -81,6 +82,12 @@ const DRIVER_OPTIONS: { value: DbDriver; label: string; placeholder: string; gro
     value: "p_i_historian",
     label: "PI Historian (OSIsoft)",
     placeholder: "https://pi-server/piwebapi",
+    group: "Industrial",
+  },
+  {
+    value: "pi",
+    label: "OSIsoft PI Web API",
+    placeholder: "https://pi-server.plant.com/piwebapi",
     group: "Industrial",
   },
   // ── API ───────────────────────────────────────────────────────────────────
@@ -200,6 +207,7 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
   const [restTestResult, setRestTestResult] = useState<string | null>(null);
 
   const isPIHistorian = driver === "p_i_historian";
+  const isPIWebApi = driver === "pi";
   const isRestApi = driver === "rest_api";
   const showStructuredAuth = supportsStructuredAuth(driver);
 
@@ -749,10 +757,27 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                 </div>
               )}
 
+              {/* PI Web API panel */}
+              {isPIWebApi && (
+                <div className="space-y-3 p-3 rounded-lg border border-[#00d2ff]/20 bg-[#00d2ff]/5">
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-[#00d2ff]/60">PI Web API</p>
+                  <PIConnectionPanel
+                    onConnected={(tags) => {
+                      const count = tags.length;
+                      toast.success(
+                        count > 0
+                          ? `Added ${count} PI tag${count !== 1 ? "s" : ""} to workspace`
+                          : "Connected to PI Web API"
+                      );
+                    }}
+                  />
+                </div>
+              )}
+
               <div className="flex gap-2 pt-2">
                 <button
                   onClick={handleTestConnection}
-                  disabled={(!connectionString && !isRestApi) || isConnecting || testStatus === "testing"}
+                  disabled={(!connectionString && !isRestApi && !isPIWebApi) || isConnecting || testStatus === "testing"}
                   className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg border text-xs font-bold transition-colors disabled:opacity-40 ${
                     testStatus === "ok"
                       ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/5"
@@ -773,7 +798,7 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                 </button>
                 <button
                   onClick={handleConnect}
-                  disabled={(!connectionString && !isRestApi) || isConnecting}
+                  disabled={(!connectionString && !isRestApi && !isPIWebApi) || isConnecting}
                   className="flex-1 px-4 py-2.5 rounded-lg bg-[#00d2ff] text-black text-sm font-bold hover:opacity-90 disabled:opacity-40 transition-opacity"
                 >
                   {isConnecting ? "Connecting..." : "Connect"}

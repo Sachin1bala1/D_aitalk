@@ -114,6 +114,7 @@ export type DbDriver =
   | "redis"
   | "clickhouse"
   | "p_i_historian"
+  | "pi"
   | "rest_api";
 
 export interface QueryBatch {

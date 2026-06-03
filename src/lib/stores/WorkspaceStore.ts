@@ -19,6 +19,15 @@ import type { QueryRuntimeHandle, QuerySessionState } from "../query/runtime";
 import type { ImpactMap } from '../agent/harness/ImpactMapEngine';
 
 export type AgentMode = "plan" | "auto";
+
+export interface PITag {
+  web_id: string;
+  name: string;
+  description: string;
+  path: string;
+  point_type: string;
+  engineering_units: string;
+}
 export type QueryTabType = "sql_editor" | "table_viewer";
 export type TabType = QueryTabType | "dashboard" | "artifact_chart" | "artifact_query" | "artifact_report";
 export type DashboardWidgetType =
@@ -630,6 +639,9 @@ export interface WorkspaceState {
   duckdbViews: string[];
   setDuckdbViews: (views: string[]) => void;
 
+  piTags: PITag[];
+  setPiTags: (tags: PITag[]) => void;
+
   focusedNode: string | null;
 
   chartRequest: ChartRequest | null;
@@ -767,6 +779,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     connectionHealth: {},
     connectionColors: {},
     duckdbViews: [],
+    piTags: [],
 
     focusedNode: null,
     chartRequest: null,
@@ -1087,6 +1100,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     setDuckdbViews: (views) =>
       set((state) => {
         state.duckdbViews = views;
+      }),
+
+    setPiTags: (tags) =>
+      set((state) => {
+        state.piTags = tags;
       }),
 
     setActiveTab: (tabId) =>
