@@ -627,6 +627,8 @@ export interface WorkspaceState {
   visibleSchemas: Record<string, string[]>;
   connectionHealth: Record<string, "healthy" | "error" | "checking">;
   connectionColors: Record<string, string>;
+  duckdbViews: string[];
+  setDuckdbViews: (views: string[]) => void;
 
   focusedNode: string | null;
 
@@ -764,6 +766,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     visibleSchemas: {},
     connectionHealth: {},
     connectionColors: {},
+    duckdbViews: [],
 
     focusedNode: null,
     chartRequest: null,
@@ -1079,6 +1082,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         // through to persistConnections() when the caller saves connections.
         const conn = state.connections.find((c) => c.id === connectionId);
         if (conn) conn.visible_schemas = schemas;
+      }),
+
+    setDuckdbViews: (views) =>
+      set((state) => {
+        state.duckdbViews = views;
       }),
 
     setActiveTab: (tabId) =>

@@ -131,6 +131,7 @@ export default function App() {
   const [proactiveSuggestions, setProactiveSuggestions] = useState<ProactiveSuggestion[]>([]);
   const [workspaceSessionReady, setWorkspaceSessionReady] = useState(false);
   const visibleSchemas = useWorkspaceStore((s) => s.visibleSchemas);
+  const duckdbViews = useWorkspaceStore((s) => s.duckdbViews);
   const persistedArtifacts = useWorkspaceStore((state) => state.artifacts);
   const persistedArtifactRevisions = useWorkspaceStore((state) => state.artifactRevisions);
   const persistedArtifactHeads = useWorkspaceStore((state) => state.artifactHeads);
@@ -1105,6 +1106,7 @@ export default function App() {
               onVisibleSchemasChange={(schemas) => {
                 if (activeConnectionId) setVisibleSchemas(activeConnectionId, schemas);
               }}
+              duckdbViews={duckdbViews}
             />
           ) : (
             <div className="p-4 text-xs text-white/30 text-center mt-8">

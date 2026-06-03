@@ -12,6 +12,7 @@ import { X, Upload, FileText, Table2, Database } from "lucide-react";
 import { toast } from "sonner";
 import { invoke } from "@tauri-apps/api/core";
 import { DbClient } from "../../lib/db/DbClient";
+import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
 
 interface FileImportDialogProps {
   open: boolean;
@@ -51,6 +52,17 @@ export function FileImportDialog({ open, onOpenChange, onImported }: FileImportD
     if (f) acceptFile(f);
   };
 
+  const registerWithDuckdb = async (path: string) => {
+    try {
+      await invoke<string>("register_file_with_duckdb", { path });
+      const views = await invoke<string[]>("list_duckdb_views");
+      useWorkspaceStore.getState().setDuckdbViews(views);
+    } catch (e) {
+      // DuckDB not available yet (needs VS Build Tools) — silent fail, non-blocking
+      console.warn("DuckDB registration skipped:", e);
+    }
+  };
+
   const handleImport = async () => {
     if (!file || !tableName.trim()) return;
     setIsImporting(true);
@@ -75,14 +87,17 @@ export function FileImportDialog({ open, onOpenChange, onImported }: FileImportD
         );
         toast.success(`Imported "${result.table_name}" — ${result.row_count.toLocaleString()} rows`);
         onImported(`SELECT * FROM "${result.table_name}" LIMIT 1000;`);
+        await registerWithDuckdb(path);
       } else if (ext === "parquet") {
         await DbClient.duckdbLoadParquet(path, tableName.trim());
         toast.success(`Imported "${tableName}" — ready to query`);
         onImported(`SELECT * FROM "${tableName.trim()}" LIMIT 1000;`);
+        await registerWithDuckdb(path);
       } else if (ext === "csv" || ext === "tsv" || ext === "txt") {
         await DbClient.duckdbLoadCsv(path, tableName.trim());
         toast.success(`Imported "${tableName}" — ready to query`);
         onImported(`SELECT * FROM "${tableName.trim()}" LIMIT 1000;`);
+        await registerWithDuckdb(path);
       } else {
         toast.error(`Unsupported file type: .${ext}. Use .parquet, .csv, .xlsx, or .xls`);
         setIsImporting(false);

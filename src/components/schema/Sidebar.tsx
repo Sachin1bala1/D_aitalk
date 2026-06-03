@@ -34,6 +34,7 @@ interface SidebarProps {
   onVisibleSchemasChange?: (schemas: string[]) => void;
   // Loading state
   isLoadingSchema?: boolean;
+  duckdbViews?: string[];
 }
 
 interface ContextMenuState {
@@ -79,6 +80,7 @@ export function Sidebar({
   visibleSchemas,
   onVisibleSchemasChange,
   isLoadingSchema,
+  duckdbViews,
 }: SidebarProps) {
   const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -536,6 +538,31 @@ export function Sidebar({
           {allTableEntries
             .filter(([name]) => tableMatchesSearch(name))
             .map(([tableName]) => renderTableRow(tableName))}
+        </div>
+      )}
+
+      {/* Local Files — DuckDB views */}
+      {duckdbViews && duckdbViews.length > 0 && (
+        <div className="border-t border-[#1a1a1a] mt-1 pt-1">
+          <div className="flex items-center gap-1.5 px-3 py-1 text-[9px] uppercase tracking-widest text-white/20">
+            <FolderOpen className="w-2.5 h-2.5" />
+            Local Files
+            <span className="ml-auto">{duckdbViews.length}</span>
+          </div>
+          <div className="space-y-0.5">
+            {duckdbViews.map((viewName) => (
+              <div
+                key={viewName}
+                className="flex items-center gap-2 px-3 py-1 hover:bg-white/[0.03] rounded cursor-pointer group/view"
+                onClick={() => onTableClick(viewName)}
+                title={`SELECT * FROM "${viewName}" LIMIT 1000`}
+              >
+                <Database className="w-3 h-3 text-emerald-400/50 shrink-0" />
+                <span className="text-[10px] text-white/50 truncate flex-1">{viewName}</span>
+                <span className="text-[8px] text-emerald-400/30 font-mono shrink-0">local</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
