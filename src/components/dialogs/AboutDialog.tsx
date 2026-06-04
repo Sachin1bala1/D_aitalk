@@ -53,6 +53,7 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
       : "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-zinc-700/60 border border-zinc-600/40 text-zinc-400";
 
   const handleActivateLicense = async () => {
+    if (activating) return;
     const trimmed = licenseKey.trim();
     if (!trimmed) {
       setLicenseStatus({ message: "Please enter a license key", ok: false });
@@ -65,14 +66,12 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
       const tierDisplay: Record<string, string> = { pro: "Pro", ent: "Enterprise" };
       const label = tierDisplay[activatedTier] ?? activatedTier;
       setLicenseStatus({ message: `DataIQ ${label} — valid`, ok: true });
-      localStorage.setItem("dataiq_license_key", trimmed);
       setLicenseKey("");
       refresh();
       toast.success(`License activated — ${label} tier`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      setLicenseStatus({ message: "Invalid or expired key", ok: false });
-      toast.error(msg);
+      setLicenseStatus({ message: msg || "Invalid or expired key", ok: false });
     } finally {
       setActivating(false);
     }
@@ -173,7 +172,7 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
               <input
                 type="text"
                 value={licenseKey}
-                onChange={(e) => setLicenseKey(e.target.value)}
+                onChange={(e) => { setLicenseKey(e.target.value); setLicenseStatus(null); }}
                 onKeyDown={(e) => e.key === "Enter" && handleActivateLicense()}
                 placeholder="Enter license key"
                 className="w-full px-3 py-1.5 rounded-lg bg-[#111] border border-[#2a2a2a] text-white/80 text-xs font-mono placeholder:text-white/20 focus:outline-none focus:border-[#00d2ff]/50 transition-colors"

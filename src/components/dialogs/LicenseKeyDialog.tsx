@@ -56,7 +56,7 @@ export function LicenseKeyDialog({
     setActivating(true);
     try {
       const tier = await invoke<string>("activate_license", { key: inputValue });
-      const tierDisplay: Record<string, string> = { ENT: "Enterprise", PRO: "Pro" };
+      const tierDisplay: Record<string, string> = { pro: "Pro", ent: "Enterprise" };
       toast.success(`License activated — ${tierDisplay[tier] ?? tier} tier`);
       setInputValue("");
       onActivated();
