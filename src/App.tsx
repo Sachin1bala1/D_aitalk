@@ -109,6 +109,7 @@ export default function App() {
     undoStack,
     commitArtifactRevision,
     hydrateWorkspaceSession,
+    setProcessContext,
   } = useWorkspaceStore();
 
   const [isConnecting, setIsConnecting] = useState(false);
@@ -118,7 +119,6 @@ export default function App() {
     () => !loadAppPreferencesSync().onboardingDismissed,
   );
   const [piConnectionForWelcome, setPiConnectionForWelcome] = useState<{ baseUrl: string; username: string; password: string } | null>(null);
-  const [processContext, setProcessContext] = useState<{ type: string; ucl: number; lcl: number; unit: string } | null>(null);
   const [showConnectScreen, setShowConnectScreen] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [activePanel, setActivePanel] = useState<WorkspacePanel>("agent");

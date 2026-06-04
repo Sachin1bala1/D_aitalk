@@ -642,6 +642,9 @@ export interface WorkspaceState {
   piTags: PITag[];
   setPiTags: (tags: PITag[]) => void;
 
+  processContext: { type: string; ucl: number; lcl: number; unit: string } | null;
+  setProcessContext: (ctx: { type: string; ucl: number; lcl: number; unit: string } | null) => void;
+
   focusedNode: string | null;
 
   chartRequest: ChartRequest | null;
@@ -780,6 +783,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     connectionColors: {},
     duckdbViews: [],
     piTags: [],
+    processContext: null,
 
     focusedNode: null,
     chartRequest: null,
@@ -1105,6 +1109,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     setPiTags: (tags) =>
       set((state) => {
         state.piTags = tags;
+      }),
+
+    setProcessContext: (ctx) =>
+      set((state) => {
+        state.processContext = ctx;
       }),
 
     setActiveTab: (tabId) =>

@@ -467,10 +467,16 @@ async function resolveColumnTypes(
  * Builds domain-specific context when PI tags are active in the workspace.
  * Injected into the system prompt — additive only, does not change loop logic.
  */
-export function buildDomainContext(piTags: Array<{ name: string; engineering_units: string }>): string {
-  if (piTags.length === 0) return '';
-  return `
-DOMAIN CONTEXT: You are analyzing industrial process data from an OSIsoft PI historian.
+export function buildDomainContext(
+  piTags: Array<{ name: string; engineering_units: string }>,
+  processContext?: { type: string; ucl: number; lcl: number; unit: string } | null,
+): string {
+  if (piTags.length === 0 && !processContext) return '';
+
+  const parts: string[] = [];
+
+  if (piTags.length > 0) {
+    parts.push(`DOMAIN CONTEXT: You are analyzing industrial process data from an OSIsoft PI historian.
 Available PI tags: ${piTags.map((t) => `${t.name} (${t.engineering_units})`).join(', ')}
 
 Engineering analysis priorities:
@@ -482,8 +488,17 @@ Engineering analysis priorities:
 6. A Cpk > 1.33 means the process is capable. Cpk < 1.0 means it is not.
 7. When you see violations on a control chart, suggest investigating root causes
 
-Never ask the engineer to write code. They are process domain experts, not developers.
-`;
+Never ask the engineer to write code. They are process domain experts, not developers.`);
+  }
+
+  if (processContext) {
+    parts.push(`PROCESS SPEC LIMITS:
+Process type: ${processContext.type}
+Typical control limits: UCL=${processContext.ucl} ${processContext.unit}, LCL=${processContext.lcl} ${processContext.unit}
+When computing Cp/Cpk, use these as the spec limits unless the user specifies different ones.`);
+  }
+
+  return '\n' + parts.join('\n\n') + '\n';
 }
 
 // ── System Prompt ─────────────────────────────────────────────────────────────
@@ -836,7 +851,8 @@ NEVER call create_chart with a column name that isn't in the loaded results.
     parts.push(`## Harness Guidance (Auto-Updated)\n${harnessAdditions}`);
   }
 
-  const domainContext = buildDomainContext(useWorkspaceStore.getState().piTags ?? []);
+  const { piTags, processContext } = useWorkspaceStore.getState();
+  const domainContext = buildDomainContext(piTags ?? [], processContext ?? null);
   if (domainContext) {
     // Append to existing system prompt
     parts.push(domainContext);
