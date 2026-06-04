@@ -19,6 +19,7 @@ import { diagnoseConnection, DiagnosisResult } from "../../lib/connection/Connec
 import { ConnectionDoctorPanel } from "./ConnectionDoctorPanel";
 import { loadApiKeysFromKeychain } from "../../lib/ai/types";
 import { PIConnectionPanel } from "./PIConnectionPanel";
+import { useLicenseTier } from "../../lib/hooks/useLicenseTier";
 
 interface ConnectionDialogProps {
   open: boolean;
@@ -173,6 +174,7 @@ function sameSavedConnection(a: ConnectionConfig, b: Pick<ConnectionConfig, "dri
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDialogProps) {
+  const { tier } = useLicenseTier();
   const [connectionString, setConnectionString] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [driver, setDriver] = useState<DbDriver>("postgres");
@@ -542,12 +544,18 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                     <optgroup key={group} label={group}>
                       {DRIVER_OPTIONS.filter((o) => o.group === group).map((opt) => (
                         <option key={opt.value} value={opt.value} className="bg-[#1a1a1a]">
-                          {opt.label}
+                          {opt.label}{opt.value === "pi" && tier === "free" ? " (Pro)" : ""}
                         </option>
                       ))}
                     </optgroup>
                   ))}
                 </select>
+                {tier === "free" && driver === "pi" && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs">
+                    <span className="shrink-0 px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-[10px] font-bold uppercase tracking-widest">Pro</span>
+                    <span>OSIsoft PI is available in DataIQ Pro. Enter your license key in Settings.</span>
+                  </div>
+                )}
               </div>
 
               {/* Display name */}

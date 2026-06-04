@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { invoke } from "@tauri-apps/api/core";
 import { DbClient } from "../../lib/db/DbClient";
 import { useWorkspaceStore } from "../../lib/stores/WorkspaceStore";
+import { useLicenseTier } from "../../lib/hooks/useLicenseTier";
 
 interface FileImportDialogProps {
   open: boolean;
@@ -29,6 +30,8 @@ function slugify(name: string): string {
 }
 
 export function FileImportDialog({ open, onOpenChange, onImported }: FileImportDialogProps) {
+  const { tier } = useLicenseTier();
+  const isFree = tier === "free";
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [tableName, setTableName] = useState("");
@@ -65,6 +68,10 @@ export function FileImportDialog({ open, onOpenChange, onImported }: FileImportD
 
   const handleImport = async () => {
     if (!file || !tableName.trim()) return;
+    if (isFree) {
+      toast.error("DuckDB CSV/Parquet import is available in DataIQ Pro. Enter your license key in Settings.");
+      return;
+    }
     setIsImporting(true);
 
     // Tauri can read paths from the webview; on Windows the file.name
@@ -140,7 +147,12 @@ export function FileImportDialog({ open, onOpenChange, onImported }: FileImportD
                   <Database className="w-4.5 h-4.5 text-amber-400" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold">Import File into DuckDB</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-bold">Import File into DuckDB</h2>
+                    {isFree && (
+                      <span className="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[10px] font-bold uppercase tracking-widest">Pro</span>
+                    )}
+                  </div>
                   <p className="text-[11px] text-white/40">CSV, TSV, or Parquet — analyzed locally</p>
                 </div>
               </div>
@@ -150,6 +162,13 @@ export function FileImportDialog({ open, onOpenChange, onImported }: FileImportD
             </div>
 
             <div className="p-5 space-y-4">
+              {/* Pro upgrade prompt for free users */}
+              {isFree && (
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs">
+                  <span className="shrink-0 px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-[10px] font-bold uppercase tracking-widest">Pro</span>
+                  <span>DuckDB CSV/Parquet import is available in DataIQ Pro. Enter your license key in Settings.</span>
+                </div>
+              )}
               {/* Drop zone */}
               <div
                 ref={dropRef}
@@ -235,10 +254,10 @@ export function FileImportDialog({ open, onOpenChange, onImported }: FileImportD
                 </button>
                 <button
                   onClick={handleImport}
-                  disabled={!file || !tableName.trim() || !isSupported || isImporting}
+                  disabled={!file || !tableName.trim() || !isSupported || isImporting || isFree}
                   className="flex-[2] px-4 py-2.5 rounded-lg bg-amber-500 text-black text-sm font-bold hover:opacity-90 disabled:opacity-40 transition-opacity"
                 >
-                  {isImporting ? "Importing…" : "Import & Preview"}
+                  {isImporting ? "Importing…" : isFree ? "Pro Required" : "Import & Preview"}
                 </button>
               </div>
             </div>
