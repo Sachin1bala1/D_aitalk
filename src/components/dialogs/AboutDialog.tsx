@@ -3,6 +3,7 @@
  */
 import React, { useEffect, useState } from "react";
 import { X, Database, RefreshCw, Key } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { useLicenseTier } from "../../lib/hooks/useLicenseTier";
 import { LicenseKeyDialog } from "./LicenseKeyDialog";
@@ -23,6 +24,11 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
   const [updateState, setUpdateState] = useState<UpdateCheckState | null>(null);
   const [installingUpdate, setInstallingUpdate] = useState(false);
   const { tier, refresh } = useLicenseTier();
+
+  // Inline license section state
+  const [licenseKey, setLicenseKey] = useState("");
+  const [licenseStatus, setLicenseStatus] = useState<{ message: string; ok: boolean } | null>(null);
+  const [activating, setActivating] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -45,6 +51,32 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
       : tier === "pro"
       ? "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-blue-500/20 border border-blue-500/40 text-blue-400"
       : "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-zinc-700/60 border border-zinc-600/40 text-zinc-400";
+
+  const handleActivateLicense = async () => {
+    const trimmed = licenseKey.trim();
+    if (!trimmed) {
+      setLicenseStatus({ message: "Please enter a license key", ok: false });
+      return;
+    }
+    setActivating(true);
+    setLicenseStatus(null);
+    try {
+      const activatedTier = await invoke<string>("activate_license", { key: trimmed });
+      const tierDisplay: Record<string, string> = { pro: "Pro", ent: "Enterprise" };
+      const label = tierDisplay[activatedTier] ?? activatedTier;
+      setLicenseStatus({ message: `DataIQ ${label} — valid`, ok: true });
+      localStorage.setItem("dataiq_license_key", trimmed);
+      setLicenseKey("");
+      refresh();
+      toast.success(`License activated — ${label} tier`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setLicenseStatus({ message: "Invalid or expired key", ok: false });
+      toast.error(msg);
+    } finally {
+      setActivating(false);
+    }
+  };
 
   const handleCheckForUpdates = async () => {
     setUpdateState({ kind: "checking" });
@@ -130,6 +162,34 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
                 <span className="text-white/30">License</span>
                 <span className={tierBadgeClass}>{tierLabel}</span>
               </div>
+            </div>
+
+            {/* License section */}
+            <div className="w-full bg-[#0d0d0d] border border-[#1e1e1e] rounded-lg px-4 py-3 flex flex-col gap-3 text-left">
+              <div className="flex items-center gap-1.5">
+                <Key className="w-3 h-3 text-white/30" />
+                <span className="text-[11px] font-semibold text-white/40 uppercase tracking-wider">License</span>
+              </div>
+              <input
+                type="text"
+                value={licenseKey}
+                onChange={(e) => setLicenseKey(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleActivateLicense()}
+                placeholder="Enter license key"
+                className="w-full px-3 py-1.5 rounded-lg bg-[#111] border border-[#2a2a2a] text-white/80 text-xs font-mono placeholder:text-white/20 focus:outline-none focus:border-[#00d2ff]/50 transition-colors"
+              />
+              <button
+                onClick={handleActivateLicense}
+                disabled={activating}
+                className="flex items-center justify-center w-full px-3 py-1.5 rounded-lg bg-[#00d2ff]/10 border border-[#00d2ff]/20 text-[#00d2ff] text-xs font-semibold hover:bg-[#00d2ff]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {activating ? "Activating…" : "Activate"}
+              </button>
+              {licenseStatus && (
+                <p className={`text-xs font-medium ${licenseStatus.ok ? "text-emerald-400" : "text-red-400"}`}>
+                  {licenseStatus.message}
+                </p>
+              )}
             </div>
           </div>
 
