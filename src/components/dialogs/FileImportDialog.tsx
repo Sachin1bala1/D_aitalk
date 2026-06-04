@@ -30,8 +30,8 @@ function slugify(name: string): string {
 }
 
 export function FileImportDialog({ open, onOpenChange, onImported }: FileImportDialogProps) {
-  const { tier } = useLicenseTier();
-  const isFree = tier === "free";
+  const { tier, isLoading: licenseLoading } = useLicenseTier();
+  const isFree = !licenseLoading && tier === "free";
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [tableName, setTableName] = useState("");
@@ -121,7 +121,7 @@ export function FileImportDialog({ open, onOpenChange, onImported }: FileImportD
   };
 
   const fileExt = file?.name.split(".").pop()?.toLowerCase();
-  const isSupported = fileExt === "parquet" || fileExt === "csv" || fileExt === "tsv" || fileExt === "xlsx" || fileExt === "xls";
+  const isSupported = fileExt === "parquet" || fileExt === "csv" || fileExt === "tsv" || fileExt === "xlsx" || fileExt === "xls" || fileExt === "txt";
 
   return (
     <AnimatePresence>

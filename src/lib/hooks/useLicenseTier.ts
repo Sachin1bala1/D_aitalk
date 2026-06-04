@@ -19,7 +19,14 @@ export function useLicenseTier(): LicenseStatus & { refresh: () => void } {
       .catch(() => setStatus({ tier: 'free', valid: false, isLoading: false }));
   }, []);
 
-  useEffect(() => { check(); }, [check]);
+  useEffect(() => {
+    let mounted = true;
+    setStatus(s => ({ ...s, isLoading: true }));
+    invoke<{ tier: LicenseTier; valid: boolean }>('check_license')
+      .then(result => { if (mounted) setStatus({ ...result, isLoading: false }); })
+      .catch(() => { if (mounted) setStatus({ tier: 'free', valid: false, isLoading: false }); });
+    return () => { mounted = false; };
+  }, []);
 
   return { ...status, refresh: check };
 }

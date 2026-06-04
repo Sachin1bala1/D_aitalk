@@ -174,7 +174,7 @@ function sameSavedConnection(a: ConnectionConfig, b: Pick<ConnectionConfig, "dri
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDialogProps) {
-  const { tier } = useLicenseTier();
+  const { tier, isLoading: licenseLoading } = useLicenseTier();
   const [connectionString, setConnectionString] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [driver, setDriver] = useState<DbDriver>("postgres");
@@ -544,13 +544,13 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                     <optgroup key={group} label={group}>
                       {DRIVER_OPTIONS.filter((o) => o.group === group).map((opt) => (
                         <option key={opt.value} value={opt.value} className="bg-[#1a1a1a]">
-                          {opt.label}{opt.value === "pi" && tier === "free" ? " (Pro)" : ""}
+                          {opt.label}{opt.value === "pi" && tier === "free" && !licenseLoading ? " (Pro)" : ""}
                         </option>
                       ))}
                     </optgroup>
                   ))}
                 </select>
-                {tier === "free" && driver === "pi" && (
+                {tier === "free" && !licenseLoading && driver === "pi" && (
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs">
                     <span className="shrink-0 px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-[10px] font-bold uppercase tracking-widest">Pro</span>
                     <span>OSIsoft PI is available in DataIQ Pro. Enter your license key in Settings.</span>
@@ -806,7 +806,7 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                 </button>
                 <button
                   onClick={handleConnect}
-                  disabled={(!connectionString && !isRestApi && !isPIWebApi) || isConnecting}
+                  disabled={(!connectionString && !isRestApi && !isPIWebApi) || isConnecting || (driver === "pi" && tier === "free" && !licenseLoading)}
                   className="flex-1 px-4 py-2.5 rounded-lg bg-[#00d2ff] text-black text-sm font-bold hover:opacity-90 disabled:opacity-40 transition-opacity"
                 >
                   {isConnecting ? "Connecting..." : "Connect"}
