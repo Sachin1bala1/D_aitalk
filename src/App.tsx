@@ -112,9 +112,12 @@ export default function App() {
   } = useWorkspaceStore();
 
   const [isConnecting, setIsConnecting] = useState(false);
+  const [connectInitialDriver, setConnectInitialDriver] = useState<import("./lib/db/DbClient").DbDriver | undefined>(undefined);
+  const [connectSqlOnly, setConnectSqlOnly] = useState(false);
   const [showWelcome, setShowWelcome] = useState(
     () => !loadAppPreferencesSync().onboardingDismissed,
   );
+  const [piConnectionForWelcome, setPiConnectionForWelcome] = useState<{ baseUrl: string; username: string; password: string } | null>(null);
   const [showConnectScreen, setShowConnectScreen] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [activePanel, setActivePanel] = useState<WorkspacePanel>("agent");
@@ -1427,8 +1430,27 @@ export default function App() {
 
       <ConnectionDialog
         open={isConnecting}
-        onOpenChange={setIsConnecting}
-        onConnect={handleConnect}
+        onOpenChange={(open) => {
+          setIsConnecting(open);
+          if (!open) {
+            setConnectInitialDriver(undefined);
+            setConnectSqlOnly(false);
+          }
+        }}
+        onConnect={(connectionId, config) => {
+          // If this was a PI connection opened from the welcome screen, capture
+          // credentials so WelcomeScreen can show the process-type selector.
+          if (showWelcome && config.driver === "pi" && config.pi_config) {
+            setPiConnectionForWelcome({
+              baseUrl: config.pi_config.base_url ?? "",
+              username: config.pi_config.username ?? "",
+              password: config.pi_config.password ?? "",
+            });
+          }
+          handleConnect(connectionId, config);
+        }}
+        initialDriver={connectInitialDriver}
+        sqlOnly={connectSqlOnly}
       />
       <KeyboardShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <FileImportDialog
@@ -1480,19 +1502,31 @@ export default function App() {
 
       {showWelcome && (
         <WelcomeScreen
-          onConnect={(driver) => {
-            setShowWelcome(false);
+          onConnectPi={() => {
+            setConnectInitialDriver("pi");
+            setConnectSqlOnly(false);
             setIsConnecting(true);
-            // driver hint stored so ConnectionDialog can pre-select it if desired
-            void driver;
+          }}
+          onConnect={(_driver) => {
+            setConnectInitialDriver(undefined);
+            setConnectSqlOnly(true);
+            setIsConnecting(true);
           }}
           onOpenFile={() => {
             setShowWelcome(false);
-            handleOpenFile();
+            setFileImportOpen(true);
           }}
           onDismiss={() => {
             updateAppPreferences({ onboardingDismissed: true });
             setShowWelcome(false);
+          }}
+          piConnection={piConnectionForWelcome}
+          onPiConnected={(_processType, _limits, _tags) => {
+            // Store process type / limits in a future WorkspaceStore field if needed.
+            // For now, dismiss the welcome screen after the user picks a process type.
+            updateAppPreferences({ onboardingDismissed: true });
+            setShowWelcome(false);
+            setPiConnectionForWelcome(null);
           }}
         />
       )}

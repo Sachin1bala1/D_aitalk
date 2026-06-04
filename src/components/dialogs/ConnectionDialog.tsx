@@ -25,6 +25,10 @@ interface ConnectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConnect: (connectionId: string, config: ConnectionConfig) => void;
+  /** Pre-select a driver when the dialog opens. */
+  initialDriver?: DbDriver;
+  /** When true, hide the Industrial (PI) driver options so only SQL/NoSQL appear. */
+  sqlOnly?: boolean;
 }
 
 const DRIVER_OPTIONS: { value: DbDriver; label: string; placeholder: string; group: string }[] = [
@@ -173,11 +177,11 @@ function sameSavedConnection(a: ConnectionConfig, b: Pick<ConnectionConfig, "dri
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDialogProps) {
+export function ConnectionDialog({ open, onOpenChange, onConnect, initialDriver, sqlOnly }: ConnectionDialogProps) {
   const { tier, isLoading: licenseLoading } = useLicenseTier();
   const [connectionString, setConnectionString] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [driver, setDriver] = useState<DbDriver>("postgres");
+  const [driver, setDriver] = useState<DbDriver>(initialDriver ?? "postgres");
   const [isConnecting, setIsConnecting] = useState(false);
   const [testStatus, setTestStatus] = useState<"idle" | "testing" | "ok" | "fail">("idle");
   const [savedConns, setSavedConns] = useState<ConnectionConfig[]>([]);
@@ -223,8 +227,12 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
       setNameManual(false);
       setSelectedSavedConnectionId(null);
       setShowDbPassword(false);
+      // Apply initial driver if provided
+      if (initialDriver) {
+        setDriver(initialDriver);
+      }
     }
-  }, [open]);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleConnectionStringChange = (value: string) => {
     setConnectionString(value);
@@ -540,7 +548,9 @@ export function ConnectionDialog({ open, onOpenChange, onConnect }: ConnectionDi
                   onChange={(e) => { setDriver(e.target.value as DbDriver); setDriverManual(true); }}
                   className="w-full bg-[#1a1a1a] border border-[#262626] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#00d2ff] text-white"
                 >
-                  {(["SQL", "NoSQL", "Industrial", "API"] as const).map((group) => (
+                  {(["SQL", "NoSQL", "Industrial", "API"] as const)
+                    .filter((group) => !(sqlOnly && group === "Industrial"))
+                    .map((group) => (
                     <optgroup key={group} label={group}>
                       {DRIVER_OPTIONS.filter((o) => o.group === group).map((opt) => (
                         <option key={opt.value} value={opt.value} className="bg-[#1a1a1a]">
