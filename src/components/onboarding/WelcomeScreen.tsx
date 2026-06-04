@@ -75,6 +75,10 @@ export function WelcomeScreen({
   const [tagsLoading, setTagsLoading] = useState(false);
   const [selectedProcess, setSelectedProcess] = useState<ProcessType | null>(null);
 
+  // Abort guard — prevents setState after unmount
+  const mountedRef = React.useRef(true);
+  React.useEffect(() => () => { mountedRef.current = false; }, []);
+
   // When piConnection becomes available (after PI dialog closes), auto-fetch example tags
   const handlePiPath = () => {
     onConnectPi();
@@ -93,10 +97,13 @@ export function WelcomeScreen({
         query: "*",
         maxCount: 10,
       });
+      if (!mountedRef.current) return;
       setExampleTags(tags);
     } catch {
+      if (!mountedRef.current) return;
       setExampleTags([]);
     } finally {
+      if (!mountedRef.current) return;
       setTagsLoading(false);
     }
   };
@@ -106,7 +113,7 @@ export function WelcomeScreen({
     if (piConnection && step === "paths") {
       void enterProcessSelect(piConnection);
     }
-  }, [piConnection]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [piConnection, step]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleProcessSelect = (processType: ProcessType) => {
     setSelectedProcess(processType);

@@ -199,10 +199,13 @@ export function ConnectionDialog({ open, onOpenChange, onConnect, initialDriver,
   const [dbPassword, setDbPassword] = useState("");
   const [showDbPassword, setShowDbPassword] = useState(false);
 
-  // PI Historian fields
+  // PI Historian fields (p_i_historian driver)
   const [piUsername, setPiUsername] = useState("");
   const [piPassword, setPiPassword] = useState("");
   const [piVerifySsl, setPiVerifySsl] = useState(true);
+
+  // PI Web API fields (pi driver) — captured from PIConnectionPanel on successful test
+  const [piWebApiCreds, setPiWebApiCreds] = useState<{ baseUrl: string; username: string; password: string; verifySsl: boolean } | null>(null);
 
   // REST API fields
   const [restUrl, setRestUrl] = useState("");
@@ -327,6 +330,14 @@ export function ConnectionDialog({ open, onOpenChange, onConnect, initialDriver,
           username: piUsername,
           password: piPassword,
           verify_ssl: piVerifySsl,
+        },
+      }),
+      ...(isPIWebApi && piWebApiCreds && {
+        pi_config: {
+          base_url: piWebApiCreds.baseUrl,
+          username: piWebApiCreds.username,
+          password: piWebApiCreds.password,
+          verify_ssl: piWebApiCreds.verifySsl,
         },
       }),
       ...(isRestApi && {
@@ -788,6 +799,7 @@ export function ConnectionDialog({ open, onOpenChange, onConnect, initialDriver,
                           : "Connected to PI Web API"
                       );
                     }}
+                    onCredentials={(creds) => setPiWebApiCreds(creds)}
                   />
                 </div>
               )}

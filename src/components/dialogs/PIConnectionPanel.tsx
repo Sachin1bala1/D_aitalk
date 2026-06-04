@@ -6,9 +6,12 @@ import type { PITag } from "../../lib/stores/WorkspaceStore";
 
 interface Props {
   onConnected?: (tags: PITag[]) => void;
+  /** Called when a successful connection test completes — provides credentials so the
+   *  parent can include them in the persisted ConnectionConfig. */
+  onCredentials?: (creds: { baseUrl: string; username: string; password: string; verifySsl: boolean }) => void;
 }
 
-export function PIConnectionPanel({ onConnected }: Props) {
+export function PIConnectionPanel({ onConnected, onCredentials }: Props) {
   const [baseUrl, setBaseUrl] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -38,6 +41,7 @@ export function PIConnectionPanel({ onConnected }: Props) {
       setTestStatus("ok");
       setTestMessage(msg);
       setConnected(true);
+      onCredentials?.({ baseUrl, username, password, verifySsl });
     } catch (e: unknown) {
       setTestStatus("error");
       setTestMessage(e instanceof Error ? e.message : String(e));

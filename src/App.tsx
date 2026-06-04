@@ -118,6 +118,7 @@ export default function App() {
     () => !loadAppPreferencesSync().onboardingDismissed,
   );
   const [piConnectionForWelcome, setPiConnectionForWelcome] = useState<{ baseUrl: string; username: string; password: string } | null>(null);
+  const [processContext, setProcessContext] = useState<{ type: string; ucl: number; lcl: number; unit: string } | null>(null);
   const [showConnectScreen, setShowConnectScreen] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [activePanel, setActivePanel] = useState<WorkspacePanel>("agent");
@@ -860,10 +861,16 @@ export default function App() {
         driver: config?.driver ?? connections.find((c) => c.id === connectionId)?.driver ?? null,
       }).catch(() => {});
     }
-    updateAppPreferences({ onboardingDismissed: true });
-    setShowWelcome(false);
-    if (!loadAppPreferencesSync().onboardingTourCompleted) {
-      setShowTour(true);
+    // For the PI path during welcome, keep the welcome screen visible so the
+    // process-type selector can appear. onDismiss / onPiConnected will hide it.
+    const isPiWelcomePath =
+      showWelcome && (config?.driver === "pi" || config?.driver === "p_i_historian") && config?.pi_config;
+    if (!isPiWelcomePath) {
+      updateAppPreferences({ onboardingDismissed: true });
+      setShowWelcome(false);
+      if (!loadAppPreferencesSync().onboardingTourCompleted) {
+        setShowTour(true);
+      }
     }
   };
 
@@ -1440,7 +1447,9 @@ export default function App() {
         onConnect={(connectionId, config) => {
           // If this was a PI connection opened from the welcome screen, capture
           // credentials so WelcomeScreen can show the process-type selector.
-          if (showWelcome && config.driver === "pi" && config.pi_config) {
+          // Both the "pi" (PI Web API) and "p_i_historian" drivers store
+          // credentials in pi_config after the ConnectionDialog fix.
+          if (showWelcome && (config.driver === "pi" || config.driver === "p_i_historian") && config.pi_config) {
             setPiConnectionForWelcome({
               baseUrl: config.pi_config.base_url ?? "",
               username: config.pi_config.username ?? "",
@@ -1521,12 +1530,15 @@ export default function App() {
             setShowWelcome(false);
           }}
           piConnection={piConnectionForWelcome}
-          onPiConnected={(_processType, _limits, _tags) => {
-            // Store process type / limits in a future WorkspaceStore field if needed.
-            // For now, dismiss the welcome screen after the user picks a process type.
+          onPiConnected={(processType, limits, _tags) => {
+            // Store process type and spec limits so the agent can use them.
+            setProcessContext({ type: processType, ucl: limits.ucl, lcl: limits.lcl, unit: limits.unit });
             updateAppPreferences({ onboardingDismissed: true });
             setShowWelcome(false);
             setPiConnectionForWelcome(null);
+            if (!loadAppPreferencesSync().onboardingTourCompleted) {
+              setShowTour(true);
+            }
           }}
         />
       )}
