@@ -6,8 +6,8 @@ target = "x86_64-pc-windows-gnu"
 linker = "x86_64-w64-mingw32-gcc.exe"
 rustflags = ["-C", "linker-flavor=gcc", "-C", "link-arg=-fuse-ld=lld", "-C", "debuginfo=0", "--cfg", "windows_slim_errors"]
 
-[target.x86_64-pc-windows-msvc]
-rustflags = ["-C", "debuginfo=0"]
-
 [env]
 DATAIQ_LICENSE_SECRET = "dataiq-dev-secret-2026"
+CC_x86_64_pc_windows_gnu = "C:\\Users\\sachi\\Documents\\manufacturing_agent\\daitalk-v2\\scripts\\clang-wrapper.cmd"
+CXX_x86_64_pc_windows_gnu = "C:\\Users\\sachi\\Documents\\manufacturing_agent\\daitalk-v2\\scripts\\clang-wrapper.cmd"
+RUST_MIN_STACK = "67108864"
