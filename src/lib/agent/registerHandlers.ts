@@ -1278,6 +1278,12 @@ export function registerHandlers() {
           // Phase 1: coarse (100 buckets) — render immediately
           const coarseSQL = BinQueryBuilder.line(cmd.table, schema, cmd.x, cmd.y, xType, 100, cmd.where_clause);
           const coarseRows = await DbClient.query(connectionId, coarseSQL);
+          if (!coarseRows || coarseRows.length === 0) {
+            return {
+              success: false,
+              error: `Line chart query returned no rows for ${schema}.${cmd.table} (x="${cmd.x}", y="${cmd.y}"). The column may not exist, the WHERE clause may filter all data, or the table is empty. Run execute_sql with the same columns first to verify data exists.`,
+            };
+          }
           useWorkspaceStore.getState().setGogChartRequest({
             spec: { ...spec, _runtime: { ...spec._runtime!, generatedSQL: coarseSQL } },
             binData: coarseRows,
