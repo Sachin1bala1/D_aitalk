@@ -229,24 +229,6 @@ export function buildReflectionGuidance(
     }
   }
 
-  if (toolName === "create_gog_chart" || toolName === "create_chart" || toolName === "create_analysis_chart") {
-    try {
-      const parsed = JSON.parse(content) as { binRows?: number; chartType?: string };
-      if (typeof parsed?.binRows === "number" && parsed.binRows === 0) {
-        return (
-          content +
-          `\n\n⚠️ CHART ZERO DATA REFLECTION — the chart panel has no rows to display:\n` +
-          `1. The column names or table reference may be wrong. Check the schema sidebar for exact column names.\n` +
-          `2. The WHERE clause (if any) may filter all rows. Remove it and retry.\n` +
-          `3. Run execute_sql on the same table/columns to confirm data exists before charting.\n` +
-          `State your diagnosis, then call execute_sql to verify data exists, then retry create_gog_chart.`
-        );
-      }
-    } catch {
-      // not JSON — leave unchanged
-    }
-  }
-
   return content;
 }
 
