@@ -1465,6 +1465,28 @@ export async function runAgentLoop(
             ? JSON.stringify(result.result ?? "done")
             : `Error: ${result.error}`;
 
+          // Post-dispatch ground-truth validation for chart commands.
+          // The handler can return success:true even when binData is empty.
+          // Read the store directly to catch silent failures before the AI declares victory.
+          if (result.success && (tc.name === "create_gog_chart" || tc.name === "create_chart" || tc.name === "create_analysis_chart")) {
+            const chartState = useWorkspaceStore.getState().gogChartRequest;
+            if (!chartState || !chartState.binData || chartState.binData.length === 0) {
+              onToolEnd(tc.name, { success: false, error: "chart rendered no data" });
+              return {
+                toolCallId: tc.id,
+                name: tc.name,
+                content: buildReflectionGuidance(
+                  tc.name,
+                  `Error: Chart command dispatched but the Chart Panel has no data to display (binData is empty). ` +
+                  `The query likely returned 0 rows. ` +
+                  `Run execute_sql on the same table/columns first to verify rows exist, then retry create_gog_chart with corrected parameters.`,
+                  true,
+                ),
+                isError: true,
+              };
+            }
+          }
+
           // Append data evidence summary for execute_sql results with rows
           let enrichedContent = rawContent;
           let autoChartHint = "";
