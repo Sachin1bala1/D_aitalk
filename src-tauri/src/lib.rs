@@ -22,7 +22,7 @@ pub fn run() {
         )
         .init();
 
-    let duckdb = DuckDbEngine::new_in_memory();
+    let duckdb = DuckDbEngine::new().expect("DuckDB init failed");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())

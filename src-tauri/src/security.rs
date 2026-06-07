@@ -189,6 +189,7 @@ mod tests {
             ssh: None,
             read_only,
             pi_config: None,
+            rest_config: None,
         }
     }
 

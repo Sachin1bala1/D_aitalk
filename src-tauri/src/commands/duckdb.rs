@@ -153,10 +153,27 @@ pub async fn register_file_with_duckdb(
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     let duck = state.duckdb.clone();
-    tokio::task::spawn_blocking(move || duck.register_file(&path))
+    tokio::task::spawn_blocking(move || {
+        let ext = std::path::Path::new(&path)
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        let stem = std::path::Path::new(&path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("imported")
+            .to_string();
+        if ext == "parquet" || ext == "pq" {
+            duck.load_parquet(&path, &stem)?;
+        } else {
+            duck.load_csv(&path, &stem)?;
+        }
+        Ok(stem)
+    })
         .await
         .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())
+        .map_err(|e: crate::error::DbError| e.to_string())
 }
 
 #[tauri::command]
