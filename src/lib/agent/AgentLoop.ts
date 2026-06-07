@@ -1471,7 +1471,6 @@ export async function runAgentLoop(
           if (result.success && (tc.name === "create_gog_chart" || tc.name === "create_chart" || tc.name === "create_analysis_chart")) {
             const chartState = useWorkspaceStore.getState().gogChartRequest;
             if (!chartState || !chartState.binData || chartState.binData.length === 0) {
-              onToolEnd(tc.name, { success: false, error: "chart rendered no data" });
               return {
                 toolCallId: tc.id,
                 name: tc.name,
