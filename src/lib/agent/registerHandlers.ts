@@ -823,6 +823,82 @@ export function registerHandlers() {
       };
     }
 
+    // Auto-create a bar chart so the agent never needs to manually re-format the matrix.
+    // Mirrors the same pattern as analyze_loaded_feature_importance.
+    const resultRecord = result as Record<string, unknown>;
+    let chartRows: Array<Record<string, unknown>> = [];
+    let xKey = "variable";
+    const yKey = "correlation";
+
+    if (resultRecord.analysis_type === "target_correlation_ranking") {
+      const ranked = Array.isArray(resultRecord.ranked)
+        ? (resultRecord.ranked as Array<Record<string, unknown>>)
+        : [];
+      chartRows = ranked.map((r) => ({ variable: r.column, correlation: r.correlation }));
+      xKey = "variable";
+    } else {
+      // Flatten matrix to unique pairs sorted by absolute correlation.
+      const matrix = Array.isArray(resultRecord.matrix)
+        ? (resultRecord.matrix as Array<Record<string, unknown>>)
+        : [];
+      for (const row of matrix) {
+        const left = row.column as string;
+        const correlations = Array.isArray(row.correlations)
+          ? (row.correlations as Array<Record<string, unknown>>)
+          : [];
+        for (const cor of correlations) {
+          const right = cor.column as string;
+          if (left >= right) continue; // skip diagonal + lower triangle (dedup)
+          chartRows.push({ variable_pair: `${left} ↔ ${right}`, correlation: cor.correlation });
+        }
+      }
+      chartRows.sort(
+        (a, b) => Math.abs(b.correlation as number) - Math.abs(a.correlation as number),
+      );
+      xKey = "variable_pair";
+    }
+
+    if (chartRows.length > 0) {
+      const now = Date.now();
+      const chartFields = [{ name: xKey }, { name: yKey }];
+      const snapshotResults = {
+        rows: chartRows,
+        fields: chartFields,
+        rowCount: chartRows.length,
+        elapsedMs: 0,
+        queryId: `correlation-${now}`,
+        source_tables: ["analysis.output"],
+      };
+      const chartTitle =
+        resultRecord.analysis_type === "target_correlation_ranking"
+          ? `Correlations with ${cmd.targetColumn ?? "target"}`
+          : "Correlation Matrix";
+      const artifact = createChartArtifact({
+        name: chartTitle,
+        chartType: "bar",
+        assignments: { x: xKey, y: yKey, color: null, size: null, facet: null },
+        options: createDefaultChartArtifactOptions({ xLabel: "", yLabel: "Pearson r" }),
+        results: snapshotResults,
+        sql: "",
+        connectionId: null,
+        sourceTabId: null,
+      });
+      useWorkspaceStore.getState().commitArtifactRevision(artifact);
+      const requestId = `gb-correlation-${now}-${Math.random().toString(36).slice(2, 8)}`;
+      useWorkspaceStore.getState().setChartRenderResult(null);
+      useWorkspaceStore.getState().setGraphBuilderRequest({
+        requestId,
+        artifactId: artifact.id,
+        chartType: "bar",
+        xColumn: xKey,
+        yColumn: yKey,
+        title: chartTitle,
+        xLabel: "",
+        yLabel: "Pearson r",
+      });
+      toast.success(`Correlation chart ready — ${chartRows.length} pairs`, { duration: 4000 });
+    }
+
     return { success: true, result };
   });
 
