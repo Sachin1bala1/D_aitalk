@@ -267,6 +267,7 @@ export interface GraphBuilderPanelProps {
   columns: ColumnMeta[];
   data: Record<string, unknown>[];
   initialRequest?: {
+    requestId?: string;
     artifactId?: string | null;
     chartType: string;
     xColumn: string;
@@ -281,6 +282,7 @@ export interface GraphBuilderPanelProps {
 
 export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilderPanelProps) {
   const setGraphBuilderRequest = useWorkspaceStore((s) => s.setGraphBuilderRequest);
+  const setChartRenderResult = useWorkspaceStore((s) => s.setChartRenderResult);
   const updateArtifactDraft = useWorkspaceStore((s) => s.updateArtifactDraft);
   const commitArtifactRevision = useWorkspaceStore((s) => s.commitArtifactRevision);
   const discardArtifactDraftChanges = useWorkspaceStore((s) => s.discardArtifactDraftChanges);
@@ -397,9 +399,11 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
       return CHART_TYPES.some((entry) => entry.type === candidate) ? (candidate as ChartType) : 'auto';
     })();
 
+    const xAssigned = supportedColumnNames.has(initialRequest.xColumn) ? initialRequest.xColumn : null;
+    const yAssigned = supportedColumnNames.has(initialRequest.yColumn) ? initialRequest.yColumn : null;
     setAssignments({
-      x: supportedColumnNames.has(initialRequest.xColumn) ? initialRequest.xColumn : null,
-      y: supportedColumnNames.has(initialRequest.yColumn) ? initialRequest.yColumn : null,
+      x: xAssigned,
+      y: yAssigned,
       color: initialRequest.colorColumn && supportedColumnNames.has(initialRequest.colorColumn) ? initialRequest.colorColumn : null,
       size: initialRequest.sizeColumn && supportedColumnNames.has(initialRequest.sizeColumn) ? initialRequest.sizeColumn : null,
       facet: null,
@@ -420,6 +424,22 @@ export function GraphBuilderPanel({ columns, data, initialRequest }: GraphBuilde
     } else {
       // Regular SQL chart — clear any previous analysis snapshot.
       setLocalSnapshot(null);
+    }
+    // Report render success/failure back to AgentLoop so it can self-correct.
+    if (initialRequest.requestId) {
+      if (xAssigned && yAssigned) {
+        setChartRenderResult({ requestId: initialRequest.requestId, success: true });
+      } else {
+        const missing = [
+          !xAssigned && `x-axis column "${initialRequest.xColumn}"`,
+          !yAssigned && `y-axis column "${initialRequest.yColumn}"`,
+        ].filter(Boolean).join(', ');
+        setChartRenderResult({
+          requestId: initialRequest.requestId,
+          success: false,
+          reason: `${missing} not found in dataset. Available columns: ${[...supportedColumnNames].join(', ') || 'none'}.`,
+        });
+      }
     }
     setGraphBuilderRequest(null);
   }, [effectiveColumns.length, initialRequest, setGraphBuilderRequest, snapshotFields, snapshotRows, supportedColumnNames]);

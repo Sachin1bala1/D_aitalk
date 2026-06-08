@@ -1103,8 +1103,10 @@ export function registerHandlers() {
     });
     commitArtifactRevision(artifact);
 
+    const requestId = `gb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    useWorkspaceStore.getState().setChartRenderResult(null); // clear any stale ack
     useWorkspaceStore.getState().setGraphBuilderRequest({
-      requestId: `gb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      requestId,
       artifactId: artifact.id,
       chartType: cmd.chartType,
       xColumn: cmd.xColumn,
@@ -1119,6 +1121,7 @@ export function registerHandlers() {
       success: true,
       result: {
         target: "graph_builder",
+        requestId,
         artifactId: artifact.id,
         chartType: cmd.chartType,
         rowCount: currentResults.rowCount,
@@ -1177,8 +1180,10 @@ export function registerHandlers() {
       sourceTabId: null,
     });
     useWorkspaceStore.getState().commitArtifactRevision(artifact);
+    const analysisRequestId = `gb-analysis-${now}-${Math.random().toString(36).slice(2, 8)}`;
+    useWorkspaceStore.getState().setChartRenderResult(null); // clear any stale ack
     useWorkspaceStore.getState().setGraphBuilderRequest({
-      requestId: `gb-analysis-${now}-${Math.random().toString(36).slice(2, 8)}`,
+      requestId: analysisRequestId,
       artifactId: artifact.id,
       chartType: cmd.chartType,
       xColumn: cmd.xKey,
@@ -1193,6 +1198,7 @@ export function registerHandlers() {
       success: true,
       result: {
         target: "graph_builder",
+        requestId: analysisRequestId,
         artifactId: artifact.id,
         chartType: cmd.chartType,
         rowCount: cmd.rows.length,

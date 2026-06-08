@@ -146,6 +146,14 @@ export interface GraphBuilderRequest {
   yLabel?: string;
 }
 
+/** Written by GraphBuilderPanel after it attempts to render a chart request. */
+export interface ChartRenderResult {
+  requestId: string;
+  success: boolean;
+  /** Human-readable reason, set on failure (e.g. "column 'temp' not found in dataset"). */
+  reason?: string;
+}
+
 export interface ArtifactLineage {
   connectionId: string | null;
   sql: string;
@@ -651,6 +659,8 @@ export interface WorkspaceState {
   setChartRequest: (req: WorkspaceState["chartRequest"]) => void;
   graphBuilderRequest: GraphBuilderRequest | null;
   setGraphBuilderRequest: (req: WorkspaceState["graphBuilderRequest"]) => void;
+  chartRenderResult: ChartRenderResult | null;
+  setChartRenderResult: (result: ChartRenderResult | null) => void;
 
   gogChartRequest: {
     spec: import("../dashboard/GoGSpec").GoGSpec;
@@ -788,6 +798,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     focusedNode: null,
     chartRequest: null,
     graphBuilderRequest: null,
+    chartRenderResult: null,
     gogChartRequest: null,
     artifacts: {},
     artifactRevisions: {},
@@ -874,6 +885,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     setGraphBuilderRequest: (req) =>
       set((state) => {
         state.graphBuilderRequest = req;
+      }),
+
+    setChartRenderResult: (result) =>
+      set((state) => {
+        state.chartRenderResult = result;
       }),
 
     setGogChartRequest: (req) =>

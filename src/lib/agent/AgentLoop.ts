@@ -1466,9 +1466,8 @@ export async function runAgentLoop(
             : `Error: ${result.error}`;
 
           // Post-dispatch ground-truth validation for chart commands.
-          // The handler can return success:true even when binData is empty.
-          // Read the store directly to catch silent failures before the AI declares victory.
-          if (result.success && (tc.name === "create_gog_chart" || tc.name === "create_chart" || tc.name === "create_analysis_chart")) {
+          if (result.success && tc.name === "create_gog_chart") {
+            // GoG chart: handler writes binData to gogChartRequest — read it synchronously.
             const chartState = useWorkspaceStore.getState().gogChartRequest;
             if (!chartState || !chartState.binData || chartState.binData.length === 0) {
               return {
@@ -1483,6 +1482,39 @@ export async function runAgentLoop(
                 ),
                 isError: true,
               };
+            }
+          }
+
+          if (result.success && (tc.name === "create_chart" || tc.name === "create_analysis_chart")) {
+            // Graph Builder chart: React renders asynchronously, so wait up to 1.5s for
+            // GraphBuilderPanel to report whether it successfully assigned x/y axes.
+            const requestId = (result.result as Record<string, unknown> | undefined)?.requestId as string | undefined;
+            if (requestId) {
+              const renderResult = await new Promise<{ success: boolean; reason?: string } | null>((resolve) => {
+                const deadline = Date.now() + 1500;
+                const poll = () => {
+                  const ack = useWorkspaceStore.getState().chartRenderResult;
+                  if (ack?.requestId === requestId) { resolve(ack); return; }
+                  if (Date.now() >= deadline) { resolve(null); return; }
+                  setTimeout(poll, 80);
+                };
+                poll();
+              });
+              if (!renderResult || !renderResult.success) {
+                const reason = renderResult?.reason ?? "Chart panel did not render within the expected time.";
+                return {
+                  toolCallId: tc.id,
+                  name: tc.name,
+                  content: buildReflectionGuidance(
+                    tc.name,
+                    `Error: Chart was created but did not render. ${reason} ` +
+                    `Check that the column names you specified exist in the current query results. ` +
+                    `Run execute_sql to reload the data, then retry create_chart with the exact column names shown.`,
+                    true,
+                  ),
+                  isError: true,
+                };
+              }
             }
           }
 
