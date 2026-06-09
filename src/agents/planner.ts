@@ -66,6 +66,14 @@ Instructions:
     messages: [{ role: "user", content: userPrompt }],
   });
 
+  // C3 — Check stop_reason before processing
+  if (message.stop_reason === "max_tokens") {
+    throw new Error(
+      "plannerAgent: Claude response was truncated (max_tokens reached). " +
+      "Increase max_tokens or reduce codebaseContext length."
+    );
+  }
+
   // Extract text content from the response
   const content = message.content[0];
   if (!content || content.type !== "text") {
@@ -75,11 +83,21 @@ Instructions:
     );
   }
 
-  const rawText = content.text.trim();
+  // C1 — Strip markdown fences before JSON.parse
+  const rawText = content.text
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "");
+  // Also find first { and last } as final fallback
+  const jsonStart = rawText.indexOf("{");
+  const jsonEnd = rawText.lastIndexOf("}");
+  const jsonText = jsonStart !== -1 && jsonEnd > jsonStart
+    ? rawText.slice(jsonStart, jsonEnd + 1)
+    : rawText;
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(rawText);
+    parsed = JSON.parse(jsonText);
   } catch (err) {
     throw new Error(
       `plannerAgent: Failed to parse Claude response as JSON. ` +
@@ -103,6 +121,13 @@ Instructions:
       `plannerAgent: Claude response is not a valid TaskGraph. ` +
         `Expected an object with 'goal_id' (string), 'nodes' (array), and 'success_criteria' (array). ` +
         `Got: ${JSON.stringify(parsed).slice(0, 500)}`
+    );
+  }
+
+  // C2 — Reject empty nodes array
+  if (((parsed as Record<string, unknown>).nodes as unknown[]).length === 0) {
+    throw new Error(
+      "plannerAgent: Claude returned a TaskGraph with zero nodes — cannot execute an empty plan."
     );
   }
 
