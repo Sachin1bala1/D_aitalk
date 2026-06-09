@@ -9,7 +9,7 @@ import { traceLogger } from "./trace-logger";
 import type { TaskGraph, TaskNode, CriticVerdict, FileDiff } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-function halt(node: TaskNode, verdict: CriticVerdict): never {
+export function halt(node: TaskNode, verdict: CriticVerdict): never {
   throw new Error(`HALT: node ${node.node_id} — critic rejected: ${verdict.reasons.join("; ")}`);
 }
 
