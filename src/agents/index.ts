@@ -6,3 +6,5 @@ export * from "./coder";
 export * from "./critic";
 export * from "./test-runner";
 export * from "./patcher";
+export * from "./orchestrator";
+export * from "./trace-logger";

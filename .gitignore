@@ -8,3 +8,5 @@ src-tauri/gen/
 .worktrees/
 .playwright-mcp/
 .gstack/
+agent_trace.jsonl
+halt_report.json
