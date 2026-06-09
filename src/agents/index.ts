@@ -4,3 +4,4 @@ export * from "./types";
 export * from "./planner";
 export * from "./coder";
 export * from "./critic";
+export * from "./test-runner";
